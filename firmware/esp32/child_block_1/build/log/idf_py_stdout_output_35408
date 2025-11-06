@@ -1,0 +1,287 @@
+Command: C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools/idf_monitor.py -p COM7 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\child_block_1\build\child_block_1.elf C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\child_block_1\build\bootloader\bootloader.elf --force-color -m 'C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe' 'C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools\idf.py' '-p' 'COM7'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot�ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Nov  6 2025 17:03:33[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=0b09ch ( 45212) map[0m
+[0;32mI (103) esp_image: segment 1: paddr=0001b0c4 vaddr=3ffb0000 size=02428h (  9256) load[0m
+[0;32mI (107) esp_image: segment 2: paddr=0001d4f4 vaddr=40080000 size=02b24h ( 11044) load[0m
+[0;32mI (112) esp_image: segment 3: paddr=00020020 vaddr=400d0020 size=152a8h ( 86696) map[0m
+[0;32mI (145) esp_image: segment 4: paddr=000352d0 vaddr=40082b24 size=0b95ch ( 47452) load[0m
+[0;32mI (163) esp_image: segment 5: paddr=00040c34 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (170) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (171) boot: Disabling RNG early entropy source...[0m
+[0;32mI (181) cpu_start: Multicore app[0m
+[0;32mI (190) cpu_start: Pro cpu start user code[0m
+[0;32mI (190) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (190) app_init: Application information:[0m
+[0;32mI (190) app_init: Project name:     child_block_1[0m
+[0;32mI (194) app_init: App version:      b23e21e-dirty[0m
+[0;32mI (199) app_init: Compile time:     Nov  6 2025 17:03:22[0m
+[0;32mI (204) app_init: ELF file SHA256:  47f5bf916...[0m
+[0;32mI (208) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (212) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (216) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (220) efuse_init: Chip rev:         v3.0[0m
+[0;32mI (224) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (230) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (235) heap_init: At 3FFB2D00 len 0002D300 (180 KiB): DRAM[0m
+[0;32mI (240) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (246) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (251) heap_init: At 4008E480 len 00011B80 (70 KiB): IRAM[0m
+[0;32mI (258) spi_flash: detected chip: generic[0m
+[0;32mI (260) spi_flash: flash io: dio[0m
+[0;33mW (263) spi_flash: Detected size(8192k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;33mW (275) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (285) main_task: Started on CPU0[0m
+[0;32mI (295) main_task: Calling app_main()[0m
+[0;32mI (295) CHILD_1: === CHILD BLOCK 1 (0x08) ===[0m
+[0;32mI (295) CHILD_1: Init I²C Slave at 0x08[0m
+[0;32mI (295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (295) main_task: Returned from app_main()[0m
+[0;32mI (5295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (10295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (15295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (20295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (25295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (30295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (35295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (40295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (45295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (50295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (55295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (60295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (65295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (70295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (75295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (80295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (85295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (90295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (95295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (100295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (105295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (110295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (115295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (120295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (125295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (130295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (135295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (140295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (145295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (150295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (155295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (160295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (165295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (170295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (175295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (180295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (185295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (190295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (195295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (200295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (205295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (210295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (215295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (220295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (225295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (230295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (235295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (240295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (245295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (250295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (255295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (260295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (265295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (270295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (275295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (280295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (285295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (290295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (295295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (300295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (305295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (310295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (315295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (320295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (325295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (330295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (335295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (340295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (345295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (350295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (355295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (360295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (365295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (370295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (375295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (380295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (385295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (390295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (395295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (400295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (405295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (410295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (415295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (420295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (425295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (430295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (435295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (440295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (445295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (450295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (455295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (460295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (465295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (470295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (475295) CHILD_1: Current color: RGB(0,0,0)[0m
+[0;32mI (478075) CHILD_1: Received 4 bytes[0m
+[0;32mI (478075) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (479075) CHILD_1: Received 4 bytes[0m
+[0;32mI (479075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (480275) CHILD_1: Received 4 bytes[0m
+[0;32mI (480275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (480295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (483275) CHILD_1: Received 4 bytes[0m
+[0;32mI (483275) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (484275) CHILD_1: Received 4 bytes[0m
+[0;32mI (484275) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (485275) CHILD_1: Received 4 bytes[0m
+[0;32mI (485275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (485295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (488185) CHILD_1: Received 4 bytes[0m
+[0;32mI (488185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (489175) CHILD_1: Received 4 bytes[0m
+[0;32mI (489175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (490175) CHILD_1: Received 4 bytes[0m
+[0;32mI (490175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (490295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (493085) CHILD_1: Received 4 bytes[0m
+[0;32mI (493085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (494075) CHILD_1: Received 4 bytes[0m
+[0;32mI (494075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (495275) CHILD_1: Received 4 bytes[0m
+[0;32mI (495275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (495295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (498185) CHILD_1: Received 4 bytes[0m
+[0;32mI (498185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (499175) CHILD_1: Received 4 bytes[0m
+[0;32mI (499175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (500175) CHILD_1: Received 4 bytes[0m
+[0;32mI (500175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (500295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (503085) CHILD_1: Received 4 bytes[0m
+[0;32mI (503085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (504075) CHILD_1: Received 4 bytes[0m
+[0;32mI (504075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (505275) CHILD_1: Received 4 bytes[0m
+[0;32mI (505275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (505295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (508185) CHILD_1: Received 4 bytes[0m
+[0;32mI (508185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (509175) CHILD_1: Received 4 bytes[0m
+[0;32mI (509175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (510175) CHILD_1: Received 4 bytes[0m
+[0;32mI (510175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (510295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (513085) CHILD_1: Received 4 bytes[0m
+[0;32mI (513085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (514075) CHILD_1: Received 4 bytes[0m
+[0;32mI (514075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (515275) CHILD_1: Received 4 bytes[0m
+[0;32mI (515275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (515295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (518185) CHILD_1: Received 4 bytes[0m
+[0;32mI (518185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (519175) CHILD_1: Received 4 bytes[0m
+[0;32mI (519175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (520175) CHILD_1: Received 4 bytes[0m
+[0;32mI (520175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (520295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (523085) CHILD_1: Received 4 bytes[0m
+[0;32mI (523085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (524075) CHILD_1: Received 4 bytes[0m
+[0;32mI (524075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (525275) CHILD_1: Received 4 bytes[0m
+[0;32mI (525275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (525295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (528185) CHILD_1: Received 4 bytes[0m
+[0;32mI (528185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (529175) CHILD_1: Received 4 bytes[0m
+[0;32mI (529175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (530175) CHILD_1: Received 4 bytes[0m
+[0;32mI (530175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (530295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (533085) CHILD_1: Received 4 bytes[0m
+[0;32mI (533085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (534075) CHILD_1: Received 4 bytes[0m
+[0;32mI (534075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (535275) CHILD_1: Received 4 bytes[0m
+[0;32mI (535275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (535295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (538185) CHILD_1: Received 4 bytes[0m
+[0;32mI (538185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (539175) CHILD_1: Received 4 bytes[0m
+[0;32mI (539175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (540175) CHILD_1: Received 4 bytes[0m
+[0;32mI (540175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (540295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (543085) CHILD_1: Received 4 bytes[0m
+[0;32mI (543085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (544075) CHILD_1: Received 4 bytes[0m
+[0;32mI (544075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (545275) CHILD_1: Received 4 bytes[0m
+[0;32mI (545275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (545295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (548185) CHILD_1: Received 4 bytes[0m
+[0;32mI (548185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (549175) CHILD_1: Received 4 bytes[0m
+[0;32mI (549175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (550175) CHILD_1: Received 4 bytes[0m
+[0;32mI (550175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (550295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (553085) CHILD_1: Received 4 bytes[0m
+[0;32mI (553085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (554075) CHILD_1: Received 4 bytes[0m
+[0;32mI (554075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (555275) CHILD_1: Received 4 bytes[0m
+[0;32mI (555275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (555295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (558185) CHILD_1: Received 4 bytes[0m
+[0;32mI (558185) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (559175) CHILD_1: Received 4 bytes[0m
+[0;32mI (559175) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (560175) CHILD_1: Received 4 bytes[0m
+[0;32mI (560175) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (560295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (563085) CHILD_1: Received 4 bytes[0m
+[0;32mI (563085) CHILD_1: LED: R=255 G=0 B=0[0m
+[0;32mI (564075) CHILD_1: Received 4 bytes[0m
+[0;32mI (564075) CHILD_1: LED: R=0 G=255 B=0[0m
+[0;32mI (565275) CHILD_1: Received 4 bytes[0m
+[0;32mI (565275) CHILD_1: LED: R=0 G=0 B=255[0m
+[0;32mI (565295) CHILD_1: Current color: RGB(0,0,255)[0m
+[0;32mI (568185) CHILD_1: Received 4 bytes[0m
+[0;32mI (568185) CHILD_1: LED: R=
