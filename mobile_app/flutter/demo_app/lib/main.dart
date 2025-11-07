@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:async';
+import 'package:flutter/material.dart';
 
 void main() => runApp(const BlocksOfCodeApp());
 
@@ -11,10 +11,7 @@ class BlocksOfCodeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Blocks of Code (v3)',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.indigo,
-      ),
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
       home: const HomePage(),
       debugShowCheckedModeBanner: false,
     );
@@ -29,218 +26,125 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  bool connected = false;
-  String status = 'Not connected';
-  WebSocket? socket;
+  ServerSocket? _server;
+  Socket? _clientSocket;
+  String status = 'Server not started';
+  final int serverPort = 41233;
 
-  final ipController = TextEditingController(text: "192.168.4.1"); // change to your ESP IP
+  @override
+  void initState() {
+    super.initState();
+    _startServer();
+  }
 
-  Future<void> connectToESP() async {
-    final ip = ipController.text.trim();
-    final url = 'ws://$ip:81/';
+  @override
+  void dispose() {
+    _stopServer();
+    super.dispose();
+  }
 
-    setState(() => status = 'Connecting to $url ...');
-
+  Future<void> _startServer() async {
     try {
-      socket = await WebSocket.connect(url);
-      setState(() {
-        connected = true;
-        status = '✅ Connected to $ip';
-      });
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, serverPort);
+      setState(() => status = 'Server listening on port $serverPort and address ${_server!.address.address}');
 
-      socket!.listen((message) {
-        setState(() {
-          status = '📩 Message from ESP: $message';
-        });
+      _server!.listen(_handleClient, onError: (e) {
+        setState(() => status = 'Server error: $e');
       }, onDone: () {
-        setState(() {
-          connected = false;
-          status = 'Connection closed';
-        });
+        setState(() => status = 'Server closed');
       });
     } catch (e) {
-      setState(() => status = '❌ Failed: $e');
+      setState(() => status = 'Failed to start server: $e');
     }
   }
 
-  void sendMessage(String msg) {
-    if (socket != null && connected) {
-      socket!.add(msg);
-      setState(() => status = '📤 Sent: $msg');
+  Future<void> _stopServer() async {
+    try {
+      await _clientSocket?.close();
+      await _server?.close();
+      setState(() => status = 'Server stopped');
+    } catch (e) {
+      setState(() => status = 'Error stopping server: $e');
+    }
+  }
+
+  void _handleClient(Socket client) {
+    _clientSocket?.destroy();
+    _clientSocket = client;
+    setState(() => status =
+        'Client connected: ${client.remoteAddress.address}:${client.remotePort}');
+
+    client.listen((data) {
+      final msg = String.fromCharCodes(data).trim();
+      setState(() => status = 'Received from ESP32: $msg');
+    }, onDone: () {
+      setState(() =>
+          status = 'Client disconnected: ${client.remoteAddress.address}');
+      if (_clientSocket == client) _clientSocket = null;
+    }, onError: (e) {
+      setState(() => status = 'Client error: $e');
+      if (_clientSocket == client) _clientSocket = null;
+    });
+  }
+
+  void sendMessageToESP(String msg) {
+    final client = _clientSocket;
+    if (client == null) {
+      setState(() => status = 'No ESP32 connected');
+      return;
+    }
+    try {
+      client.write(msg + '\n');
+      setState(() => status = 'Connected to ESP32 and sent: $msg');
+    } catch (e) {
+      setState(() => status = 'Send failed: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 206, 113, 221),
+      backgroundColor: Colors.purple.shade200,
       body: Center(
-        child: connected ? _buildConnected() : _buildLanding(),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 500),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.purple.shade200, Colors.pink.shade200],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 12)],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Blocks of Code (v3)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 48, fontFamily: 'Modak', color: Colors.white)),
+              const SizedBox(height: 30),
+              Text(status,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white)),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => sendMessageToESP("Hello from Flutter!"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade400,
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  elevation: 6,
+                ),
+                child: const Text("Start",
+                    style: TextStyle(fontSize: 20, fontFamily: 'Modak', color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
-
-  Widget _buildLanding() {
-  return Center(
-    child: Container(
-      padding: const EdgeInsets.all(24),
-      constraints: const BoxConstraints(maxWidth: 550),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.purple.shade200, Colors.pink.shade200],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 12,
-            offset: const Offset(4, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            '🧩 Blocks of Code (v3)',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 48,
-              fontFamily: 'Modak',
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 30),
-          TextField(
-            controller: ipController,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              labelText: 'ESP32 IP Address',
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.9),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 16,
-                horizontal: 20,
-              ),
-            ),
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: ElevatedButton(
-              onPressed: connectToESP,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade400,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 48, vertical: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 8,
-              ),
-              child: const Text(
-                'Start',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontFamily: 'Modak',
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          AnimatedOpacity(
-            opacity: status.isNotEmpty ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 400),
-            child: Text(
-              status,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-Widget _buildConnected() {
-  return Center(
-    child: Container(
-      padding: const EdgeInsets.all(24),
-      constraints: const BoxConstraints(maxWidth: 400),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade200, Colors.teal.shade200],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 12,
-            offset: const Offset(4, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_done, size: 80, color: Colors.white),
-          const SizedBox(height: 20),
-          AnimatedOpacity(
-            opacity: 1.0,
-            duration: const Duration(milliseconds: 500),
-            child: Text(
-              status,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontFamily: 'Modak',
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => sendMessage("Hello from Flutter!"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal.shade400,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 40, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 6,
-            ),
-            child: const Text(
-              "Send Message",
-              style: TextStyle(
-                fontSize: 20,
-                fontFamily: 'Modak',
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
 }

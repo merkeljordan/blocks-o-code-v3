@@ -1,0 +1,31 @@
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c: In function 'tcp_client_task':
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:129:32: error: 'sock' undeclared (first use in this function); did you mean 'socket'?
+  129 |             int written = send(sock, test_msg, to_write, 0);
+      |                                ^~~~
+      |                                socket
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:129:32: note: each undeclared identifier is reported only once for each function it appears in
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:167:53: error: 'dest_addr' undeclared (first use in this function); did you mean 's6_addr'?
+  167 |         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+      |                                                     ^~~~~~~~~
+      |                                                     s6_addr
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:172:13: error: continue statement not within a loop
+  172 |             continue;
+      |             ^~~~~~~~
+In file included from /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/inttypes.h:22,
+                 from /home/merkelj/esp-idf/components/lwip/lwip/src/include/lwip/arch.h:148,
+                 from /home/merkelj/esp-idf/components/lwip/lwip/src/include/lwip/debug.h:40,
+                 from /home/merkelj/esp-idf/components/lwip/lwip/src/include/lwip/opt.h:52,
+                 from /home/merkelj/esp-idf/components/lwip/lwip/src/include/lwip/sockets.h:42,
+                 from /home/merkelj/esp-idf/components/lwip/include/lwip/sockets.h:8,
+                 from /home/merkelj/esp-idf/components/lwip/port/esp32xx/include/sys/socket.h:15,
+                 from /home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:26:
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c: At top level:
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:221:17: error: expected declaration specifiers or '...' before '(' token
+  221 |     vTaskDelete(NULL);
+      |                 ^~~~
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/main/brain_block.c:222:1: error: expected identifier or '(' before '}' token
+  222 | }
+      | ^
+make[2]: *** [esp-idf/main/CMakeFiles/__idf_main.dir/build.make:76: esp-idf/main/CMakeFiles/__idf_main.dir/brain_block.c.obj] Error 1
+make[1]: *** [CMakeFiles/Makefile2:4611: esp-idf/main/CMakeFiles/__idf_main.dir/all] Error 2
+make: *** [Makefile:136: all] Error 2

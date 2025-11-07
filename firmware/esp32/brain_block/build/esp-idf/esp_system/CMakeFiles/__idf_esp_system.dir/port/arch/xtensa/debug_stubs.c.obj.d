@@ -1,0 +1,25 @@
+esp-idf/esp_system/CMakeFiles/__idf_esp_system.dir/port/arch/xtensa/debug_stubs.c.obj: \
+ /home/merkelj/esp-idf/components/esp_system/port/arch/xtensa/debug_stubs.c \
+ /home/merkelj/esp-idf/components/xtensa/include/eri.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/lib/gcc/xtensa-esp-elf/13.2.0/include/stdint.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/stdint.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/machine/_default_types.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/sys/features.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/_newlib_version.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/sys/_intsup.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/sys/_stdint.h \
+ /home/merkelj/esp-idf/components/xtensa/include/xtensa-debug-module.h \
+ /home/merkelj/esp-idf/components/xtensa/esp32/include/xtensa/config/core-isa.h \
+ /home/merkelj/esp-idf/components/log/include/esp_log.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/lib/gcc/xtensa-esp-elf/13.2.0/include/stdarg.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/inttypes.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/newlib.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/sys/config.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/machine/ieeefp.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/_ansi.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/lib/gcc/xtensa-esp-elf/13.2.0/include/stddef.h \
+ /home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/xtensa-esp-elf/sys-include/sys/_locale.h \
+ /home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/config/sdkconfig.h \
+ /home/merkelj/esp-idf/components/esp_rom/include/esp_rom_sys.h \
+ /home/merkelj/esp-idf/components/soc/esp32/include/soc/reset_reasons.h \
+ /home/merkelj/esp-idf/components/log/include/esp_log_internal.h

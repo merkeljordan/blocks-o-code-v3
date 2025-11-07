@@ -1,0 +1,198 @@
+[  0%] Built target _project_elf_src
+[  0%] Built target sections.ld.in
+[  0%] Built target custom_bundle
+[  0%] Built target memory.ld
+[  0%] Built target partition_table_bin
+Consolidate compiler generated dependencies of target __idf_esp_https_ota
+[  0%] Performing build step for 'bootloader'
+[  0%] Built target __idf_esp_https_ota
+Consolidate compiler generated dependencies of target __idf_esp_http_server
+[  1%] Built target __idf_esp_http_server
+Consolidate compiler generated dependencies of target __idf_log
+[  1%] Built target _project_elf_src
+[  5%] Built target __idf_log
+Consolidate compiler generated dependencies of target __idf_esp_http_client
+Consolidate compiler generated dependencies of target __idf_esp_rom
+[  2%] Built target __idf_esp_http_client
+[ 11%] Built target __idf_esp_rom
+Consolidate compiler generated dependencies of target __idf_tcp_transport
+Consolidate compiler generated dependencies of target __idf_esp_common
+[  3%] Built target __idf_tcp_transport
+[ 13%] Built target __idf_esp_common
+Consolidate compiler generated dependencies of target __idf_esp_gdbstub
+Consolidate compiler generated dependencies of target __idf_esp_hw_support
+[  4%] Built target __idf_esp_gdbstub
+[ 22%] Built target __idf_esp_hw_support
+Consolidate compiler generated dependencies of target __idf_esp_system
+Consolidate compiler generated dependencies of target __idf_esp_eth
+[ 24%] Built target __idf_esp_system
+[  6%] Built target __idf_esp_eth
+Consolidate compiler generated dependencies of target __idf_efuse
+Consolidate compiler generated dependencies of target __idf_esp_adc
+[ 31%] Built target __idf_efuse
+[  7%] Built target __idf_esp_adc
+Consolidate compiler generated dependencies of target __idf_bootloader_support
+Consolidate compiler generated dependencies of target __idf_esp-tls
+[ 54%] Built target __idf_bootloader_support
+[  8%] Built target __idf_esp-tls
+Consolidate compiler generated dependencies of target __idf_esp_bootloader_format
+Consolidate compiler generated dependencies of target __idf_http_parser
+[ 56%] Built target __idf_esp_bootloader_format
+[  8%] Built target __idf_http_parser
+Consolidate compiler generated dependencies of target __idf_spi_flash
+Consolidate compiler generated dependencies of target __idf_esp_wifi
+[ 57%] Built target __idf_spi_flash
+[  9%] Built target __idf_esp_wifi
+Consolidate compiler generated dependencies of target __idf_hal
+Consolidate compiler generated dependencies of target __idf_esp_coex
+[ 64%] Built target __idf_hal
+[  9%] Built target __idf_esp_coex
+Consolidate compiler generated dependencies of target __idf_micro-ecc
+[ 67%] Built target __idf_micro-ecc
+Consolidate compiler generated dependencies of target __idf_soc
+[ 90%] Built target __idf_soc
+Consolidate compiler generated dependencies of target __idf_xtensa
+[ 93%] Built target __idf_xtensa
+Consolidate compiler generated dependencies of target __idf_wpa_supplicant
+Consolidate compiler generated dependencies of target __idf_main
+[ 95%] Built target __idf_main
+[ 18%] Built target __idf_wpa_supplicant
+Consolidate compiler generated dependencies of target bootloader.elf
+Consolidate compiler generated dependencies of target __idf_esp_netif
+[ 98%] Built target bootloader.elf
+[ 19%] Built target __idf_esp_netif
+[100%] Built target gen_project_binary
+Bootloader binary size 0x6860 bytes. 0x7a0 bytes (7%) free.
+[100%] Built target bootloader_check_size
+Consolidate compiler generated dependencies of target __idf_lwip
+[100%] Built target app
+[ 28%] Built target __idf_lwip
+[ 28%] No install step for 'bootloader'
+Consolidate compiler generated dependencies of target __idf_vfs
+[ 29%] Built target __idf_vfs
+[ 29%] Completed 'bootloader'
+Consolidate compiler generated dependencies of target __idf_esp_phy
+[ 29%] Built target __idf_esp_phy
+[ 30%] Built target bootloader
+Consolidate compiler generated dependencies of target __idf_nvs_flash
+[ 32%] Built target __idf_nvs_flash
+Consolidate compiler generated dependencies of target __idf_esp_event
+[ 32%] Built target __idf_esp_event
+Consolidate compiler generated dependencies of target __idf_esp_timer
+[ 32%] Built target __idf_esp_timer
+Consolidate compiler generated dependencies of target __idf_esp_common
+[ 32%] Built target __idf_esp_common
+Consolidate compiler generated dependencies of target __idf_cxx
+[ 33%] Built target __idf_cxx
+Consolidate compiler generated dependencies of target __idf_newlib
+[ 35%] Built target __idf_newlib
+Consolidate compiler generated dependencies of target __idf_freertos
+[ 37%] Built target __idf_freertos
+Consolidate compiler generated dependencies of target __idf_esp_hw_support
+[ 41%] Built target __idf_esp_hw_support
+Consolidate compiler generated dependencies of target __idf_soc
+[ 43%] Built target __idf_soc
+Consolidate compiler generated dependencies of target __idf_heap
+[ 44%] Built target __idf_heap
+Consolidate compiler generated dependencies of target __idf_log
+[ 45%] Built target __idf_log
+Consolidate compiler generated dependencies of target __idf_hal
+[ 50%] Built target __idf_hal
+Consolidate compiler generated dependencies of target __idf_esp_rom
+[ 51%] Built target __idf_esp_rom
+Consolidate compiler generated dependencies of target __idf_esp_system
+[ 55%] Built target __idf_esp_system
+Consolidate compiler generated dependencies of target __idf_pthread
+[ 56%] Built target __idf_pthread
+Consolidate compiler generated dependencies of target __idf_spi_flash
+[ 59%] Built target __idf_spi_flash
+Consolidate compiler generated dependencies of target __idf_app_update
+[ 59%] Built target __idf_app_update
+Consolidate compiler generated dependencies of target __idf_esp_partition
+[ 60%] Built target __idf_esp_partition
+Consolidate compiler generated dependencies of target __idf_bootloader_support
+[ 62%] Built target __idf_bootloader_support
+Consolidate compiler generated dependencies of target __idf_esp_app_format
+[ 62%] Built target __idf_esp_app_format
+Consolidate compiler generated dependencies of target __idf_esp_bootloader_format
+[ 62%] Built target __idf_esp_bootloader_format
+Consolidate compiler generated dependencies of target mbedtls
+[ 64%] Built target mbedtls
+Consolidate compiler generated dependencies of target mbedx509
+[ 66%] Built target mbedx509
+Consolidate compiler generated dependencies of target mbedcrypto
+[ 76%] Built target mbedcrypto
+Consolidate compiler generated dependencies of target p256m
+[ 76%] Built target p256m
+Consolidate compiler generated dependencies of target everest
+[ 77%] Built target everest
+Consolidate compiler generated dependencies of target __idf_mbedtls
+[ 78%] Built target __idf_mbedtls
+Consolidate compiler generated dependencies of target __idf_esp_pm
+[ 79%] Built target __idf_esp_pm
+Consolidate compiler generated dependencies of target __idf_driver
+[ 85%] Built target __idf_driver
+Consolidate compiler generated dependencies of target __idf_esp_mm
+[ 85%] Built target __idf_esp_mm
+Consolidate compiler generated dependencies of target __idf_efuse
+[ 86%] Built target __idf_efuse
+Consolidate compiler generated dependencies of target __idf_esp_ringbuf
+[ 86%] Built target __idf_esp_ringbuf
+Consolidate compiler generated dependencies of target __idf_xtensa
+[ 87%] Built target __idf_xtensa
+Consolidate compiler generated dependencies of target __idf_protobuf-c
+Consolidate compiler generated dependencies of target __idf_json
+Consolidate compiler generated dependencies of target __idf_wear_levelling
+Consolidate compiler generated dependencies of target __idf_esp_hid
+Consolidate compiler generated dependencies of target __idf_nvs_sec_provider
+Consolidate compiler generated dependencies of target __idf_unity
+Consolidate compiler generated dependencies of target __idf_app_trace
+Consolidate compiler generated dependencies of target __idf_mqtt
+Consolidate compiler generated dependencies of target __idf_perfmon
+Consolidate compiler generated dependencies of target __idf_espcoredump
+Consolidate compiler generated dependencies of target __idf_esp_lcd
+Consolidate compiler generated dependencies of target __idf_sdmmc
+Consolidate compiler generated dependencies of target __idf_spiffs
+[ 87%] Built target __idf_json
+[ 88%] Built target __idf_unity
+[ 88%] Built target __idf_protobuf-c
+Consolidate compiler generated dependencies of target __idf_console
+[ 88%] Built target __idf_esp_hid
+[ 88%] Built target __idf_nvs_sec_provider
+[ 89%] Built target __idf_espcoredump
+[ 89%] Built target __idf_mqtt
+[ 89%] Built target __idf_app_trace
+[ 89%] Built target __idf_wear_levelling
+[ 90%] Built target __idf_perfmon
+[ 91%] Built target __idf_esp_lcd
+Consolidate compiler generated dependencies of target __idf_cmock
+[ 92%] Built target __idf_spiffs
+[ 92%] Built target __idf_sdmmc
+[ 94%] Built target __idf_console
+[ 94%] Built target __idf_cmock
+Consolidate compiler generated dependencies of target __idf_fatfs
+Consolidate compiler generated dependencies of target __idf_protocomm
+[ 95%] Built target __idf_fatfs
+[ 96%] Built target __idf_protocomm
+Consolidate compiler generated dependencies of target __idf_esp_local_ctrl
+Consolidate compiler generated dependencies of target __idf_wifi_provisioning
+[ 97%] Built target __idf_esp_local_ctrl
+[100%] Built target __idf_wifi_provisioning
+Consolidate compiler generated dependencies of target __idf_main
+[100%] Built target __idf_main
+[100%] Built target __ldgen_output_sections.ld
+Consolidate compiler generated dependencies of target brain_block.elf
+[100%] Built target brain_block.elf
+[100%] Built target gen_project_binary
+brain_block.bin binary size 0x2b250 bytes. Smallest app partition is 0x100000 bytes. 0xd4db0 bytes (83%) free.
+[100%] Built target app_check_size
+[100%] Built target app
+esptool.py --chip esp32 -p COM5 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x1000 bootloader/bootloader.bin 0x10000 brain_block.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.10.0
+Serial port COM5
+
+A fatal error occurred: Could not open COM5, the port is busy or doesn't exist.
+([Errno 2] could not open port COM5: [Errno 2] No such file or directory: 'COM5')
+
+Hint: Check if the port is correct and ESP connected
+
