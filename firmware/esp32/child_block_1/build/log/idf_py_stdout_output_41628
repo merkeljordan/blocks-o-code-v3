@@ -1,0 +1,1245 @@
+Command: C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools/idf_monitor.py -p COM7 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\child_block_1\build\child_block_1.elf C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\child_block_1\build\bootloader\bootloader.elf --force-color -m 'C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe' 'C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools\idf.py' '-p' 'COM7'
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),bootets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Nov 11 2025 15:32:46[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (31) boot: chip revision: v3.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (41) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (49) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (71) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (81) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=0c554h ( 50516) map[0m
+[0;32mI (105) esp_image: segment 1: paddr=0001c57c vaddr=3ffb0000 size=026f0h (  9968) load[0m
+[0;32mI (109) esp_image: segment 2: paddr=0001ec74 vaddr=40080000 size=013a4h (  5028) load[0m
+[0;32mI (111) esp_image: segment 3: paddr=00020020 vaddr=400d0020 size=17a14h ( 96788) map[0m
+[0;32mI (150) esp_image: segment 4: paddr=00037a3c vaddr=400813a4 size=0dce4h ( 56548) load[0m
+[0;32mI (172) esp_image: segment 5: paddr=00045728 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (180) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (180) boot: Disabling RNG early entropy source...[0m
+[0;32mI (192) cpu_start: Multicore app[0m
+[0;32mI (201) cpu_start: Pro cpu start user code[0m
+[0;32mI (201) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (201) app_init: Application information:[0m
+[0;32mI (201) app_init: Project name:     child_block_1[0m
+[0;32mI (205) app_init: App version:      f38e858-dirty[0m
+[0;32mI (210) app_init: Compile time:     Nov 11 2025 15:26:30[0m
+[0;32mI (215) app_init: ELF file SHA256:  9fed1af34...[0m
+[0;32mI (219) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (223) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (227) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (231) efuse_init: Chip rev:         v3.0[0m
+[0;32mI (235) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (241) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (246) heap_init: At 3FFB2FD8 len 0002D028 (180 KiB): DRAM[0m
+[0;32mI (251) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (257) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (262) heap_init: At 4008F088 len 00010F78 (67 KiB): IRAM[0m
+[0;32mI (269) spi_flash: detected chip: generic[0m
+[0;32mI (271) spi_flash: flash io: dio[0m
+[0;33mW (274) spi_flash: Detected size(8192k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;33mW (286) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (296) main_task: Started on CPU0[0m
+[0;32mI (306) main_task: Calling app_main()[0m
+[0;32mI (306) CHILD_1: ========================================[0m
+[0;32mI (306) CHILD_1:     CHILD BLOCK 1 - LED MATRIX[0m
+[0;32mI (306) CHILD_1:     Address: 0x08[0m
+[0;32mI (306) CHILD_1:     Type: LED[0m
+[0;32mI (316) CHILD_1: ========================================[0m
+[0;32mI (316) CHILD_1: Initializing LED Matrix (4x4 = 16 LEDs) on GPIO18[0m
+[0;32mI (326) CHILD_1: LED Matrix initialized successfully![0m
+[0;32mI (326) CHILD_1: Startup animation...[0m
+[0;32mI (1536) CHILD_1: Init I²C Slave at 0x08[0m
+[0;32mI (1536) CHILD_1: I²C slave initialized successfully![0m
+[0;32mI (2036) CHILD_1: Child Block 1 ready and waiting for commands![0m
+[0;32mI (2036) CHILD_1: [0m
+[0;32mI (2036) CHILD_1: LED status task started[0m
+[0;32mI (2036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 19%[0m
+[0;32mI (2036) CHILD_1: All tasks created successfully![0m
+[0;32mI (2046) main_task: Returned from app_main()[0m
+[0;32mI (2236) CHILD_1: Received 4 bytes[0m
+[0;32mI (2236) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (2236) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 50[0m
+[0;32mI (2956) CHILD_1: Received 1 bytes[0m
+[0;32mI (2956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (2956) CHILD_1: Clearing matrix[0m
+[0;32mI (5566) CHILD_1: Received 2 bytes[0m
+[0;32mI (5566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (5566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (5956) CHILD_1: Received 4 bytes[0m
+[0;32mI (5956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (5956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (6956) CHILD_1: Received 4 bytes[0m
+[0;32mI (6956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (6956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (7956) CHILD_1: Received 4 bytes[0m
+[0;32mI (7956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (7956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (8956) CHILD_1: Received 1 bytes[0m
+[0;32mI (8956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (8956) CHILD_1: Clearing matrix[0m
+[0;32mI (11566) CHILD_1: Received 2 bytes[0m
+[0;32mI (11566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (11566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (11956) CHILD_1: Received 4 bytes[0m
+[0;32mI (11956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (11956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (12036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (12956) CHILD_1: Received 4 bytes[0m
+[0;32mI (12956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (12956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (13956) CHILD_1: Received 4 bytes[0m
+[0;32mI (13956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (13956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (14956) CHILD_1: Received 1 bytes[0m
+[0;32mI (14956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (14956) CHILD_1: Clearing matrix[0m
+[0;32mI (17566) CHILD_1: Received 2 bytes[0m
+[0;32mI (17566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (17566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (17956) CHILD_1: Received 4 bytes[0m
+[0;32mI (17956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (17956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (18956) CHILD_1: Received 4 bytes[0m
+[0;32mI (18956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (18956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (19956) CHILD_1: Received 4 bytes[0m
+[0;32mI (19956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (19956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (20956) CHILD_1: Received 1 bytes[0m
+[0;32mI (20956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (20956) CHILD_1: Clearing matrix[0m
+[0;32mI (22036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (23566) CHILD_1: Received 2 bytes[0m
+[0;32mI (23566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (23566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (23956) CHILD_1: Received 4 bytes[0m
+[0;32mI (23956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (23956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (24956) CHILD_1: Received 4 bytes[0m
+[0;32mI (24956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (24956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (25956) CHILD_1: Received 4 bytes[0m
+[0;32mI (25956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (25956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (26956) CHILD_1: Received 1 bytes[0m
+[0;32mI (26956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (26956) CHILD_1: Clearing matrix[0m
+[0;32mI (29566) CHILD_1: Received 2 bytes[0m
+[0;32mI (29566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (29566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (29956) CHILD_1: Received 4 bytes[0m
+[0;32mI (29956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (29956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (30956) CHILD_1: Received 4 bytes[0m
+[0;32mI (30956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (30956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (31956) CHILD_1: Received 4 bytes[0m
+[0;32mI (31956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (31956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (32036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (32956) CHILD_1: Received 1 bytes[0m
+[0;32mI (32956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (32956) CHILD_1: Clearing matrix[0m
+[0;32mI (35566) CHILD_1: Received 2 bytes[0m
+[0;32mI (35566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (35566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (35956) CHILD_1: Received 4 bytes[0m
+[0;32mI (35956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (35956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (36956) CHILD_1: Received 4 bytes[0m
+[0;32mI (36956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (36956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (37956) CHILD_1: Received 4 bytes[0m
+[0;32mI (37956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (37956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (38956) CHILD_1: Received 1 bytes[0m
+[0;32mI (38956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (38956) CHILD_1: Clearing matrix[0m
+[0;32mI (41566) CHILD_1: Received 2 bytes[0m
+[0;32mI (41566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (41566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (41956) CHILD_1: Received 4 bytes[0m
+[0;32mI (41956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (41956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (42036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (42956) CHILD_1: Received 4 bytes[0m
+[0;32mI (42956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (42956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (43956) CHILD_1: Received 4 bytes[0m
+[0;32mI (43956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (43956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (44956) CHILD_1: Received 1 bytes[0m
+[0;32mI (44956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (44956) CHILD_1: Clearing matrix[0m
+[0;32mI (47566) CHILD_1: Received 2 bytes[0m
+[0;32mI (47566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (47566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (47956) CHILD_1: Received 4 bytes[0m
+[0;32mI (47956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (47956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (48956) CHILD_1: Received 4 bytes[0m
+[0;32mI (48956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (48956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (49956) CHILD_1: Received 4 bytes[0m
+[0;32mI (49956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (49956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (50956) CHILD_1: Received 1 bytes[0m
+[0;32mI (50956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (50956) CHILD_1: Clearing matrix[0m
+[0;32mI (52036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (53566) CHILD_1: Received 2 bytes[0m
+[0;32mI (53566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (53566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (53956) CHILD_1: Received 1 bytes[0m
+[0;32mI (53956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 1 bytes[0m
+[0;32mI (54156) CHILD_1: Received 3 bytes[0m
+[0;32mI (54156) CHILD_1: Command: UNKNOWN_CMD (0xFF), Length: 3 bytes[0m
+[0;33mW (54156) CHILD_1:   → Unknown command: 0xFF[0m
+[0;32mI (55156) CHILD_1: Received 4 bytes[0m
+[0;32mI (55156) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (55156) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (56156) CHILD_1: Received 4 bytes[0m
+[0;32mI (56156) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (56156) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (57156) CHILD_1: Received 1 bytes[0m
+[0;32mI (57156) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (57156) CHILD_1: Clearing matrix[0m
+[0;32mI (59466) CHILD_1: Received 2 bytes[0m
+[0;32mI (59466) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (59466) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (60056) CHILD_1: Received 4 bytes[0m
+[0;32mI (60056) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (60056) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (61056) CHILD_1: Received 4 bytes[0m
+[0;32mI (61056) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (61056) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (62036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (62056) CHILD_1: Received 4 bytes[0m
+[0;32mI (62056) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (62056) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (63056) CHILD_1: Received 1 bytes[0m
+[0;32mI (63056) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (63056) CHILD_1: Clearing matrix[0m
+[0;32mI (65566) CHILD_1: Received 2 bytes[0m
+[0;32mI (65566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (65566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (65956) CHILD_1: Received 4 bytes[0m
+[0;32mI (65956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (65956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (66956) CHILD_1: Received 4 bytes[0m
+[0;32mI (66956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (66956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (67956) CHILD_1: Received 4 bytes[0m
+[0;32mI (67956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (67956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (68956) CHILD_1: Received 1 bytes[0m
+[0;32mI (68956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (68956) CHILD_1: Clearing matrix[0m
+[0;32mI (71566) CHILD_1: Received 2 bytes[0m
+[0;32mI (71566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (71566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (71956) CHILD_1: Received 4 bytes[0m
+[0;32mI (71956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (71956) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (72036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (72956) CHILD_1: Received 4 bytes[0m
+[0;32mI (72956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (72956) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (73956) CHILD_1: Received 4 bytes[0m
+[0;32mI (73956) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (73956) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (74956) CHILD_1: Received 1 bytes[0m
+[0;32mI (74956) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (74956) CHILD_1: Clearing matrix[0m
+[0;32mI (77566) CHILD_1: Received 2 bytes[0m
+[0;32mI (77566) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (77566) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (78166) CHILD_1: Received 4 bytes[0m
+[0;32mI (78166) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (78166) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (79166) CHILD_1: Received 4 bytes[0m
+[0;32mI (79166) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (79166) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (80166) CHILD_1: Received 4 bytes[0m
+[0;32mI (80166) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (80166) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (81166) CHILD_1: Received 1 bytes[0m
+[0;32mI (81166) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (81166) CHILD_1: Clearing matrix[0m
+[0;32mI (82036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (83476) CHILD_1: Received 2 bytes[0m
+[0;32mI (83476) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (83476) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (84076) CHILD_1: Received 4 bytes[0m
+[0;32mI (84076) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (84076) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (85076) CHILD_1: Received 4 bytes[0m
+[0;32mI (85076) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (85076) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (86076) CHILD_1: Received 4 bytes[0m
+[0;32mI (86076) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (86076) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (87076) CHILD_1: Received 1 bytes[0m
+[0;32mI (87076) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (87076) CHILD_1: Clearing matrix[0m
+[0;32mI (89586) CHILD_1: Received 2 bytes[0m
+[0;32mI (89586) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (89586) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (90186) CHILD_1: Received 4 bytes[0m
+[0;32mI (90186) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (90186) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (91186) CHILD_1: Received 4 bytes[0m
+[0;32mI (91186) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (91186) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (92036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (92186) CHILD_1: Received 4 bytes[0m
+[0;32mI (92186) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (92186) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (93186) CHILD_1: Received 1 bytes[0m
+[0;32mI (93186) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (93186) CHILD_1: Clearing matrix[0m
+[0;32mI (95496) CHILD_1: Received 2 bytes[0m
+[0;32mI (95496) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (95496) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (96096) CHILD_1: Received 4 bytes[0m
+[0;32mI (96096) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (96096) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (97096) CHILD_1: Received 4 bytes[0m
+[0;32mI (97096) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (97096) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (98096) CHILD_1: Received 4 bytes[0m
+[0;32mI (98096) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (98096) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (99096) CHILD_1: Received 1 bytes[0m
+[0;32mI (99096) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (99096) CHILD_1: Clearing matrix[0m
+[0;32mI (101606) CHILD_1: Received 2 bytes[0m
+[0;32mI (101606) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (101606) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (102036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (102206) CHILD_1: Received 4 bytes[0m
+[0;32mI (102206) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (102206) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (103206) CHILD_1: Received 4 bytes[0m
+[0;32mI (103206) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (103206) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (104206) CHILD_1: Received 4 bytes[0m
+[0;32mI (104206) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (104206) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (105206) CHILD_1: Received 1 bytes[0m
+[0;32mI (105206) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (105206) CHILD_1: Clearing matrix[0m
+[0;32mI (107516) CHILD_1: Received 2 bytes[0m
+[0;32mI (107516) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (107516) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (108116) CHILD_1: Received 4 bytes[0m
+[0;32mI (108116) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (108116) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (109116) CHILD_1: Received 4 bytes[0m
+[0;32mI (109116) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (109116) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (110116) CHILD_1: Received 4 bytes[0m
+[0;32mI (110116) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (110116) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (111116) CHILD_1: Received 1 bytes[0m
+[0;32mI (111116) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (111116) CHILD_1: Clearing matrix[0m
+[0;32mI (112036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (113626) CHILD_1: Received 2 bytes[0m
+[0;32mI (113626) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (113626) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (114226) CHILD_1: Received 4 bytes[0m
+[0;32mI (114226) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (114226) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (115226) CHILD_1: Received 4 bytes[0m
+[0;32mI (115226) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (115226) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (116226) CHILD_1: Received 4 bytes[0m
+[0;32mI (116226) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (116226) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (117226) CHILD_1: Received 1 bytes[0m
+[0;32mI (117226) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (117226) CHILD_1: Clearing matrix[0m
+[0;32mI (119536) CHILD_1: Received 2 bytes[0m
+[0;32mI (119536) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (119536) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (120136) CHILD_1: Received 4 bytes[0m
+[0;32mI (120136) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (120136) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (121136) CHILD_1: Received 4 bytes[0m
+[0;32mI (121136) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (121136) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (122036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (122136) CHILD_1: Received 4 bytes[0m
+[0;32mI (122136) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (122136) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (123136) CHILD_1: Received 1 bytes[0m
+[0;32mI (123136) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (123136) CHILD_1: Clearing matrix[0m
+[0;32mI (125646) CHILD_1: Received 2 bytes[0m
+[0;32mI (125646) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (125646) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (126246) CHILD_1: Received 4 bytes[0m
+[0;32mI (126246) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (126246) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (127246) CHILD_1: Received 4 bytes[0m
+[0;32mI (127246) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (127246) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (128246) CHILD_1: Received 4 bytes[0m
+[0;32mI (128246) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (128246) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (129246) CHILD_1: Received 1 bytes[0m
+[0;32mI (129246) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (129246) CHILD_1: Clearing matrix[0m
+[0;32mI (131556) CHILD_1: Received 2 bytes[0m
+[0;32mI (131556) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (131556) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (132036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (132156) CHILD_1: Received 4 bytes[0m
+[0;32mI (132156) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (132156) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (133156) CHILD_1: Received 4 bytes[0m
+[0;32mI (133156) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (133156) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (134156) CHILD_1: Received 4 bytes[0m
+[0;32mI (134156) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (134156) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (135156) CHILD_1: Received 1 bytes[0m
+[0;32mI (135156) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (135156) CHILD_1: Clearing matrix[0m
+[0;32mI (137666) CHILD_1: Received 2 bytes[0m
+[0;32mI (137666) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (137666) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (138266) CHILD_1: Received 4 bytes[0m
+[0;32mI (138266) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (138266) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (139266) CHILD_1: Received 4 bytes[0m
+[0;32mI (139266) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (139266) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (140266) CHILD_1: Received 4 bytes[0m
+[0;32mI (140266) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (140266) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (141266) CHILD_1: Received 1 bytes[0m
+[0;32mI (141266) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (141266) CHILD_1: Clearing matrix[0m
+[0;32mI (142036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (143576) CHILD_1: Received 2 bytes[0m
+[0;32mI (143576) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (143576) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (144176) CHILD_1: Received 4 bytes[0m
+[0;32mI (144176) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (144176) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (145176) CHILD_1: Received 4 bytes[0m
+[0;32mI (145176) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (145176) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (146176) CHILD_1: Received 4 bytes[0m
+[0;32mI (146176) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (146176) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (147176) CHILD_1: Received 1 bytes[0m
+[0;32mI (147176) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (147176) CHILD_1: Clearing matrix[0m
+[0;32mI (149686) CHILD_1: Received 2 bytes[0m
+[0;32mI (149686) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (149686) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (150286) CHILD_1: Received 4 bytes[0m
+[0;32mI (150286) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (150286) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (151286) CHILD_1: Received 4 bytes[0m
+[0;32mI (151286) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (151286) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (152036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (152286) CHILD_1: Received 4 bytes[0m
+[0;32mI (152286) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (152286) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (153286) CHILD_1: Received 1 bytes[0m
+[0;32mI (153286) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (153286) CHILD_1: Clearing matrix[0m
+[0;32mI (155596) CHILD_1: Received 2 bytes[0m
+[0;32mI (155596) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (155596) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (156196) CHILD_1: Received 4 bytes[0m
+[0;32mI (156196) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (156196) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (157196) CHILD_1: Received 4 bytes[0m
+[0;32mI (157196) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (157196) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (158196) CHILD_1: Received 4 bytes[0m
+[0;32mI (158196) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (158196) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (159196) CHILD_1: Received 1 bytes[0m
+[0;32mI (159196) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (159196) CHILD_1: Clearing matrix[0m
+[0;32mI (161706) CHILD_1: Received 2 bytes[0m
+[0;32mI (161706) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (161706) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (162036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (162306) CHILD_1: Received 4 bytes[0m
+[0;32mI (162306) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (162306) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (163306) CHILD_1: Received 4 bytes[0m
+[0;32mI (163306) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (163306) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (164306) CHILD_1: Received 4 bytes[0m
+[0;32mI (164306) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (164306) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (165306) CHILD_1: Received 1 bytes[0m
+[0;32mI (165306) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (165306) CHILD_1: Clearing matrix[0m
+[0;32mI (167616) CHILD_1: Received 2 bytes[0m
+[0;32mI (167616) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (167616) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (168216) CHILD_1: Received 4 bytes[0m
+[0;32mI (168216) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (168216) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (169216) CHILD_1: Received 4 bytes[0m
+[0;32mI (169216) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (169216) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (170216) CHILD_1: Received 4 bytes[0m
+[0;32mI (170216) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (170216) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (171216) CHILD_1: Received 1 bytes[0m
+[0;32mI (171216) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (171216) CHILD_1: Clearing matrix[0m
+[0;32mI (172036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (173726) CHILD_1: Received 2 bytes[0m
+[0;32mI (173726) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (173726) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (174326) CHILD_1: Received 4 bytes[0m
+[0;32mI (174326) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (174326) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (175326) CHILD_1: Received 4 bytes[0m
+[0;32mI (175326) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (175326) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (176326) CHILD_1: Received 4 bytes[0m
+[0;32mI (176326) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (176326) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (177326) CHILD_1: Received 1 bytes[0m
+[0;32mI (177326) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (177326) CHILD_1: Clearing matrix[0m
+[0;32mI (179636) CHILD_1: Received 2 bytes[0m
+[0;32mI (179636) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (179636) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (180236) CHILD_1: Received 4 bytes[0m
+[0;32mI (180236) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (180236) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (181236) CHILD_1: Received 4 bytes[0m
+[0;32mI (181236) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (181236) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (182036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (182236) CHILD_1: Received 4 bytes[0m
+[0;32mI (182236) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (182236) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (183236) CHILD_1: Received 1 bytes[0m
+[0;32mI (183236) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (183236) CHILD_1: Clearing matrix[0m
+[0;32mI (185746) CHILD_1: Received 2 bytes[0m
+[0;32mI (185746) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (185746) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (186346) CHILD_1: Received 4 bytes[0m
+[0;32mI (186346) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (186346) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (187346) CHILD_1: Received 4 bytes[0m
+[0;32mI (187346) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (187346) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (188346) CHILD_1: Received 4 bytes[0m
+[0;32mI (188346) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (188346) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (189346) CHILD_1: Received 1 bytes[0m
+[0;32mI (189346) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (189346) CHILD_1: Clearing matrix[0m
+[0;32mI (191656) CHILD_1: Received 2 bytes[0m
+[0;32mI (191656) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (191656) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (192036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (192256) CHILD_1: Received 4 bytes[0m
+[0;32mI (192256) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (192256) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (193256) CHILD_1: Received 4 bytes[0m
+[0;32mI (193256) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (193256) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (194256) CHILD_1: Received 4 bytes[0m
+[0;32mI (194256) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (194256) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (195256) CHILD_1: Received 1 bytes[0m
+[0;32mI (195256) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (195256) CHILD_1: Clearing matrix[0m
+[0;32mI (197766) CHILD_1: Received 2 bytes[0m
+[0;32mI (197766) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (197766) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (198366) CHILD_1: Received 4 bytes[0m
+[0;32mI (198366) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (198366) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (199366) CHILD_1: Received 4 bytes[0m
+[0;32mI (199366) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (199366) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (200366) CHILD_1: Received 4 bytes[0m
+[0;32mI (200366) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (200366) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (201366) CHILD_1: Received 1 bytes[0m
+[0;32mI (201366) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (201366) CHILD_1: Clearing matrix[0m
+[0;32mI (202036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (203676) CHILD_1: Received 2 bytes[0m
+[0;32mI (203676) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (203676) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (204276) CHILD_1: Received 4 bytes[0m
+[0;32mI (204276) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (204276) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (205276) CHILD_1: Received 4 bytes[0m
+[0;32mI (205276) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (205276) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (206276) CHILD_1: Received 4 bytes[0m
+[0;32mI (206276) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (206276) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (207276) CHILD_1: Received 1 bytes[0m
+[0;32mI (207276) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (207276) CHILD_1: Clearing matrix[0m
+[0;32mI (209786) CHILD_1: Received 2 bytes[0m
+[0;32mI (209786) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (209786) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (210386) CHILD_1: Received 4 bytes[0m
+[0;32mI (210386) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (210386) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (211386) CHILD_1: Received 4 bytes[0m
+[0;32mI (211386) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (211386) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (212036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (212386) CHILD_1: Received 4 bytes[0m
+[0;32mI (212386) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (212386) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (213386) CHILD_1: Received 1 bytes[0m
+[0;32mI (213386) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (213386) CHILD_1: Clearing matrix[0m
+[0;32mI (215696) CHILD_1: Received 2 bytes[0m
+[0;32mI (215696) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (215696) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (216296) CHILD_1: Received 4 bytes[0m
+[0;32mI (216296) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (216296) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (217296) CHILD_1: Received 4 bytes[0m
+[0;32mI (217296) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (217296) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (218296) CHILD_1: Received 4 bytes[0m
+[0;32mI (218296) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (218296) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (219296) CHILD_1: Received 1 bytes[0m
+[0;32mI (219296) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (219296) CHILD_1: Clearing matrix[0m
+[0;32mI (221806) CHILD_1: Received 2 bytes[0m
+[0;32mI (221806) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (221806) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (222036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (222406) CHILD_1: Received 4 bytes[0m
+[0;32mI (222406) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (222406) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (223406) CHILD_1: Received 4 bytes[0m
+[0;32mI (223406) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (223406) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (224406) CHILD_1: Received 4 bytes[0m
+[0;32mI (224406) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (224406) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (225406) CHILD_1: Received 1 bytes[0m
+[0;32mI (225406) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (225406) CHILD_1: Clearing matrix[0m
+[0;32mI (227716) CHILD_1: Received 2 bytes[0m
+[0;32mI (227716) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (227716) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (228316) CHILD_1: Received 4 bytes[0m
+[0;32mI (228316) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (228316) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (229316) CHILD_1: Received 4 bytes[0m
+[0;32mI (229316) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (229316) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (230316) CHILD_1: Received 4 bytes[0m
+[0;32mI (230316) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (230316) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (231316) CHILD_1: Received 1 bytes[0m
+[0;32mI (231316) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (231316) CHILD_1: Clearing matrix[0m
+[0;32mI (232036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (233826) CHILD_1: Received 2 bytes[0m
+[0;32mI (233826) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (233826) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (234426) CHILD_1: Received 4 bytes[0m
+[0;32mI (234426) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (234426) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (235426) CHILD_1: Received 4 bytes[0m
+[0;32mI (235426) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (235426) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (236426) CHILD_1: Received 4 bytes[0m
+[0;32mI (236426) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (236426) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (237426) CHILD_1: Received 1 bytes[0m
+[0;32mI (237426) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (237426) CHILD_1: Clearing matrix[0m
+[0;32mI (239736) CHILD_1: Received 2 bytes[0m
+[0;32mI (239736) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (239736) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (240336) CHILD_1: Received 4 bytes[0m
+[0;32mI (240336) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (240336) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (241336) CHILD_1: Received 4 bytes[0m
+[0;32mI (241336) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (241336) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (242036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (242336) CHILD_1: Received 4 bytes[0m
+[0;32mI (242336) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (242336) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (243336) CHILD_1: Received 1 bytes[0m
+[0;32mI (243336) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (243336) CHILD_1: Clearing matrix[0m
+[0;32mI (245846) CHILD_1: Received 2 bytes[0m
+[0;32mI (245846) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (245846) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (246446) CHILD_1: Received 4 bytes[0m
+[0;32mI (246446) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (246446) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (247446) CHILD_1: Received 4 bytes[0m
+[0;32mI (247446) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (247446) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (248446) CHILD_1: Received 4 bytes[0m
+[0;32mI (248446) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (248446) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (249446) CHILD_1: Received 1 bytes[0m
+[0;32mI (249446) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (249446) CHILD_1: Clearing matrix[0m
+[0;32mI (251756) CHILD_1: Received 2 bytes[0m
+[0;32mI (251756) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (251756) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (252036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (252356) CHILD_1: Received 4 bytes[0m
+[0;32mI (252356) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (252356) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (253356) CHILD_1: Received 4 bytes[0m
+[0;32mI (253356) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (253356) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (254356) CHILD_1: Received 4 bytes[0m
+[0;32mI (254356) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (254356) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (255356) CHILD_1: Received 1 bytes[0m
+[0;32mI (255356) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (255356) CHILD_1: Clearing matrix[0m
+[0;32mI (257866) CHILD_1: Received 2 bytes[0m
+[0;32mI (257866) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (257866) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (258466) CHILD_1: Received 4 bytes[0m
+[0;32mI (258466) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (258466) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (259466) CHILD_1: Received 4 bytes[0m
+[0;32mI (259466) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (259466) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (260466) CHILD_1: Received 4 bytes[0m
+[0;32mI (260466) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (260466) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (261466) CHILD_1: Received 1 bytes[0m
+[0;32mI (261466) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (261466) CHILD_1: Clearing matrix[0m
+[0;32mI (262036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (263776) CHILD_1: Received 2 bytes[0m
+[0;32mI (263776) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (263776) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (264376) CHILD_1: Received 4 bytes[0m
+[0;32mI (264376) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (264376) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (265376) CHILD_1: Received 4 bytes[0m
+[0;32mI (265376) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (265376) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (266376) CHILD_1: Received 4 bytes[0m
+[0;32mI (266376) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (266376) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (267376) CHILD_1: Received 1 bytes[0m
+[0;32mI (267376) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (267376) CHILD_1: Clearing matrix[0m
+[0;32mI (269886) CHILD_1: Received 2 bytes[0m
+[0;32mI (269886) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (269886) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (270486) CHILD_1: Received 4 bytes[0m
+[0;32mI (270486) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (270486) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (271486) CHILD_1: Received 4 bytes[0m
+[0;32mI (271486) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (271486) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (272036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (272486) CHILD_1: Received 4 bytes[0m
+[0;32mI (272486) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (272486) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (273486) CHILD_1: Received 1 bytes[0m
+[0;32mI (273486) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (273486) CHILD_1: Clearing matrix[0m
+[0;32mI (275796) CHILD_1: Received 2 bytes[0m
+[0;32mI (275796) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (275796) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (276396) CHILD_1: Received 4 bytes[0m
+[0;32mI (276396) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (276396) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (277396) CHILD_1: Received 4 bytes[0m
+[0;32mI (277396) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (277396) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (278396) CHILD_1: Received 4 bytes[0m
+[0;32mI (278396) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (278396) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (279396) CHILD_1: Received 1 bytes[0m
+[0;32mI (279396) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (279396) CHILD_1: Clearing matrix[0m
+[0;32mI (281906) CHILD_1: Received 2 bytes[0m
+[0;32mI (281906) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (281906) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (282036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (282506) CHILD_1: Received 4 bytes[0m
+[0;32mI (282506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (282506) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (283506) CHILD_1: Received 4 bytes[0m
+[0;32mI (283506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (283506) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (284506) CHILD_1: Received 4 bytes[0m
+[0;32mI (284506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (284506) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (285506) CHILD_1: Received 1 bytes[0m
+[0;32mI (285506) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (285506) CHILD_1: Clearing matrix[0m
+[0;32mI (287816) CHILD_1: Received 2 bytes[0m
+[0;32mI (287816) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (287816) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (288416) CHILD_1: Received 4 bytes[0m
+[0;32mI (288416) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (288416) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (289416) CHILD_1: Received 4 bytes[0m
+[0;32mI (289416) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (289416) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (290416) CHILD_1: Received 4 bytes[0m
+[0;32mI (290416) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (290416) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (291416) CHILD_1: Received 1 bytes[0m
+[0;32mI (291416) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (291416) CHILD_1: Clearing matrix[0m
+[0;32mI (292036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (293926) CHILD_1: Received 2 bytes[0m
+[0;32mI (293926) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (293926) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (294526) CHILD_1: Received 4 bytes[0m
+[0;32mI (294526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (294526) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (295526) CHILD_1: Received 4 bytes[0m
+[0;32mI (295526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (295526) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (296526) CHILD_1: Received 4 bytes[0m
+[0;32mI (296526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (296526) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (297526) CHILD_1: Received 1 bytes[0m
+[0;32mI (297526) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (297526) CHILD_1: Clearing matrix[0m
+[0;32mI (299836) CHILD_1: Received 2 bytes[0m
+[0;32mI (299836) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (299836) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (300436) CHILD_1: Received 4 bytes[0m
+[0;32mI (300436) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (300436) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (301436) CHILD_1: Received 4 bytes[0m
+[0;32mI (301436) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (301436) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (302036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (302436) CHILD_1: Received 4 bytes[0m
+[0;32mI (302436) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (302436) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (303436) CHILD_1: Received 1 bytes[0m
+[0;32mI (303436) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (303436) CHILD_1: Clearing matrix[0m
+[0;32mI (305946) CHILD_1: Received 2 bytes[0m
+[0;32mI (305946) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (305946) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (306546) CHILD_1: Received 4 bytes[0m
+[0;32mI (306546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (306546) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (307546) CHILD_1: Received 4 bytes[0m
+[0;32mI (307546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (307546) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (308546) CHILD_1: Received 4 bytes[0m
+[0;32mI (308546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (308546) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (309546) CHILD_1: Received 1 bytes[0m
+[0;32mI (309546) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (309546) CHILD_1: Clearing matrix[0m
+[0;32mI (311856) CHILD_1: Received 2 bytes[0m
+[0;32mI (311856) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (311856) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (312036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (312456) CHILD_1: Received 4 bytes[0m
+[0;32mI (312456) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (312456) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (313456) CHILD_1: Received 4 bytes[0m
+[0;32mI (313456) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (313456) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (314456) CHILD_1: Received 4 bytes[0m
+[0;32mI (314456) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (314456) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (315456) CHILD_1: Received 1 bytes[0m
+[0;32mI (315456) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (315456) CHILD_1: Clearing matrix[0m
+[0;32mI (317966) CHILD_1: Received 2 bytes[0m
+[0;32mI (317966) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (317966) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (318566) CHILD_1: Received 4 bytes[0m
+[0;32mI (318566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (318566) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (319566) CHILD_1: Received 4 bytes[0m
+[0;32mI (319566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (319566) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (320566) CHILD_1: Received 4 bytes[0m
+[0;32mI (320566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (320566) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (321566) CHILD_1: Received 1 bytes[0m
+[0;32mI (321566) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (321566) CHILD_1: Clearing matrix[0m
+[0;32mI (322036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (323876) CHILD_1: Received 2 bytes[0m
+[0;32mI (323876) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (323876) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (324476) CHILD_1: Received 4 bytes[0m
+[0;32mI (324476) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (324476) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (325476) CHILD_1: Received 4 bytes[0m
+[0;32mI (325476) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (325476) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (326476) CHILD_1: Received 4 bytes[0m
+[0;32mI (326476) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (326476) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (327476) CHILD_1: Received 1 bytes[0m
+[0;32mI (327476) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (327476) CHILD_1: Clearing matrix[0m
+[0;32mI (329986) CHILD_1: Received 2 bytes[0m
+[0;32mI (329986) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (329986) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (330496) CHILD_1: Received 4 bytes[0m
+[0;32mI (330496) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (330496) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (331496) CHILD_1: Received 4 bytes[0m
+[0;32mI (331496) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (331496) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (332036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (332496) CHILD_1: Received 4 bytes[0m
+[0;32mI (332496) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (332496) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (333486) CHILD_1: Received 1 bytes[0m
+[0;32mI (333486) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (333486) CHILD_1: Clearing matrix[0m
+[0;32mI (335996) CHILD_1: Received 2 bytes[0m
+[0;32mI (335996) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (335996) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (336506) CHILD_1: Received 4 bytes[0m
+[0;32mI (336506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (336506) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (337506) CHILD_1: Received 4 bytes[0m
+[0;32mI (337506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (337506) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (338506) CHILD_1: Received 4 bytes[0m
+[0;32mI (338506) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (338506) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (339496) CHILD_1: Received 1 bytes[0m
+[0;32mI (339496) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (339496) CHILD_1: Clearing matrix[0m
+[0;32mI (342006) CHILD_1: Received 2 bytes[0m
+[0;32mI (342006) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (342006) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (342036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (342516) CHILD_1: Received 4 bytes[0m
+[0;32mI (342516) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (342516) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (343516) CHILD_1: Received 4 bytes[0m
+[0;32mI (343516) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (343516) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (344516) CHILD_1: Received 4 bytes[0m
+[0;32mI (344516) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (344516) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (345506) CHILD_1: Received 1 bytes[0m
+[0;32mI (345506) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (345506) CHILD_1: Clearing matrix[0m
+[0;32mI (348016) CHILD_1: Received 2 bytes[0m
+[0;32mI (348016) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (348016) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (348526) CHILD_1: Received 4 bytes[0m
+[0;32mI (348526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (348526) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (349526) CHILD_1: Received 4 bytes[0m
+[0;32mI (349526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (349526) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (350526) CHILD_1: Received 4 bytes[0m
+[0;32mI (350526) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (350526) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (351516) CHILD_1: Received 1 bytes[0m
+[0;32mI (351516) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (351516) CHILD_1: Clearing matrix[0m
+[0;32mI (352036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (354026) CHILD_1: Received 2 bytes[0m
+[0;32mI (354026) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (354026) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (354536) CHILD_1: Received 4 bytes[0m
+[0;32mI (354536) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (354536) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (355536) CHILD_1: Received 4 bytes[0m
+[0;32mI (355536) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (355536) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (356536) CHILD_1: Received 4 bytes[0m
+[0;32mI (356536) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (356536) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (357526) CHILD_1: Received 1 bytes[0m
+[0;32mI (357526) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (357526) CHILD_1: Clearing matrix[0m
+[0;32mI (360036) CHILD_1: Received 2 bytes[0m
+[0;32mI (360036) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (360036) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (360546) CHILD_1: Received 4 bytes[0m
+[0;32mI (360546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (360546) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (361546) CHILD_1: Received 4 bytes[0m
+[0;32mI (361546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (361546) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (362036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (362546) CHILD_1: Received 4 bytes[0m
+[0;32mI (362546) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (362546) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (363536) CHILD_1: Received 1 bytes[0m
+[0;32mI (363536) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (363536) CHILD_1: Clearing matrix[0m
+[0;32mI (366046) CHILD_1: Received 2 bytes[0m
+[0;32mI (366046) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (366046) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (366556) CHILD_1: Received 4 bytes[0m
+[0;32mI (366556) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (366556) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (367556) CHILD_1: Received 4 bytes[0m
+[0;32mI (367556) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (367556) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (368556) CHILD_1: Received 4 bytes[0m
+[0;32mI (368556) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (368556) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (369546) CHILD_1: Received 1 bytes[0m
+[0;32mI (369546) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (369546) CHILD_1: Clearing matrix[0m
+[0;32mI (372036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (372056) CHILD_1: Received 2 bytes[0m
+[0;32mI (372056) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (372056) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (372566) CHILD_1: Received 4 bytes[0m
+[0;32mI (372566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (372566) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (373566) CHILD_1: Received 4 bytes[0m
+[0;32mI (373566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (373566) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (374566) CHILD_1: Received 4 bytes[0m
+[0;32mI (374566) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (374566) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (375556) CHILD_1: Received 1 bytes[0m
+[0;32mI (375556) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (375556) CHILD_1: Clearing matrix[0m
+[0;32mI (378066) CHILD_1: Received 2 bytes[0m
+[0;32mI (378066) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (378066) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (378576) CHILD_1: Received 4 bytes[0m
+[0;32mI (378576) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (378576) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (379576) CHILD_1: Received 4 bytes[0m
+[0;32mI (379576) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (379576) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (380576) CHILD_1: Received 4 bytes[0m
+[0;32mI (380576) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (380576) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (381566) CHILD_1: Received 1 bytes[0m
+[0;32mI (381566) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (381566) CHILD_1: Clearing matrix[0m
+[0;32mI (382036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (384076) CHILD_1: Received 2 bytes[0m
+[0;32mI (384076) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (384076) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (384586) CHILD_1: Received 4 bytes[0m
+[0;32mI (384586) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (384586) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (385586) CHILD_1: Received 4 bytes[0m
+[0;32mI (385586) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (385586) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (386586) CHILD_1: Received 4 bytes[0m
+[0;32mI (386586) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (386586) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (387576) CHILD_1: Received 1 bytes[0m
+[0;32mI (387576) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (387576) CHILD_1: Clearing matrix[0m
+[0;32mI (390096) CHILD_1: Received 2 bytes[0m
+[0;32mI (390096) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (390096) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (390696) CHILD_1: Received 4 bytes[0m
+[0;32mI (390696) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (390696) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (391696) CHILD_1: Received 4 bytes[0m
+[0;32mI (391696) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (391696) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (392036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (392696) CHILD_1: Received 4 bytes[0m
+[0;32mI (392696) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (392696) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (393496) CHILD_1: Received 1 bytes[0m
+[0;32mI (393496) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (393496) CHILD_1: Clearing matrix[0m
+[0;32mI (396006) CHILD_1: Received 2 bytes[0m
+[0;32mI (396006) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (396006) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (396606) CHILD_1: Received 4 bytes[0m
+[0;32mI (396606) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (396606) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (397606) CHILD_1: Received 4 bytes[0m
+[0;32mI (397606) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (397606) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (398606) CHILD_1: Received 4 bytes[0m
+[0;32mI (398606) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (398606) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (399606) CHILD_1: Received 1 bytes[0m
+[0;32mI (399606) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (399606) CHILD_1: Clearing matrix[0m
+[0;32mI (402036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (402116) CHILD_1: Received 2 bytes[0m
+[0;32mI (402116) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (402116) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (402716) CHILD_1: Received 4 bytes[0m
+[0;32mI (402716) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (402716) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (403716) CHILD_1: Received 4 bytes[0m
+[0;32mI (403716) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (403716) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (404716) CHILD_1: Received 4 bytes[0m
+[0;32mI (404716) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (404716) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (405716) CHILD_1: Received 1 bytes[0m
+[0;32mI (405716) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (405716) CHILD_1: Clearing matrix[0m
+[0;32mI (408026) CHILD_1: Received 2 bytes[0m
+[0;32mI (408026) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (408026) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (408626) CHILD_1: Received 4 bytes[0m
+[0;32mI (408626) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (408626) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (409626) CHILD_1: Received 4 bytes[0m
+[0;32mI (409626) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (409626) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (410626) CHILD_1: Received 4 bytes[0m
+[0;32mI (410626) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (410626) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (411626) CHILD_1: Received 1 bytes[0m
+[0;32mI (411626) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (411626) CHILD_1: Clearing matrix[0m
+[0;32mI (412036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (414136) CHILD_1: Received 2 bytes[0m
+[0;32mI (414136) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (414136) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (414736) CHILD_1: Received 4 bytes[0m
+[0;32mI (414736) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (414736) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (415736) CHILD_1: Received 4 bytes[0m
+[0;32mI (415736) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (415736) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (416736) CHILD_1: Received 4 bytes[0m
+[0;32mI (416736) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (416736) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (417736) CHILD_1: Received 1 bytes[0m
+[0;32mI (417736) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (417736) CHILD_1: Clearing matrix[0m
+[0;32mI (420046) CHILD_1: Received 2 bytes[0m
+[0;32mI (420046) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (420046) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (420646) CHILD_1: Received 4 bytes[0m
+[0;32mI (420646) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (420646) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (421646) CHILD_1: Received 4 bytes[0m
+[0;32mI (421646) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (421646) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (422036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (422646) CHILD_1: Received 4 bytes[0m
+[0;32mI (422646) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (422646) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (423646) CHILD_1: Received 1 bytes[0m
+[0;32mI (423646) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (423646) CHILD_1: Clearing matrix[0m
+[0;32mI (426156) CHILD_1: Received 2 bytes[0m
+[0;32mI (426156) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (426156) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (426756) CHILD_1: Received 4 bytes[0m
+[0;32mI (426756) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (426756) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (427756) CHILD_1: Received 4 bytes[0m
+[0;32mI (427756) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (427756) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (428756) CHILD_1: Received 4 bytes[0m
+[0;32mI (428756) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (428756) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (429756) CHILD_1: Received 1 bytes[0m
+[0;32mI (429756) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (429756) CHILD_1: Clearing matrix[0m
+[0;32mI (432036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (432066) CHILD_1: Received 2 bytes[0m
+[0;32mI (432066) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (432066) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (432666) CHILD_1: Received 4 bytes[0m
+[0;32mI (432666) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (432666) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (433666) CHILD_1: Received 4 bytes[0m
+[0;32mI (433666) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (433666) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (434666) CHILD_1: Received 4 bytes[0m
+[0;32mI (434666) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (434666) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (435666) CHILD_1: Received 1 bytes[0m
+[0;32mI (435666) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (435666) CHILD_1: Clearing matrix[0m
+[0;32mI (438176) CHILD_1: Received 2 bytes[0m
+[0;32mI (438176) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (438176) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (438776) CHILD_1: Received 4 bytes[0m
+[0;32mI (438776) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (438776) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (439776) CHILD_1: Received 4 bytes[0m
+[0;32mI (439776) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (439776) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (440776) CHILD_1: Received 4 bytes[0m
+[0;32mI (440776) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (440776) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (441776) CHILD_1: Received 1 bytes[0m
+[0;32mI (441776) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (441776) CHILD_1: Clearing matrix[0m
+[0;32mI (442036) CHILD_1: 📊 Status: READY | LED: RGB(0,0,0) | Brightness: 29%[0m
+[0;32mI (444086) CHILD_1: Received 2 bytes[0m
+[0;32mI (444086) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (444086) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (444686) CHILD_1: Received 4 bytes[0m
+[0;32mI (444686) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (444686) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (445686) CHILD_1: Received 4 bytes[0m
+[0;32mI (445686) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (445686) CHILD_1: Filling matrix RGB(0, 255, 0) @ brightness 76[0m
+[0;32mI (446686) CHILD_1: Received 4 bytes[0m
+[0;32mI (446686) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (446686) CHILD_1: Filling matrix RGB(0, 0, 255) @ brightness 76[0m
+[0;32mI (447686) CHILD_1: Received 1 bytes[0m
+[0;32mI (447686) CHILD_1: Command: MATRIX_CLEAR (0x12), Length: 1 bytes[0m
+[0;32mI (447686) CHILD_1: Clearing matrix[0m
+[0;32mI (450196) CHILD_1: Received 2 bytes[0m
+[0;32mI (450196) CHILD_1: Command: MATRIX_BRIGHTNESS (0x16), Length: 2 bytes[0m
+[0;32mI (450196) CHILD_1:   → BRIGHTNESS set to 76[0m
+[0;32mI (450796) CHILD_1: Received 4 bytes[0m
+[0;32mI (450796) CHILD_1: Command: MATRIX_FILL (0x10), Length: 4 bytes[0m
+[0;32mI (450796) CHILD_1: Filling matrix RGB(255, 0, 0) @ brightness 76[0m
+[0;32mI (451796) CHILD_1: Received 4 b

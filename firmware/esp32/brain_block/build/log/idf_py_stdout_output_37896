@@ -1,0 +1,913 @@
+Command: C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools/idf_monitor.py -p COM6 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\brain_block\build\brain_block.elf C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\brain_block\build\bootloader\bootloader.elf --force-color -m 'C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe' 'C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools\idf.py' '-p' 'COM6'
+ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERO2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+loets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Nov 11 2025 15:09:31[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (40) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (48) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (57) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (70) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (80) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=0b31ch ( 45852) map[0m
+[0;32mI (103) esp_image: segment 1: paddr=0001b344 vaddr=3ffb0000 size=02428h (  9256) load[0m
+[0;32mI (107) esp_image: segment 2: paddr=0001d774 vaddr=40080000 size=028a4h ( 10404) load[0m
+[0;32mI (111) esp_image: segment 3: paddr=00020020 vaddr=400d0020 size=15d10h ( 89360) map[0m
+[0;32mI (145) esp_image: segment 4: paddr=00035d38 vaddr=400828a4 size=0bc70h ( 48240) load[0m
+[0;32mI (164) esp_image: segment 5: paddr=000419b0 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (172) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (172) boot: Disabling RNG early entropy source...[0m
+[0;32mI (182) cpu_start: Multicore app[0m
+[0;32mI (191) cpu_start: Pro cpu start user code[0m
+[0;32mI (191) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (191) app_init: Application information:[0m
+[0;32mI (191) app_init: Project name:     brain_block[0m
+[0;32mI (195) app_init: App version:      f38e858-dirty[0m
+[0;32mI (200) app_init: Compile time:     Nov 11 2025 15:03:41[0m
+[0;32mI (205) app_init: ELF file SHA256:  c8a1186b9...[0m
+[0;32mI (209) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (213) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (217) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (221) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (225) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (231) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (236) heap_init: At 3FFB2D00 len 0002D300 (180 KiB): DRAM[0m
+[0;32mI (241) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (247) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (252) heap_init: At 4008E514 len 00011AEC (70 KiB): IRAM[0m
+[0;32mI (259) spi_flash: detected chip: generic[0m
+[0;32mI (261) spi_flash: flash io: dio[0m
+[0;33mW (264) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;33mW (276) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (287) main_task: Started on CPU0[0m
+[0;32mI (297) main_task: Calling app_main()[0m
+[0;32mI (297) BRAIN: === BRAIN BLOCK ===[0m
+[0;32mI (297) BRAIN: Init I²C Master: SDA=21, SCL=22[0m
+[0;32mI (797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (797) BRAIN: Found device at 0x08[0m
+[0;32mI (797) BRAIN: Total devices: 1[0m
+[0;32mI (797) main_task: Returned from app_main()[0m
+[0;32mI (2797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (2797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (2797) BRAIN: Found device at 0x08[0m
+[0;32mI (2797) BRAIN: Total devices: 1[0m
+[0;32mI (2797) BRAIN: Child 1 detected![0m
+[0;32mI (2797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (3297) BRAIN: Child 1: RED[0m
+[0;32mI (4297) BRAIN: Child 1: GREEN[0m
+[0;32mI (5297) BRAIN: Child 1: BLUE[0m
+[0;32mI (6297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (8797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (8797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (8797) BRAIN: Found device at 0x08[0m
+[0;32mI (8797) BRAIN: Total devices: 1[0m
+[0;32mI (8797) BRAIN: Child 1 detected![0m
+[0;32mI (8797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (9297) BRAIN: Child 1: RED[0m
+[0;32mI (10297) BRAIN: Child 1: GREEN[0m
+[0;32mI (11297) BRAIN: Child 1: BLUE[0m
+[0;32mI (12297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (14797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (14797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (14797) BRAIN: Found device at 0x08[0m
+[0;32mI (14797) BRAIN: Total devices: 1[0m
+[0;32mI (14797) BRAIN: Child 1 detected![0m
+[0;32mI (14797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (15297) BRAIN: Child 1: RED[0m
+[0;32mI (16297) BRAIN: Child 1: GREEN[0m
+[0;32mI (17297) BRAIN: Child 1: BLUE[0m
+[0;32mI (18297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (20797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (20797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (20797) BRAIN: Found device at 0x08[0m
+[0;32mI (20797) BRAIN: Total devices: 1[0m
+[0;32mI (20797) BRAIN: Child 1 detected![0m
+[0;32mI (20797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (21297) BRAIN: Child 1: RED[0m
+[0;32mI (22297) BRAIN: Child 1: GREEN[0m
+[0;32mI (23297) BRAIN: Child 1: BLUE[0m
+[0;32mI (24297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (26797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (26797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (26797) BRAIN: Found device at 0x08[0m
+[0;32mI (26797) BRAIN: Total devices: 1[0m
+[0;32mI (26797) BRAIN: Child 1 detected![0m
+[0;32mI (26797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (27297) BRAIN: Child 1: RED[0m
+[0;32mI (28297) BRAIN: Child 1: GREEN[0m
+[0;32mI (29297) BRAIN: Child 1: BLUE[0m
+[0;32mI (30297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (32797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (32797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (32797) BRAIN: Found device at 0x08[0m
+[0;32mI (32797) BRAIN: Total devices: 1[0m
+[0;32mI (32797) BRAIN: Child 1 detected![0m
+[0;32mI (32797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (33297) BRAIN: Child 1: RED[0m
+[0;32mI (34297) BRAIN: Child 1: GREEN[0m
+[0;32mI (35297) BRAIN: Child 1: BLUE[0m
+[0;32mI (36297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (38797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (38797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (38797) BRAIN: Found device at 0x08[0m
+[0;32mI (38797) BRAIN: Total devices: 1[0m
+[0;32mI (38797) BRAIN: Child 1 detected![0m
+[0;32mI (38797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (39297) BRAIN: Child 1: RED[0m
+[0;32mI (40297) BRAIN: Child 1: GREEN[0m
+[0;32mI (41297) BRAIN: Child 1: BLUE[0m
+[0;32mI (42297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (44797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (44797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (44797) BRAIN: Found device at 0x08[0m
+[0;32mI (44797) BRAIN: Total devices: 1[0m
+[0;32mI (44797) BRAIN: Child 1 detected![0m
+[0;32mI (44797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (45297) BRAIN: Child 1: RED[0m
+[0;32mI (46297) BRAIN: Child 1: GREEN[0m
+[0;32mI (47297) BRAIN: Child 1: BLUE[0m
+[0;32mI (48297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (50797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (50797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (50797) BRAIN: Found device at 0x08[0m
+[0;32mI (50797) BRAIN: Total devices: 1[0m
+[0;32mI (50797) BRAIN: Child 1 detected![0m
+[0;32mI (50797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (51297) BRAIN: Child 1: RED[0m
+[0;32mI (52297) BRAIN: Child 1: GREEN[0m
+[0;32mI (53297) BRAIN: Child 1: BLUE[0m
+[0;32mI (54297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (56797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (56797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (56797) BRAIN: Found device at 0x08[0m
+[0;32mI (56797) BRAIN: Total devices: 1[0m
+[0;32mI (56797) BRAIN: Child 1 detected![0m
+[0;32mI (56797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (57297) BRAIN: Child 1: RED[0m
+[0;32mI (58297) BRAIN: Child 1: GREEN[0m
+[0;32mI (59297) BRAIN: Child 1: BLUE[0m
+[0;32mI (60297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (62797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (62797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (62797) BRAIN: Found device at 0x08[0m
+[0;32mI (62797) BRAIN: Total devices: 1[0m
+[0;32mI (62797) BRAIN: Child 1 detected![0m
+[0;32mI (62797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (63297) BRAIN: Child 1: RED[0m
+[0;32mI (64297) BRAIN: Child 1: GREEN[0m
+[0;32mI (65297) BRAIN: Child 1: BLUE[0m
+[0;32mI (66297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (68797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (68797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (68797) BRAIN: Found device at 0x08[0m
+[0;32mI (68797) BRAIN: Total devices: 1[0m
+[0;32mI (68797) BRAIN: Child 1 detected![0m
+[0;32mI (68797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (69297) BRAIN: Child 1: RED[0m
+[0;32mI (70297) BRAIN: Child 1: GREEN[0m
+[0;32mI (71297) BRAIN: Child 1: BLUE[0m
+[0;32mI (72297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (74797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (74797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (74797) BRAIN: Found device at 0x08[0m
+[0;32mI (74797) BRAIN: Total devices: 1[0m
+[0;32mI (74797) BRAIN: Child 1 detected![0m
+[0;32mI (74797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (75297) BRAIN: Child 1: RED[0m
+[0;32mI (76297) BRAIN: Child 1: GREEN[0m
+[0;32mI (77297) BRAIN: Child 1: BLUE[0m
+[0;32mI (78297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (80797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (80797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (80797) BRAIN: Found device at 0x08[0m
+[0;32mI (80797) BRAIN: Total devices: 1[0m
+[0;32mI (80797) BRAIN: Child 1 detected![0m
+[0;32mI (80797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (81297) BRAIN: Child 1: RED[0m
+[0;32mI (82297) BRAIN: Child 1: GREEN[0m
+[0;32mI (83297) BRAIN: Child 1: BLUE[0m
+[0;32mI (84297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (86797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (86797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (86797) BRAIN: Found device at 0x08[0m
+[0;32mI (86797) BRAIN: Total devices: 1[0m
+[0;32mI (86797) BRAIN: Child 1 detected![0m
+[0;32mI (86797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (87297) BRAIN: Child 1: RED[0m
+[0;32mI (88297) BRAIN: Child 1: GREEN[0m
+[0;32mI (89297) BRAIN: Child 1: BLUE[0m
+[0;32mI (90297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (92797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (92797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (92797) BRAIN: Found device at 0x08[0m
+[0;32mI (92797) BRAIN: Total devices: 1[0m
+[0;32mI (92797) BRAIN: Child 1 detected![0m
+[0;32mI (92797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (93297) BRAIN: Child 1: RED[0m
+[0;32mI (94297) BRAIN: Child 1: GREEN[0m
+[0;32mI (95297) BRAIN: Child 1: BLUE[0m
+[0;32mI (96297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (98797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (98797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (98797) BRAIN: Found device at 0x08[0m
+[0;32mI (98797) BRAIN: Total devices: 1[0m
+[0;32mI (98797) BRAIN: Child 1 detected![0m
+[0;32mI (98797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (99297) BRAIN: Child 1: RED[0m
+[0;32mI (100297) BRAIN: Child 1: GREEN[0m
+[0;32mI (101297) BRAIN: Child 1: BLUE[0m
+[0;32mI (102297) BRAIN: Child 1: CLEAR[0m
+[0;32mI (104797) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (104797) BRAIN: === I²C SCAN ===[0m
+[0;32mI (104797) BRAIN: Found device at 0x08[0m
+[0;32mI (104797) BRAIN: Total devices: 1[0m
+[0;32mI (104797) BRAIN: Child 1 detected![0m
+[0;32mI (104797) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (105307) BRAIN: Child 1: RED[0m
+[0;32mI (106307) BRAIN: Child 1: GREEN[0m
+[0;32mI (107307) BRAIN: Child 1: BLUE[0m
+[0;32mI (108307) BRAIN: Child 1: CLEAR[0m
+[0;32mI (110807) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (110807) BRAIN: === I²C SCAN ===[0m
+[0;32mI (110807) BRAIN: Found device at 0x08[0m
+[0;32mI (110807) BRAIN: Total devices: 1[0m
+[0;32mI (110807) BRAIN: Child 1 detected![0m
+[0;32mI (110807) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (111317) BRAIN: Child 1: RED[0m
+[0;32mI (112317) BRAIN: Child 1: GREEN[0m
+[0;32mI (113317) BRAIN: Child 1: BLUE[0m
+[0;32mI (114317) BRAIN: Child 1: CLEAR[0m
+[0;32mI (116817) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (116817) BRAIN: === I²C SCAN ===[0m
+[0;32mI (116817) BRAIN: Found device at 0x08[0m
+[0;32mI (116817) BRAIN: Total devices: 1[0m
+[0;32mI (116817) BRAIN: Child 1 detected![0m
+[0;32mI (116817) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (117327) BRAIN: Child 1: RED[0m
+[0;32mI (118327) BRAIN: Child 1: GREEN[0m
+[0;32mI (119327) BRAIN: Child 1: BLUE[0m
+[0;32mI (120327) BRAIN: Child 1: CLEAR[0m
+[0;32mI (122827) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (122827) BRAIN: === I²C SCAN ===[0m
+[0;32mI (122827) BRAIN: Found device at 0x08[0m
+[0;32mI (122827) BRAIN: Total devices: 1[0m
+[0;32mI (122827) BRAIN: Child 1 detected![0m
+[0;32mI (122827) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (123337) BRAIN: Child 1: RED[0m
+[0;32mI (124337) BRAIN: Child 1: GREEN[0m
+[0;32mI (125337) BRAIN: Child 1: BLUE[0m
+[0;32mI (126337) BRAIN: Child 1: CLEAR[0m
+[0;32mI (128837) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (128837) BRAIN: === I²C SCAN ===[0m
+[0;32mI (128837) BRAIN: Found device at 0x08[0m
+[0;32mI (128837) BRAIN: Total devices: 1[0m
+[0;32mI (128837) BRAIN: Child 1 detected![0m
+[0;32mI (128837) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (129347) BRAIN: Child 1: RED[0m
+[0;32mI (130347) BRAIN: Child 1: GREEN[0m
+[0;32mI (131347) BRAIN: Child 1: BLUE[0m
+[0;32mI (132347) BRAIN: Child 1: CLEAR[0m
+[0;32mI (134847) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (134847) BRAIN: === I²C SCAN ===[0m
+[0;32mI (134847) BRAIN: Found device at 0x08[0m
+[0;32mI (134847) BRAIN: Total devices: 1[0m
+[0;32mI (134847) BRAIN: Child 1 detected![0m
+[0;32mI (134847) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (135357) BRAIN: Child 1: RED[0m
+[0;32mI (136357) BRAIN: Child 1: GREEN[0m
+[0;32mI (137357) BRAIN: Child 1: BLUE[0m
+[0;32mI (138357) BRAIN: Child 1: CLEAR[0m
+[0;32mI (140857) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (140857) BRAIN: === I²C SCAN ===[0m
+[0;32mI (140857) BRAIN: Found device at 0x08[0m
+[0;32mI (140857) BRAIN: Total devices: 1[0m
+[0;32mI (140857) BRAIN: Child 1 detected![0m
+[0;32mI (140857) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (141367) BRAIN: Child 1: RED[0m
+[0;32mI (142367) BRAIN: Child 1: GREEN[0m
+[0;32mI (143367) BRAIN: Child 1: BLUE[0m
+[0;32mI (144367) BRAIN: Child 1: CLEAR[0m
+[0;32mI (146867) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (146867) BRAIN: === I²C SCAN ===[0m
+[0;32mI (146867) BRAIN: Found device at 0x08[0m
+[0;32mI (146867) BRAIN: Total devices: 1[0m
+[0;32mI (146867) BRAIN: Child 1 detected![0m
+[0;32mI (146867) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (147377) BRAIN: Child 1: RED[0m
+[0;32mI (148377) BRAIN: Child 1: GREEN[0m
+[0;32mI (149377) BRAIN: Child 1: BLUE[0m
+[0;32mI (150377) BRAIN: Child 1: CLEAR[0m
+[0;32mI (152877) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (152877) BRAIN: === I²C SCAN ===[0m
+[0;32mI (152877) BRAIN: Found device at 0x08[0m
+[0;32mI (152877) BRAIN: Total devices: 1[0m
+[0;32mI (152877) BRAIN: Child 1 detected![0m
+[0;32mI (152877) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (153387) BRAIN: Child 1: RED[0m
+[0;32mI (154387) BRAIN: Child 1: GREEN[0m
+[0;32mI (155387) BRAIN: Child 1: BLUE[0m
+[0;32mI (156387) BRAIN: Child 1: CLEAR[0m
+[0;32mI (158887) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (158887) BRAIN: === I²C SCAN ===[0m
+[0;32mI (158887) BRAIN: Found device at 0x08[0m
+[0;32mI (158887) BRAIN: Total devices: 1[0m
+[0;32mI (158887) BRAIN: Child 1 detected![0m
+[0;32mI (158887) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (159397) BRAIN: Child 1: RED[0m
+[0;32mI (160397) BRAIN: Child 1: GREEN[0m
+[0;32mI (161397) BRAIN: Child 1: BLUE[0m
+[0;32mI (162397) BRAIN: Child 1: CLEAR[0m
+[0;32mI (164897) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (164897) BRAIN: === I²C SCAN ===[0m
+[0;32mI (164897) BRAIN: Found device at 0x08[0m
+[0;32mI (164897) BRAIN: Total devices: 1[0m
+[0;32mI (164897) BRAIN: Child 1 detected![0m
+[0;32mI (164897) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (165407) BRAIN: Child 1: RED[0m
+[0;32mI (166407) BRAIN: Child 1: GREEN[0m
+[0;32mI (167407) BRAIN: Child 1: BLUE[0m
+[0;32mI (168407) BRAIN: Child 1: CLEAR[0m
+[0;32mI (170907) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (170907) BRAIN: === I²C SCAN ===[0m
+[0;32mI (170907) BRAIN: Found device at 0x08[0m
+[0;32mI (170907) BRAIN: Total devices: 1[0m
+[0;32mI (170907) BRAIN: Child 1 detected![0m
+[0;32mI (170907) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (171417) BRAIN: Child 1: RED[0m
+[0;32mI (172417) BRAIN: Child 1: GREEN[0m
+[0;32mI (173417) BRAIN: Child 1: BLUE[0m
+[0;32mI (174417) BRAIN: Child 1: CLEAR[0m
+[0;32mI (176917) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (176917) BRAIN: === I²C SCAN ===[0m
+[0;32mI (176917) BRAIN: Found device at 0x08[0m
+[0;32mI (176917) BRAIN: Total devices: 1[0m
+[0;32mI (176917) BRAIN: Child 1 detected![0m
+[0;32mI (176917) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (177427) BRAIN: Child 1: RED[0m
+[0;32mI (178427) BRAIN: Child 1: GREEN[0m
+[0;32mI (179427) BRAIN: Child 1: BLUE[0m
+[0;32mI (180427) BRAIN: Child 1: CLEAR[0m
+[0;32mI (182927) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (182927) BRAIN: === I²C SCAN ===[0m
+[0;32mI (182927) BRAIN: Found device at 0x08[0m
+[0;32mI (182927) BRAIN: Total devices: 1[0m
+[0;32mI (182927) BRAIN: Child 1 detected![0m
+[0;32mI (182927) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (183437) BRAIN: Child 1: RED[0m
+[0;32mI (184437) BRAIN: Child 1: GREEN[0m
+[0;32mI (185437) BRAIN: Child 1: BLUE[0m
+[0;32mI (186437) BRAIN: Child 1: CLEAR[0m
+[0;32mI (188937) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (188937) BRAIN: === I²C SCAN ===[0m
+[0;32mI (188937) BRAIN: Found device at 0x08[0m
+[0;32mI (188937) BRAIN: Total devices: 1[0m
+[0;32mI (188937) BRAIN: Child 1 detected![0m
+[0;32mI (188937) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (189447) BRAIN: Child 1: RED[0m
+[0;32mI (190447) BRAIN: Child 1: GREEN[0m
+[0;32mI (191447) BRAIN: Child 1: BLUE[0m
+[0;32mI (192447) BRAIN: Child 1: CLEAR[0m
+[0;32mI (194947) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (194947) BRAIN: === I²C SCAN ===[0m
+[0;32mI (194947) BRAIN: Found device at 0x08[0m
+[0;32mI (194947) BRAIN: Total devices: 1[0m
+[0;32mI (194947) BRAIN: Child 1 detected![0m
+[0;32mI (194947) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (195457) BRAIN: Child 1: RED[0m
+[0;32mI (196457) BRAIN: Child 1: GREEN[0m
+[0;32mI (197457) BRAIN: Child 1: BLUE[0m
+[0;32mI (198457) BRAIN: Child 1: CLEAR[0m
+[0;32mI (200957) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (200957) BRAIN: === I²C SCAN ===[0m
+[0;32mI (200957) BRAIN: Found device at 0x08[0m
+[0;32mI (200957) BRAIN: Total devices: 1[0m
+[0;32mI (200957) BRAIN: Child 1 detected![0m
+[0;32mI (200957) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (201467) BRAIN: Child 1: RED[0m
+[0;32mI (202467) BRAIN: Child 1: GREEN[0m
+[0;32mI (203467) BRAIN: Child 1: BLUE[0m
+[0;32mI (204467) BRAIN: Child 1: CLEAR[0m
+[0;32mI (206967) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (206967) BRAIN: === I²C SCAN ===[0m
+[0;32mI (206967) BRAIN: Found device at 0x08[0m
+[0;32mI (206967) BRAIN: Total devices: 1[0m
+[0;32mI (206967) BRAIN: Child 1 detected![0m
+[0;32mI (206967) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (207477) BRAIN: Child 1: RED[0m
+[0;32mI (208477) BRAIN: Child 1: GREEN[0m
+[0;32mI (209477) BRAIN: Child 1: BLUE[0m
+[0;32mI (210477) BRAIN: Child 1: CLEAR[0m
+[0;32mI (212977) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (212977) BRAIN: === I²C SCAN ===[0m
+[0;32mI (212977) BRAIN: Found device at 0x08[0m
+[0;32mI (212977) BRAIN: Total devices: 1[0m
+[0;32mI (212977) BRAIN: Child 1 detected![0m
+[0;32mI (212977) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (213487) BRAIN: Child 1: RED[0m
+[0;32mI (214487) BRAIN: Child 1: GREEN[0m
+[0;32mI (215487) BRAIN: Child 1: BLUE[0m
+[0;32mI (216487) BRAIN: Child 1: CLEAR[0m
+[0;32mI (218987) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (218987) BRAIN: === I²C SCAN ===[0m
+[0;32mI (218987) BRAIN: Found device at 0x08[0m
+[0;32mI (218987) BRAIN: Total devices: 1[0m
+[0;32mI (218987) BRAIN: Child 1 detected![0m
+[0;32mI (218987) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (219497) BRAIN: Child 1: RED[0m
+[0;32mI (220497) BRAIN: Child 1: GREEN[0m
+[0;32mI (221497) BRAIN: Child 1: BLUE[0m
+[0;32mI (222497) BRAIN: Child 1: CLEAR[0m
+[0;32mI (224997) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (224997) BRAIN: === I²C SCAN ===[0m
+[0;32mI (224997) BRAIN: Found device at 0x08[0m
+[0;32mI (224997) BRAIN: Total devices: 1[0m
+[0;32mI (224997) BRAIN: Child 1 detected![0m
+[0;32mI (224997) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (225507) BRAIN: Child 1: RED[0m
+[0;32mI (226507) BRAIN: Child 1: GREEN[0m
+[0;32mI (227507) BRAIN: Child 1: BLUE[0m
+[0;32mI (228507) BRAIN: Child 1: CLEAR[0m
+[0;32mI (231007) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (231007) BRAIN: === I²C SCAN ===[0m
+[0;32mI (231007) BRAIN: Found device at 0x08[0m
+[0;32mI (231007) BRAIN: Total devices: 1[0m
+[0;32mI (231007) BRAIN: Child 1 detected![0m
+[0;32mI (231007) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (231517) BRAIN: Child 1: RED[0m
+[0;32mI (232517) BRAIN: Child 1: GREEN[0m
+[0;32mI (233517) BRAIN: Child 1: BLUE[0m
+[0;32mI (234517) BRAIN: Child 1: CLEAR[0m
+[0;32mI (237017) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (237017) BRAIN: === I²C SCAN ===[0m
+[0;32mI (237017) BRAIN: Found device at 0x08[0m
+[0;32mI (237017) BRAIN: Total devices: 1[0m
+[0;32mI (237017) BRAIN: Child 1 detected![0m
+[0;32mI (237017) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (237527) BRAIN: Child 1: RED[0m
+[0;32mI (238527) BRAIN: Child 1: GREEN[0m
+[0;32mI (239527) BRAIN: Child 1: BLUE[0m
+[0;32mI (240527) BRAIN: Child 1: CLEAR[0m
+[0;32mI (243027) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (243027) BRAIN: === I²C SCAN ===[0m
+[0;32mI (243027) BRAIN: Found device at 0x08[0m
+[0;32mI (243027) BRAIN: Total devices: 1[0m
+[0;32mI (243027) BRAIN: Child 1 detected![0m
+[0;32mI (243027) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (243537) BRAIN: Child 1: RED[0m
+[0;32mI (244537) BRAIN: Child 1: GREEN[0m
+[0;32mI (245537) BRAIN: Child 1: BLUE[0m
+[0;32mI (246537) BRAIN: Child 1: CLEAR[0m
+[0;32mI (249037) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (249037) BRAIN: === I²C SCAN ===[0m
+[0;32mI (249037) BRAIN: Found device at 0x08[0m
+[0;32mI (249037) BRAIN: Total devices: 1[0m
+[0;32mI (249037) BRAIN: Child 1 detected![0m
+[0;32mI (249037) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (249547) BRAIN: Child 1: RED[0m
+[0;32mI (250547) BRAIN: Child 1: GREEN[0m
+[0;32mI (251547) BRAIN: Child 1: BLUE[0m
+[0;32mI (252547) BRAIN: Child 1: CLEAR[0m
+[0;32mI (255047) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (255047) BRAIN: === I²C SCAN ===[0m
+[0;32mI (255047) BRAIN: Found device at 0x08[0m
+[0;32mI (255047) BRAIN: Total devices: 1[0m
+[0;32mI (255047) BRAIN: Child 1 detected![0m
+[0;32mI (255047) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (255557) BRAIN: Child 1: RED[0m
+[0;32mI (256557) BRAIN: Child 1: GREEN[0m
+[0;32mI (257557) BRAIN: Child 1: BLUE[0m
+[0;32mI (258557) BRAIN: Child 1: CLEAR[0m
+[0;32mI (261057) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (261057) BRAIN: === I²C SCAN ===[0m
+[0;32mI (261057) BRAIN: Found device at 0x08[0m
+[0;32mI (261057) BRAIN: Total devices: 1[0m
+[0;32mI (261057) BRAIN: Child 1 detected![0m
+[0;32mI (261057) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (261567) BRAIN: Child 1: RED[0m
+[0;32mI (262567) BRAIN: Child 1: GREEN[0m
+[0;32mI (263567) BRAIN: Child 1: BLUE[0m
+[0;32mI (264567) BRAIN: Child 1: CLEAR[0m
+[0;32mI (267067) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (267067) BRAIN: === I²C SCAN ===[0m
+[0;32mI (267067) BRAIN: Found device at 0x08[0m
+[0;32mI (267067) BRAIN: Total devices: 1[0m
+[0;32mI (267067) BRAIN: Child 1 detected![0m
+[0;32mI (267067) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (267577) BRAIN: Child 1: RED[0m
+[0;32mI (268577) BRAIN: Child 1: GREEN[0m
+[0;32mI (269577) BRAIN: Child 1: BLUE[0m
+[0;32mI (270577) BRAIN: Child 1: CLEAR[0m
+[0;32mI (273077) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (273077) BRAIN: === I²C SCAN ===[0m
+[0;32mI (273077) BRAIN: Found device at 0x08[0m
+[0;32mI (273077) BRAIN: Total devices: 1[0m
+[0;32mI (273077) BRAIN: Child 1 detected![0m
+[0;32mI (273077) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (273587) BRAIN: Child 1: RED[0m
+[0;32mI (274587) BRAIN: Child 1: GREEN[0m
+[0;32mI (275587) BRAIN: Child 1: BLUE[0m
+[0;32mI (276587) BRAIN: Child 1: CLEAR[0m
+[0;32mI (279087) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (279087) BRAIN: === I²C SCAN ===[0m
+[0;32mI (279087) BRAIN: Found device at 0x08[0m
+[0;32mI (279087) BRAIN: Total devices: 1[0m
+[0;32mI (279087) BRAIN: Child 1 detected![0m
+[0;32mI (279087) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (279597) BRAIN: Child 1: RED[0m
+[0;32mI (280597) BRAIN: Child 1: GREEN[0m
+[0;32mI (281597) BRAIN: Child 1: BLUE[0m
+[0;32mI (282597) BRAIN: Child 1: CLEAR[0m
+[0;32mI (285097) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (285097) BRAIN: === I²C SCAN ===[0m
+[0;32mI (285097) BRAIN: Found device at 0x08[0m
+[0;32mI (285097) BRAIN: Total devices: 1[0m
+[0;32mI (285097) BRAIN: Child 1 detected![0m
+[0;32mI (285097) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (285607) BRAIN: Child 1: RED[0m
+[0;32mI (286607) BRAIN: Child 1: GREEN[0m
+[0;32mI (287607) BRAIN: Child 1: BLUE[0m
+[0;32mI (288607) BRAIN: Child 1: CLEAR[0m
+[0;32mI (291107) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (291107) BRAIN: === I²C SCAN ===[0m
+[0;32mI (291107) BRAIN: Found device at 0x08[0m
+[0;32mI (291107) BRAIN: Total devices: 1[0m
+[0;32mI (291107) BRAIN: Child 1 detected![0m
+[0;32mI (291107) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (291617) BRAIN: Child 1: RED[0m
+[0;32mI (292617) BRAIN: Child 1: GREEN[0m
+[0;32mI (293617) BRAIN: Child 1: BLUE[0m
+[0;32mI (294617) BRAIN: Child 1: CLEAR[0m
+[0;32mI (297117) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (297117) BRAIN: === I²C SCAN ===[0m
+[0;32mI (297117) BRAIN: Found device at 0x08[0m
+[0;32mI (297117) BRAIN: Total devices: 1[0m
+[0;32mI (297117) BRAIN: Child 1 detected![0m
+[0;32mI (297117) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (297627) BRAIN: Child 1: RED[0m
+[0;32mI (298627) BRAIN: Child 1: GREEN[0m
+[0;32mI (299627) BRAIN: Child 1: BLUE[0m
+[0;32mI (300627) BRAIN: Child 1: CLEAR[0m
+[0;32mI (303127) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (303127) BRAIN: === I²C SCAN ===[0m
+[0;32mI (303127) BRAIN: Found device at 0x08[0m
+[0;32mI (303127) BRAIN: Total devices: 1[0m
+[0;32mI (303127) BRAIN: Child 1 detected![0m
+[0;32mI (303127) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (303637) BRAIN: Child 1: RED[0m
+[0;32mI (304637) BRAIN: Child 1: GREEN[0m
+[0;32mI (305637) BRAIN: Child 1: BLUE[0m
+[0;32mI (306637) BRAIN: Child 1: CLEAR[0m
+[0;32mI (309137) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (309137) BRAIN: === I²C SCAN ===[0m
+[0;32mI (309137) BRAIN: Found device at 0x08[0m
+[0;32mI (309137) BRAIN: Total devices: 1[0m
+[0;32mI (309137) BRAIN: Child 1 detected![0m
+[0;32mI (309137) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (309647) BRAIN: Child 1: RED[0m
+[0;32mI (310647) BRAIN: Child 1: GREEN[0m
+[0;32mI (311647) BRAIN: Child 1: BLUE[0m
+[0;32mI (312647) BRAIN: Child 1: CLEAR[0m
+[0;32mI (315147) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (315147) BRAIN: === I²C SCAN ===[0m
+[0;32mI (315147) BRAIN: Found device at 0x08[0m
+[0;32mI (315147) BRAIN: Total devices: 1[0m
+[0;32mI (315147) BRAIN: Child 1 detected![0m
+[0;32mI (315147) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (315657) BRAIN: Child 1: RED[0m
+[0;32mI (316657) BRAIN: Child 1: GREEN[0m
+[0;32mI (317657) BRAIN: Child 1: BLUE[0m
+[0;32mI (318657) BRAIN: Child 1: CLEAR[0m
+[0;32mI (321157) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (321157) BRAIN: === I²C SCAN ===[0m
+[0;32mI (321157) BRAIN: Found device at 0x08[0m
+[0;32mI (321157) BRAIN: Total devices: 1[0m
+[0;32mI (321157) BRAIN: Child 1 detected![0m
+[0;32mI (321157) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (321667) BRAIN: Child 1: RED[0m
+[0;32mI (322667) BRAIN: Child 1: GREEN[0m
+[0;32mI (323667) BRAIN: Child 1: BLUE[0m
+[0;32mI (324667) BRAIN: Child 1: CLEAR[0m
+[0;32mI (327167) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (327167) BRAIN: === I²C SCAN ===[0m
+[0;32mI (327167) BRAIN: Found device at 0x08[0m
+[0;32mI (327167) BRAIN: Total devices: 1[0m
+[0;32mI (327167) BRAIN: Child 1 detected![0m
+[0;32mI (327167) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (327677) BRAIN: Child 1: RED[0m
+[0;32mI (328677) BRAIN: Child 1: GREEN[0m
+[0;32mI (329677) BRAIN: Child 1: BLUE[0m
+[0;32mI (330677) BRAIN: Child 1: CLEAR[0m
+[0;32mI (333177) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (333177) BRAIN: === I²C SCAN ===[0m
+[0;32mI (333177) BRAIN: Found device at 0x08[0m
+[0;32mI (333177) BRAIN: Total devices: 1[0m
+[0;32mI (333177) BRAIN: Child 1 detected![0m
+[0;32mI (333177) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (333687) BRAIN: Child 1: RED[0m
+[0;32mI (334687) BRAIN: Child 1: GREEN[0m
+[0;32mI (335687) BRAIN: Child 1: BLUE[0m
+[0;32mI (336687) BRAIN: Child 1: CLEAR[0m
+[0;32mI (339187) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (339187) BRAIN: === I²C SCAN ===[0m
+[0;32mI (339187) BRAIN: Found device at 0x08[0m
+[0;32mI (339187) BRAIN: Total devices: 1[0m
+[0;32mI (339187) BRAIN: Child 1 detected![0m
+[0;32mI (339187) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (339697) BRAIN: Child 1: RED[0m
+[0;32mI (340697) BRAIN: Child 1: GREEN[0m
+[0;32mI (341697) BRAIN: Child 1: BLUE[0m
+[0;32mI (342697) BRAIN: Child 1: CLEAR[0m
+[0;32mI (345197) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (345197) BRAIN: === I²C SCAN ===[0m
+[0;32mI (345197) BRAIN: Found device at 0x08[0m
+[0;32mI (345197) BRAIN: Total devices: 1[0m
+[0;32mI (345197) BRAIN: Child 1 detected![0m
+[0;32mI (345197) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (345707) BRAIN: Child 1: RED[0m
+[0;32mI (346707) BRAIN: Child 1: GREEN[0m
+[0;32mI (347707) BRAIN: Child 1: BLUE[0m
+[0;32mI (348707) BRAIN: Child 1: CLEAR[0m
+[0;32mI (351207) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (351207) BRAIN: === I²C SCAN ===[0m
+[0;32mI (351207) BRAIN: Found device at 0x08[0m
+[0;32mI (351207) BRAIN: Total devices: 1[0m
+[0;32mI (351207) BRAIN: Child 1 detected![0m
+[0;32mI (351207) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (351717) BRAIN: Child 1: RED[0m
+[0;32mI (352717) BRAIN: Child 1: GREEN[0m
+[0;32mI (353717) BRAIN: Child 1: BLUE[0m
+[0;32mI (354717) BRAIN: Child 1: CLEAR[0m
+[0;32mI (357217) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (357217) BRAIN: === I²C SCAN ===[0m
+[0;32mI (357217) BRAIN: Found device at 0x08[0m
+[0;32mI (357217) BRAIN: Total devices: 1[0m
+[0;32mI (357217) BRAIN: Child 1 detected![0m
+[0;32mI (357217) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (357727) BRAIN: Child 1: RED[0m
+[0;32mI (358727) BRAIN: Child 1: GREEN[0m
+[0;32mI (359727) BRAIN: Child 1: BLUE[0m
+[0;32mI (360727) BRAIN: Child 1: CLEAR[0m
+[0;32mI (363227) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (363227) BRAIN: === I²C SCAN ===[0m
+[0;32mI (363227) BRAIN: Found device at 0x08[0m
+[0;32mI (363227) BRAIN: Total devices: 1[0m
+[0;32mI (363227) BRAIN: Child 1 detected![0m
+[0;32mI (363227) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (363737) BRAIN: Child 1: RED[0m
+[0;32mI (364737) BRAIN: Child 1: GREEN[0m
+[0;32mI (365737) BRAIN: Child 1: BLUE[0m
+[0;32mI (366737) BRAIN: Child 1: CLEAR[0m
+[0;32mI (369237) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (369237) BRAIN: === I²C SCAN ===[0m
+[0;32mI (369237) BRAIN: Found device at 0x08[0m
+[0;32mI (369237) BRAIN: Total devices: 1[0m
+[0;32mI (369237) BRAIN: Child 1 detected![0m
+[0;32mI (369237) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (369747) BRAIN: Child 1: RED[0m
+[0;32mI (370747) BRAIN: Child 1: GREEN[0m
+[0;32mI (371747) BRAIN: Child 1: BLUE[0m
+[0;32mI (372747) BRAIN: Child 1: CLEAR[0m
+[0;32mI (375247) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (375247) BRAIN: === I²C SCAN ===[0m
+[0;32mI (375247) BRAIN: Found device at 0x08[0m
+[0;32mI (375247) BRAIN: Total devices: 1[0m
+[0;32mI (375247) BRAIN: Child 1 detected![0m
+[0;32mI (375247) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (375757) BRAIN: Child 1: RED[0m
+[0;32mI (376757) BRAIN: Child 1: GREEN[0m
+[0;32mI (377757) BRAIN: Child 1: BLUE[0m
+[0;32mI (378757) BRAIN: Child 1: CLEAR[0m
+[0;32mI (381257) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (381257) BRAIN: === I²C SCAN ===[0m
+[0;32mI (381257) BRAIN: Found device at 0x08[0m
+[0;32mI (381257) BRAIN: Total devices: 1[0m
+[0;32mI (381257) BRAIN: Child 1 detected![0m
+[0;32mI (381257) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (381767) BRAIN: Child 1: RED[0m
+[0;32mI (382767) BRAIN: Child 1: GREEN[0m
+[0;32mI (383767) BRAIN: Child 1: BLUE[0m
+[0;32mI (384767) BRAIN: Child 1: CLEAR[0m
+[0;32mI (387267) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (387267) BRAIN: === I²C SCAN ===[0m
+[0;32mI (387267) BRAIN: Found device at 0x08[0m
+[0;32mI (387267) BRAIN: Total devices: 1[0m
+[0;32mI (387267) BRAIN: Child 1 detected![0m
+[0;32mI (387267) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (387777) BRAIN: Child 1: RED[0m
+[0;32mI (388777) BRAIN: Child 1: GREEN[0m
+[0;32mI (389777) BRAIN: Child 1: BLUE[0m
+[0;32mI (390777) BRAIN: Child 1: CLEAR[0m
+[0;32mI (393277) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (393277) BRAIN: === I²C SCAN ===[0m
+[0;32mI (393277) BRAIN: Found device at 0x08[0m
+[0;32mI (393277) BRAIN: Total devices: 1[0m
+[0;32mI (393277) BRAIN: Child 1 detected![0m
+[0;32mI (393277) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (393787) BRAIN: Child 1: RED[0m
+[0;32mI (394787) BRAIN: Child 1: GREEN[0m
+[0;32mI (395787) BRAIN: Child 1: BLUE[0m
+[0;32mI (396787) BRAIN: Child 1: CLEAR[0m
+[0;32mI (399287) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (399287) BRAIN: === I²C SCAN ===[0m
+[0;32mI (399287) BRAIN: Found device at 0x08[0m
+[0;32mI (399287) BRAIN: Total devices: 1[0m
+[0;32mI (399287) BRAIN: Child 1 detected![0m
+[0;32mI (399287) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (399797) BRAIN: Child 1: RED[0m
+[0;32mI (400797) BRAIN: Child 1: GREEN[0m
+[0;32mI (401797) BRAIN: Child 1: BLUE[0m
+[0;32mI (402797) BRAIN: Child 1: CLEAR[0m
+[0;32mI (405297) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (405297) BRAIN: === I²C SCAN ===[0m
+[0;32mI (405297) BRAIN: Found device at 0x08[0m
+[0;32mI (405297) BRAIN: Total devices: 1[0m
+[0;32mI (405297) BRAIN: Child 1 detected![0m
+[0;32mI (405297) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (405807) BRAIN: Child 1: RED[0m
+[0;32mI (406807) BRAIN: Child 1: GREEN[0m
+[0;32mI (407807) BRAIN: Child 1: BLUE[0m
+[0;32mI (408807) BRAIN: Child 1: CLEAR[0m
+[0;32mI (411307) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (411307) BRAIN: === I²C SCAN ===[0m
+[0;32mI (411307) BRAIN: Found device at 0x08[0m
+[0;32mI (411307) BRAIN: Total devices: 1[0m
+[0;32mI (411307) BRAIN: Child 1 detected![0m
+[0;32mI (411307) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (411817) BRAIN: Child 1: RED[0m
+[0;32mI (412817) BRAIN: Child 1: GREEN[0m
+[0;32mI (413817) BRAIN: Child 1: BLUE[0m
+[0;32mI (414817) BRAIN: Child 1: CLEAR[0m
+[0;32mI (417317) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (417317) BRAIN: === I²C SCAN ===[0m
+[0;32mI (417317) BRAIN: Found device at 0x08[0m
+[0;32mI (417317) BRAIN: Total devices: 1[0m
+[0;32mI (417317) BRAIN: Child 1 detected![0m
+[0;32mI (417317) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (417827) BRAIN: Child 1: RED[0m
+[0;32mI (418827) BRAIN: Child 1: GREEN[0m
+[0;32mI (419827) BRAIN: Child 1: BLUE[0m
+[0;32mI (420827) BRAIN: Child 1: CLEAR[0m
+[0;32mI (423327) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (423327) BRAIN: === I²C SCAN ===[0m
+[0;32mI (423327) BRAIN: Found device at 0x08[0m
+[0;32mI (423327) BRAIN: Total devices: 1[0m
+[0;32mI (423327) BRAIN: Child 1 detected![0m
+[0;32mI (423327) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (423837) BRAIN: Child 1: RED[0m
+[0;32mI (424837) BRAIN: Child 1: GREEN[0m
+[0;32mI (425837) BRAIN: Child 1: BLUE[0m
+[0;32mI (426837) BRAIN: Child 1: CLEAR[0m
+[0;32mI (429337) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (429337) BRAIN: === I²C SCAN ===[0m
+[0;32mI (429337) BRAIN: Found device at 0x08[0m
+[0;32mI (429337) BRAIN: Total devices: 1[0m
+[0;32mI (429337) BRAIN: Child 1 detected![0m
+[0;32mI (429337) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (429847) BRAIN: Child 1: RED[0m
+[0;32mI (430847) BRAIN: Child 1: GREEN[0m
+[0;32mI (431847) BRAIN: Child 1: BLUE[0m
+[0;32mI (432847) BRAIN: Child 1: CLEAR[0m
+[0;32mI (435347) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (435347) BRAIN: === I²C SCAN ===[0m
+[0;32mI (435347) BRAIN: Found device at 0x08[0m
+[0;32mI (435347) BRAIN: Total devices: 1[0m
+[0;32mI (435347) BRAIN: Child 1 detected![0m
+[0;32mI (435347) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (435857) BRAIN: Child 1: RED[0m
+[0;32mI (436857) BRAIN: Child 1: GREEN[0m
+[0;32mI (437857) BRAIN: Child 1: BLUE[0m
+[0;32mI (438857) BRAIN: Child 1: CLEAR[0m
+[0;32mI (441357) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (441357) BRAIN: === I²C SCAN ===[0m
+[0;32mI (441357) BRAIN: Found device at 0x08[0m
+[0;32mI (441357) BRAIN: Total devices: 1[0m
+[0;32mI (441357) BRAIN: Child 1 detected![0m
+[0;32mI (441357) BRAIN: Child 1: Setting brightness to 30%[0m
+[0;32mI (441867) BRAIN: Child 1: RED[0m
+[0;32mI (442867) BRAIN: Child 1: GREEN[0m
+[0;32mI (443867) BRAIN: Child 1: BLUE[0m
+[0;32mI (444867) BRAIN: Child 1: CLEAR[0m
+[0;32mI (447367) BRAIN: [0m
+--- NEW CYCLE ---
+[0;32mI (447367) BRAIN: === I²C SCAN ===[0m
+[0;32mI (447367) BRAIN: Found device at 0x08[0m
+[0;32mI
