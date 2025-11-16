@@ -247,7 +247,7 @@ I (3750) DEMO: Child 1: GREEN
 
 ## Current Features
 
-### ✅ **Implemented**
+###  **Implemented**
 - [x] I²C master initialization
 - [x] Device scanning and discovery (0x08-0x0F)
 - [x] Basic command transmission
@@ -287,57 +287,6 @@ I (3750) DEMO: Child 1: GREEN
 - `CMD_MATRIX_BRIGHTNESS` → Displays brightness percentage
 
 **Same commands, different outputs!** Demonstrates modularity.
-
----
-
-## Troubleshooting
-
-### **No Devices Detected**
-**Symptoms:** `Devices detected: 0` in serial output
-
-**Possible Causes:**
-1. Child blocks not powered on
-2. I²C wiring incorrect (SDA/SCL swapped or disconnected)
-3. Missing pull-up resistors (4.7kΩ recommended)
-4. Wrong I²C addresses in child blocks
-
-**Solutions:**
-- Check all power connections
-- Verify I²C wiring: SDA (GPIO 21), SCL (GPIO 22)
-- Add external 4.7kΩ pull-up resistors if needed
-- Check child block addresses match protocol (0x08, 0x09)
-
----
-
-### **Build Errors**
-**Error:** `Cannot find main component`
-
-**Solution:** Make sure you're in the `brain_block/` directory, not `brain_block/main/`
-
-**Error:** `Undefined reference to 'i2c_master_init'`
-
-**Solution:** Check that `CMakeLists.txt` lists all .c files:
-```cmake
-SRCS 
-    "main.c"
-    "i2c_comm.c"
-    "demo_task.c"
-```
-
----
-
-### **Child Block Not Responding**
-**Symptoms:** Brain detects device during scan, but commands don't work
-
-**Possible Causes:**
-1. Child block crashed or stuck
-2. I²C bus contention
-3. Command format mismatch
-
-**Solutions:**
-- Reset child block (power cycle)
-- Check child block serial output for errors
-- Verify protocol definitions match between Brain and Child
 
 ---
 
