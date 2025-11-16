@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "child_block_2",
-    "project_version":    "c765b6f-dirty",
+    "project_version":    "71c37f1-dirty",
     "project_path":       "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.5.1-2",
     "build_dir":          "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build",
@@ -1225,7 +1225,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/main/main.c" ],
+            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/main/main.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/main/i2c_comm.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/main/oled_display.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/main/command_handler.c" ],
             "include_dirs": [ ".", "../.." ]
         },
         "mbedtls": {
@@ -1480,7 +1480,7 @@
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/esp-idf/ssd1306/libssd1306.a",
-            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/components/ssd1306/ssd1306.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/components/ssd1306/ssd1306_spi.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/components/ssd1306/ssd1306_i2c_new.c" ],
+            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/components/ssd1306/ssd1306.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/components/ssd1306/ssd1306_spi.c" ],
             "include_dirs": [ "." ]
         },
         "tcp_transport": {

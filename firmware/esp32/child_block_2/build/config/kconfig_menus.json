@@ -6912,10 +6912,7 @@
                 "help": "GPIO number (IOxx) to I2C SCL.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to I2C.\nGPIOs 35-39 are input-only so cannot be used as outputs.",
                 "id": "SCL_GPIO",
                 "name": "SCL_GPIO",
-                "range": [
-                    0,
-                    48
-                ],
+                "range": null,
                 "title": "SCL GPIO number",
                 "type": "int"
             },
@@ -6925,10 +6922,7 @@
                 "help": "GPIO number (IOxx) to I2C SDA.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to I2C.\nGPIOs 35-39 are input-only so cannot be used as outputs.",
                 "id": "SDA_GPIO",
                 "name": "SDA_GPIO",
-                "range": [
-                    0,
-                    48
-                ],
+                "range": null,
                 "title": "SDA GPIO number",
                 "type": "int"
             },
@@ -6938,7 +6932,10 @@
                 "help": "GPIO number (IOxx) to SPI MOSI.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to MOSI.\nOn the ESP32, GPIOs 35-39 are input-only so cannot be used as outputs.\nOn the ESP32-S2, GPIO 46 is input-only so cannot be used as outputs.",
                 "id": "MOSI_GPIO",
                 "name": "MOSI_GPIO",
-                "range": null,
+                "range": [
+                    0,
+                    48
+                ],
                 "title": "MOSI GPIO number",
                 "type": "int"
             },
@@ -6948,7 +6945,10 @@
                 "help": "GPIO number (IOxx) to SPI SCLK.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to SCLK.\nOn the ESP32, GPIOs 35-39 are input-only so cannot be used as outputs.\nOn the ESP32-S2, GPIO 46 is input-only so cannot be used as outputs.",
                 "id": "SCLK_GPIO",
                 "name": "SCLK_GPIO",
-                "range": null,
+                "range": [
+                    0,
+                    48
+                ],
                 "title": "SCLK GPIO number",
                 "type": "int"
             },
@@ -6958,7 +6958,10 @@
                 "help": "GPIO number (IOxx) to SPI CS.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to CS.\nGPIOs 35-39 are input-only so cannot be used as outputs.",
                 "id": "CS_GPIO",
                 "name": "CS_GPIO",
-                "range": null,
+                "range": [
+                    0,
+                    48
+                ],
                 "title": "CS GPIO number",
                 "type": "int"
             },
@@ -6968,7 +6971,10 @@
                 "help": "GPIO number (IOxx) to SPI DC.\nSome GPIOs are used for other purposes (flash connections, etc.) and cannot be used to DC.\nGPIOs 35-39 are input-only so cannot be used as outputs.",
                 "id": "DC_GPIO",
                 "name": "DC_GPIO",
-                "range": null,
+                "range": [
+                    0,
+                    48
+                ],
                 "title": "DC GPIO number",
                 "type": "int"
             },
