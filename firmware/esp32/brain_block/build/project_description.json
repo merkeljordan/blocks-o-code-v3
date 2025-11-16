@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "brain_block",
-    "project_version":    "c765b6f-dirty",
+    "project_version":    "a1edc97-dirty",
     "project_path":       "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.5.1-2",
     "build_dir":          "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build",
@@ -1220,13 +1220,13 @@
             "dir": "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main",
             "type": "LIBRARY",
             "lib": "__idf_main",
-            "reqs": [ "driver" ],
+            "reqs": [],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
             "file": "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/esp-idf/main/libmain.a",
-            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main/main.c" ],
-            "include_dirs": [ ".", "../.." ]
+            "sources": [ "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main/main.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main/i2c_comm.c", "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main/demo_task.c" ],
+            "include_dirs": [ "." ]
         },
         "mbedtls": {
             "alias": "idf::mbedtls",
@@ -2907,11 +2907,11 @@
             "prefix": "idf",
             "dir": "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/main",
             "lib": "__idf_main",
-            "reqs": [ "driver" ],
+            "reqs": [],
             "priv_reqs": [],
             "managed_reqs": [],
             "managed_priv_reqs": [],
-            "include_dirs": [ ".", "../.." ]
+            "include_dirs": [ "." ]
         }
     },
     "debug_prefix_map_gdbinit": "",

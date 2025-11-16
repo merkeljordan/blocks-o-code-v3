@@ -1,0 +1,1206 @@
+Command: C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools/idf_monitor.py -p COM6 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\brain_block\build\brain_block.elf C:\Blocks_O_Code\blocks-o-code-v3\firmware\esp32\brain_block\build\bootloader\bootloader.elf --force-color -m 'C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe' 'C:\Espressif\frameworks\esp-idf-v5.5.1-2\tools\idf.py' '-p' 'COM6'
+ESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_�ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5.1 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Nov 15 2025 19:14:11[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (40) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (48) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (57) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (70) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (80) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=0b38ch ( 45964) map[0m
+[0;32mI (103) esp_image: segment 1: paddr=0001b3b4 vaddr=3ffb0000 size=02428h (  9256) load[0m
+[0;32mI (107) esp_image: segment 2: paddr=0001d7e4 vaddr=40080000 size=02834h ( 10292) load[0m
+[0;32mI (111) esp_image: segment 3: paddr=00020020 vaddr=400d0020 size=15de4h ( 89572) map[0m
+[0;32mI (145) esp_image: segment 4: paddr=00035e0c vaddr=40082834 size=0bce0h ( 48352) load[0m
+[0;32mI (164) esp_image: segment 5: paddr=00041af4 vaddr=50000000 size=00020h (    32) load[0m
+[0;32mI (172) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (172) boot: Disabling RNG early entropy source...[0m
+[0;32mI (183) cpu_start: Multicore app[0m
+[0;32mI (191) cpu_start: Pro cpu start user code[0m
+[0;32mI (191) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (191) app_init: Application information:[0m
+[0;32mI (191) app_init: Project name:     brain_block[0m
+[0;32mI (195) app_init: App version:      a1edc97-dirty[0m
+[0;32mI (200) app_init: Compile time:     Nov 15 2025 19:13:57[0m
+[0;32mI (205) app_init: ELF file SHA256:  c64270fed...[0m
+[0;32mI (209) app_init: ESP-IDF:          v5.5.1[0m
+[0;32mI (213) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (217) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (221) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (225) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (231) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (236) heap_init: At 3FFB2D00 len 0002D300 (180 KiB): DRAM[0m
+[0;32mI (241) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (247) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (252) heap_init: At 4008E514 len 00011AEC (70 KiB): IRAM[0m
+[0;32mI (259) spi_flash: detected chip: generic[0m
+[0;32mI (261) spi_flash: flash io: dio[0m
+[0;33mW (264) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;33mW (276) i2c: This driver is an old driver, please migrate your application code to adapt `driver/i2c_master.h`[0m
+[0;32mI (287) main_task: Started on CPU0[0m
+[0;32mI (297) main_task: Calling app_main()[0m
+[0;32mI (297) BRAIN: === BRAIN BLOCK ===[0m
+[0;32mI (297) I2C_COMM: Init I²C Master: SDA=21, SCL=22[0m
+[0;32mI (797) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (797) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (797) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (797) I2C_COMM: Devices detected: 2[0m
+[0;32mI (797) BRAIN: Brain Block initialized![0m
+[0;32mI (797) main_task: Returned from app_main()[0m
+[0;32mI (2797) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (2797) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (2797) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (2797) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (2797) I2C_COMM: Devices detected: 2[0m
+[0;32mI (2797) DEMO: Child 1 detected![0m
+[0;32mI (2797) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (3307) DEMO: Child 1: RED[0m
+[0;32mI (4307) DEMO: Child 1: GREEN[0m
+[0;32mI (5307) DEMO: Child 1: BLUE[0m
+[0;32mI (6307) DEMO: Child 1: CLEAR[0m
+[0;32mI (6807) DEMO: Child 2 detected![0m
+[0;32mI (6807) DEMO: Child 2: Setting brightness[0m
+[0;32mI (7307) DEMO: Child 2: YELLOW[0m
+[0;32mI (8307) DEMO: Child 2: CYAN[0m
+[0;32mI (9307) DEMO: Child 2: MAGENTA[0m
+[0;32mI (10307) DEMO: Child 2: CLEAR[0m
+[0;32mI (12307) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (12307) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (12307) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (12307) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (12307) I2C_COMM: Devices detected: 2[0m
+[0;32mI (12307) DEMO: Child 1 detected![0m
+[0;32mI (12317) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (12817) DEMO: Child 1: RED[0m
+[0;32mI (13817) DEMO: Child 1: GREEN[0m
+[0;32mI (14817) DEMO: Child 1: BLUE[0m
+[0;32mI (15817) DEMO: Child 1: CLEAR[0m
+[0;32mI (16317) DEMO: Child 2 detected![0m
+[0;32mI (16317) DEMO: Child 2: Setting brightness[0m
+[0;32mI (16817) DEMO: Child 2: YELLOW[0m
+[0;32mI (17817) DEMO: Child 2: CYAN[0m
+[0;32mI (18817) DEMO: Child 2: MAGENTA[0m
+[0;32mI (19817) DEMO: Child 2: CLEAR[0m
+[0;32mI (21817) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (21817) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (21817) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (21817) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (21817) I2C_COMM: Devices detected: 2[0m
+[0;32mI (21817) DEMO: Child 1 detected![0m
+[0;32mI (21827) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (22327) DEMO: Child 1: RED[0m
+[0;32mI (23327) DEMO: Child 1: GREEN[0m
+[0;32mI (24327) DEMO: Child 1: BLUE[0m
+[0;32mI (25327) DEMO: Child 1: CLEAR[0m
+[0;32mI (25827) DEMO: Child 2 detected![0m
+[0;32mI (25827) DEMO: Child 2: Setting brightness[0m
+[0;32mI (26327) DEMO: Child 2: YELLOW[0m
+[0;32mI (27327) DEMO: Child 2: CYAN[0m
+[0;32mI (28327) DEMO: Child 2: MAGENTA[0m
+[0;32mI (29327) DEMO: Child 2: CLEAR[0m
+[0;32mI (31327) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (31327) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (31327) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (31327) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (31327) I2C_COMM: Devices detected: 2[0m
+[0;32mI (31327) DEMO: Child 1 detected![0m
+[0;32mI (31337) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (31837) DEMO: Child 1: RED[0m
+[0;32mI (32837) DEMO: Child 1: GREEN[0m
+[0;32mI (33837) DEMO: Child 1: BLUE[0m
+[0;32mI (34837) DEMO: Child 1: CLEAR[0m
+[0;32mI (35337) DEMO: Child 2 detected![0m
+[0;32mI (35337) DEMO: Child 2: Setting brightness[0m
+[0;32mI (35837) DEMO: Child 2: YELLOW[0m
+[0;32mI (36837) DEMO: Child 2: CYAN[0m
+[0;32mI (37837) DEMO: Child 2: MAGENTA[0m
+[0;32mI (38837) DEMO: Child 2: CLEAR[0m
+[0;32mI (40837) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (40837) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (40837) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (40837) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (40837) I2C_COMM: Devices detected: 2[0m
+[0;32mI (40837) DEMO: Child 1 detected![0m
+[0;32mI (40847) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (41347) DEMO: Child 1: RED[0m
+[0;32mI (42347) DEMO: Child 1: GREEN[0m
+[0;32mI (43347) DEMO: Child 1: BLUE[0m
+[0;32mI (44347) DEMO: Child 1: CLEAR[0m
+[0;32mI (44847) DEMO: Child 2 detected![0m
+[0;32mI (44847) DEMO: Child 2: Setting brightness[0m
+[0;32mI (45347) DEMO: Child 2: YELLOW[0m
+[0;32mI (46347) DEMO: Child 2: CYAN[0m
+[0;32mI (47347) DEMO: Child 2: MAGENTA[0m
+[0;32mI (48347) DEMO: Child 2: CLEAR[0m
+[0;32mI (50347) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (50347) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (50347) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (50347) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (50347) I2C_COMM: Devices detected: 2[0m
+[0;32mI (50347) DEMO: Child 1 detected![0m
+[0;32mI (50357) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (50857) DEMO: Child 1: RED[0m
+[0;32mI (51857) DEMO: Child 1: GREEN[0m
+[0;32mI (52857) DEMO: Child 1: BLUE[0m
+[0;32mI (53857) DEMO: Child 1: CLEAR[0m
+[0;32mI (54357) DEMO: Child 2 detected![0m
+[0;32mI (54357) DEMO: Child 2: Setting brightness[0m
+[0;32mI (54857) DEMO: Child 2: YELLOW[0m
+[0;32mI (55857) DEMO: Child 2: CYAN[0m
+[0;32mI (56857) DEMO: Child 2: MAGENTA[0m
+[0;32mI (57857) DEMO: Child 2: CLEAR[0m
+[0;32mI (59857) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (59857) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (59857) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (59857) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (59857) I2C_COMM: Devices detected: 2[0m
+[0;32mI (59857) DEMO: Child 1 detected![0m
+[0;32mI (59867) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (60367) DEMO: Child 1: RED[0m
+[0;32mI (61367) DEMO: Child 1: GREEN[0m
+[0;32mI (62367) DEMO: Child 1: BLUE[0m
+[0;32mI (63367) DEMO: Child 1: CLEAR[0m
+[0;32mI (63867) DEMO: Child 2 detected![0m
+[0;32mI (63867) DEMO: Child 2: Setting brightness[0m
+[0;32mI (64367) DEMO: Child 2: YELLOW[0m
+[0;32mI (65367) DEMO: Child 2: CYAN[0m
+[0;32mI (66367) DEMO: Child 2: MAGENTA[0m
+[0;32mI (67367) DEMO: Child 2: CLEAR[0m
+[0;32mI (69367) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (69367) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (69367) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (69367) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (69367) I2C_COMM: Devices detected: 2[0m
+[0;32mI (69367) DEMO: Child 1 detected![0m
+[0;32mI (69377) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (69877) DEMO: Child 1: RED[0m
+[0;32mI (70877) DEMO: Child 1: GREEN[0m
+[0;32mI (71877) DEMO: Child 1: BLUE[0m
+[0;32mI (72877) DEMO: Child 1: CLEAR[0m
+[0;32mI (73377) DEMO: Child 2 detected![0m
+[0;32mI (73377) DEMO: Child 2: Setting brightness[0m
+[0;32mI (73877) DEMO: Child 2: YELLOW[0m
+[0;32mI (74877) DEMO: Child 2: CYAN[0m
+[0;32mI (75877) DEMO: Child 2: MAGENTA[0m
+[0;32mI (76877) DEMO: Child 2: CLEAR[0m
+[0;32mI (78877) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (78877) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (78877) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (78877) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (78877) I2C_COMM: Devices detected: 2[0m
+[0;32mI (78877) DEMO: Child 1 detected![0m
+[0;32mI (78887) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (79387) DEMO: Child 1: RED[0m
+[0;32mI (80387) DEMO: Child 1: GREEN[0m
+[0;32mI (81387) DEMO: Child 1: BLUE[0m
+[0;32mI (82387) DEMO: Child 1: CLEAR[0m
+[0;32mI (82887) DEMO: Child 2 detected![0m
+[0;32mI (82887) DEMO: Child 2: Setting brightness[0m
+[0;32mI (83387) DEMO: Child 2: YELLOW[0m
+[0;32mI (84387) DEMO: Child 2: CYAN[0m
+[0;32mI (85387) DEMO: Child 2: MAGENTA[0m
+[0;32mI (86387) DEMO: Child 2: CLEAR[0m
+[0;32mI (88387) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (88387) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (88387) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (88387) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (88387) I2C_COMM: Devices detected: 2[0m
+[0;32mI (88387) DEMO: Child 1 detected![0m
+[0;32mI (88397) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (88897) DEMO: Child 1: RED[0m
+[0;32mI (89897) DEMO: Child 1: GREEN[0m
+[0;32mI (90897) DEMO: Child 1: BLUE[0m
+[0;32mI (91897) DEMO: Child 1: CLEAR[0m
+[0;32mI (92397) DEMO: Child 2 detected![0m
+[0;32mI (92397) DEMO: Child 2: Setting brightness[0m
+[0;32mI (92897) DEMO: Child 2: YELLOW[0m
+[0;32mI (93897) DEMO: Child 2: CYAN[0m
+[0;32mI (94897) DEMO: Child 2: MAGENTA[0m
+[0;32mI (95897) DEMO: Child 2: CLEAR[0m
+[0;32mI (97897) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (97897) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (97897) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (97897) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (97897) I2C_COMM: Devices detected: 2[0m
+[0;32mI (97897) DEMO: Child 1 detected![0m
+[0;32mI (97907) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (98407) DEMO: Child 1: RED[0m
+[0;32mI (99407) DEMO: Child 1: GREEN[0m
+[0;32mI (100407) DEMO: Child 1: BLUE[0m
+[0;32mI (101407) DEMO: Child 1: CLEAR[0m
+[0;32mI (101907) DEMO: Child 2 detected![0m
+[0;32mI (101907) DEMO: Child 2: Setting brightness[0m
+[0;32mI (102407) DEMO: Child 2: YELLOW[0m
+[0;32mI (103407) DEMO: Child 2: CYAN[0m
+[0;32mI (104407) DEMO: Child 2: MAGENTA[0m
+[0;32mI (105407) DEMO: Child 2: CLEAR[0m
+[0;32mI (107407) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (107407) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (107407) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (107407) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (107407) I2C_COMM: Devices detected: 2[0m
+[0;32mI (107407) DEMO: Child 1 detected![0m
+[0;32mI (107417) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (107917) DEMO: Child 1: RED[0m
+[0;32mI (108917) DEMO: Child 1: GREEN[0m
+[0;32mI (109917) DEMO: Child 1: BLUE[0m
+[0;32mI (110917) DEMO: Child 1: CLEAR[0m
+[0;32mI (111417) DEMO: Child 2 detected![0m
+[0;32mI (111417) DEMO: Child 2: Setting brightness[0m
+[0;32mI (111917) DEMO: Child 2: YELLOW[0m
+[0;32mI (112917) DEMO: Child 2: CYAN[0m
+[0;32mI (113917) DEMO: Child 2: MAGENTA[0m
+[0;32mI (114917) DEMO: Child 2: CLEAR[0m
+[0;32mI (116917) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (116917) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (116917) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (116917) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (116917) I2C_COMM: Devices detected: 2[0m
+[0;32mI (116917) DEMO: Child 1 detected![0m
+[0;32mI (116927) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (117427) DEMO: Child 1: RED[0m
+[0;32mI (118427) DEMO: Child 1: GREEN[0m
+[0;32mI (119427) DEMO: Child 1: BLUE[0m
+[0;32mI (120427) DEMO: Child 1: CLEAR[0m
+[0;32mI (120927) DEMO: Child 2 detected![0m
+[0;32mI (120927) DEMO: Child 2: Setting brightness[0m
+[0;32mI (121427) DEMO: Child 2: YELLOW[0m
+[0;32mI (122427) DEMO: Child 2: CYAN[0m
+[0;32mI (123427) DEMO: Child 2: MAGENTA[0m
+[0;32mI (124427) DEMO: Child 2: CLEAR[0m
+[0;32mI (126427) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (126427) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (126427) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (126427) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (126427) I2C_COMM: Devices detected: 2[0m
+[0;32mI (126427) DEMO: Child 1 detected![0m
+[0;32mI (126437) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (126937) DEMO: Child 1: RED[0m
+[0;32mI (127937) DEMO: Child 1: GREEN[0m
+[0;32mI (128937) DEMO: Child 1: BLUE[0m
+[0;32mI (129937) DEMO: Child 1: CLEAR[0m
+[0;32mI (130437) DEMO: Child 2 detected![0m
+[0;32mI (130437) DEMO: Child 2: Setting brightness[0m
+[0;32mI (130937) DEMO: Child 2: YELLOW[0m
+[0;32mI (131937) DEMO: Child 2: CYAN[0m
+[0;32mI (132937) DEMO: Child 2: MAGENTA[0m
+[0;32mI (133937) DEMO: Child 2: CLEAR[0m
+[0;32mI (135937) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (135937) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (135937) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (135937) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (135937) I2C_COMM: Devices detected: 2[0m
+[0;32mI (135937) DEMO: Child 1 detected![0m
+[0;32mI (135947) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (136447) DEMO: Child 1: RED[0m
+[0;32mI (137447) DEMO: Child 1: GREEN[0m
+[0;32mI (138447) DEMO: Child 1: BLUE[0m
+[0;32mI (139447) DEMO: Child 1: CLEAR[0m
+[0;32mI (139947) DEMO: Child 2 detected![0m
+[0;32mI (139947) DEMO: Child 2: Setting brightness[0m
+[0;32mI (140447) DEMO: Child 2: YELLOW[0m
+[0;32mI (141447) DEMO: Child 2: CYAN[0m
+[0;32mI (142447) DEMO: Child 2: MAGENTA[0m
+[0;32mI (143447) DEMO: Child 2: CLEAR[0m
+[0;32mI (145447) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (145447) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (145447) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (145447) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (145447) I2C_COMM: Devices detected: 2[0m
+[0;32mI (145447) DEMO: Child 1 detected![0m
+[0;32mI (145457) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (145957) DEMO: Child 1: RED[0m
+[0;32mI (146957) DEMO: Child 1: GREEN[0m
+[0;32mI (147957) DEMO: Child 1: BLUE[0m
+[0;32mI (148957) DEMO: Child 1: CLEAR[0m
+[0;32mI (149457) DEMO: Child 2 detected![0m
+[0;32mI (149457) DEMO: Child 2: Setting brightness[0m
+[0;32mI (149957) DEMO: Child 2: YELLOW[0m
+[0;32mI (150957) DEMO: Child 2: CYAN[0m
+[0;32mI (151957) DEMO: Child 2: MAGENTA[0m
+[0;32mI (152957) DEMO: Child 2: CLEAR[0m
+[0;32mI (154957) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (154957) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (154957) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (154957) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (154957) I2C_COMM: Devices detected: 2[0m
+[0;32mI (154957) DEMO: Child 1 detected![0m
+[0;32mI (154967) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (155467) DEMO: Child 1: RED[0m
+[0;32mI (156467) DEMO: Child 1: GREEN[0m
+[0;32mI (157467) DEMO: Child 1: BLUE[0m
+[0;32mI (158467) DEMO: Child 1: CLEAR[0m
+[0;32mI (158967) DEMO: Child 2 detected![0m
+[0;32mI (158967) DEMO: Child 2: Setting brightness[0m
+[0;32mI (159467) DEMO: Child 2: YELLOW[0m
+[0;32mI (160467) DEMO: Child 2: CYAN[0m
+[0;32mI (161467) DEMO: Child 2: MAGENTA[0m
+[0;32mI (162467) DEMO: Child 2: CLEAR[0m
+[0;32mI (164467) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (164467) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (164467) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (164467) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (164467) I2C_COMM: Devices detected: 2[0m
+[0;32mI (164467) DEMO: Child 1 detected![0m
+[0;32mI (164477) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (164977) DEMO: Child 1: RED[0m
+[0;32mI (165977) DEMO: Child 1: GREEN[0m
+[0;32mI (166977) DEMO: Child 1: BLUE[0m
+[0;32mI (167977) DEMO: Child 1: CLEAR[0m
+[0;32mI (168477) DEMO: Child 2 detected![0m
+[0;32mI (168477) DEMO: Child 2: Setting brightness[0m
+[0;32mI (168977) DEMO: Child 2: YELLOW[0m
+[0;32mI (169977) DEMO: Child 2: CYAN[0m
+[0;32mI (170977) DEMO: Child 2: MAGENTA[0m
+[0;32mI (171977) DEMO: Child 2: CLEAR[0m
+[0;32mI (173977) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (173977) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (173977) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (173977) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (173977) I2C_COMM: Devices detected: 2[0m
+[0;32mI (173977) DEMO: Child 1 detected![0m
+[0;32mI (173987) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (174487) DEMO: Child 1: RED[0m
+[0;32mI (175487) DEMO: Child 1: GREEN[0m
+[0;32mI (176487) DEMO: Child 1: BLUE[0m
+[0;32mI (177487) DEMO: Child 1: CLEAR[0m
+[0;32mI (177987) DEMO: Child 2 detected![0m
+[0;32mI (177987) DEMO: Child 2: Setting brightness[0m
+[0;32mI (178487) DEMO: Child 2: YELLOW[0m
+[0;32mI (179487) DEMO: Child 2: CYAN[0m
+[0;32mI (180487) DEMO: Child 2: MAGENTA[0m
+[0;32mI (181487) DEMO: Child 2: CLEAR[0m
+[0;32mI (183487) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (183487) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (183487) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (183487) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (183487) I2C_COMM: Devices detected: 2[0m
+[0;32mI (183487) DEMO: Child 1 detected![0m
+[0;32mI (183497) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (183997) DEMO: Child 1: RED[0m
+[0;32mI (184997) DEMO: Child 1: GREEN[0m
+[0;32mI (185997) DEMO: Child 1: BLUE[0m
+[0;32mI (186997) DEMO: Child 1: CLEAR[0m
+[0;32mI (187497) DEMO: Child 2 detected![0m
+[0;32mI (187497) DEMO: Child 2: Setting brightness[0m
+[0;32mI (187997) DEMO: Child 2: YELLOW[0m
+[0;32mI (188997) DEMO: Child 2: CYAN[0m
+[0;32mI (189997) DEMO: Child 2: MAGENTA[0m
+[0;32mI (190997) DEMO: Child 2: CLEAR[0m
+[0;32mI (192997) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (192997) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (192997) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (192997) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (192997) I2C_COMM: Devices detected: 2[0m
+[0;32mI (192997) DEMO: Child 1 detected![0m
+[0;32mI (193007) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (193507) DEMO: Child 1: RED[0m
+[0;32mI (194507) DEMO: Child 1: GREEN[0m
+[0;32mI (195507) DEMO: Child 1: BLUE[0m
+[0;32mI (196507) DEMO: Child 1: CLEAR[0m
+[0;32mI (197007) DEMO: Child 2 detected![0m
+[0;32mI (197007) DEMO: Child 2: Setting brightness[0m
+[0;32mI (197507) DEMO: Child 2: YELLOW[0m
+[0;32mI (198507) DEMO: Child 2: CYAN[0m
+[0;32mI (199507) DEMO: Child 2: MAGENTA[0m
+[0;32mI (200507) DEMO: Child 2: CLEAR[0m
+[0;32mI (202507) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (202507) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (202507) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (202507) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (202507) I2C_COMM: Devices detected: 2[0m
+[0;32mI (202507) DEMO: Child 1 detected![0m
+[0;32mI (202517) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (203017) DEMO: Child 1: RED[0m
+[0;32mI (204017) DEMO: Child 1: GREEN[0m
+[0;32mI (205017) DEMO: Child 1: BLUE[0m
+[0;32mI (206017) DEMO: Child 1: CLEAR[0m
+[0;32mI (206517) DEMO: Child 2 detected![0m
+[0;32mI (206517) DEMO: Child 2: Setting brightness[0m
+[0;32mI (207017) DEMO: Child 2: YELLOW[0m
+[0;32mI (208017) DEMO: Child 2: CYAN[0m
+[0;32mI (209017) DEMO: Child 2: MAGENTA[0m
+[0;32mI (210017) DEMO: Child 2: CLEAR[0m
+[0;32mI (212017) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (212017) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (212017) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (212017) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (212017) I2C_COMM: Devices detected: 2[0m
+[0;32mI (212017) DEMO: Child 1 detected![0m
+[0;32mI (212027) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (212527) DEMO: Child 1: RED[0m
+[0;32mI (213527) DEMO: Child 1: GREEN[0m
+[0;32mI (214527) DEMO: Child 1: BLUE[0m
+[0;32mI (215527) DEMO: Child 1: CLEAR[0m
+[0;32mI (216027) DEMO: Child 2 detected![0m
+[0;32mI (216027) DEMO: Child 2: Setting brightness[0m
+[0;32mI (216527) DEMO: Child 2: YELLOW[0m
+[0;32mI (217527) DEMO: Child 2: CYAN[0m
+[0;32mI (218527) DEMO: Child 2: MAGENTA[0m
+[0;32mI (219527) DEMO: Child 2: CLEAR[0m
+[0;32mI (221527) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (221527) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (221527) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (221527) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (221527) I2C_COMM: Devices detected: 2[0m
+[0;32mI (221527) DEMO: Child 1 detected![0m
+[0;32mI (221537) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (222037) DEMO: Child 1: RED[0m
+[0;32mI (223037) DEMO: Child 1: GREEN[0m
+[0;32mI (224037) DEMO: Child 1: BLUE[0m
+[0;32mI (225037) DEMO: Child 1: CLEAR[0m
+[0;32mI (225537) DEMO: Child 2 detected![0m
+[0;32mI (225537) DEMO: Child 2: Setting brightness[0m
+[0;32mI (226037) DEMO: Child 2: YELLOW[0m
+[0;32mI (227037) DEMO: Child 2: CYAN[0m
+[0;32mI (228037) DEMO: Child 2: MAGENTA[0m
+[0;32mI (229037) DEMO: Child 2: CLEAR[0m
+[0;32mI (231037) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (231037) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (231037) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (231037) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (231037) I2C_COMM: Devices detected: 2[0m
+[0;32mI (231037) DEMO: Child 1 detected![0m
+[0;32mI (231047) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (231547) DEMO: Child 1: RED[0m
+[0;32mI (232547) DEMO: Child 1: GREEN[0m
+[0;32mI (233547) DEMO: Child 1: BLUE[0m
+[0;32mI (234547) DEMO: Child 1: CLEAR[0m
+[0;32mI (235047) DEMO: Child 2 detected![0m
+[0;32mI (235047) DEMO: Child 2: Setting brightness[0m
+[0;32mI (235547) DEMO: Child 2: YELLOW[0m
+[0;32mI (236547) DEMO: Child 2: CYAN[0m
+[0;32mI (237547) DEMO: Child 2: MAGENTA[0m
+[0;32mI (238547) DEMO: Child 2: CLEAR[0m
+[0;32mI (240547) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (240547) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (240547) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (240547) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (240547) I2C_COMM: Devices detected: 2[0m
+[0;32mI (240547) DEMO: Child 1 detected![0m
+[0;32mI (240557) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (241057) DEMO: Child 1: RED[0m
+[0;32mI (242057) DEMO: Child 1: GREEN[0m
+[0;32mI (243057) DEMO: Child 1: BLUE[0m
+[0;32mI (244057) DEMO: Child 1: CLEAR[0m
+[0;32mI (244557) DEMO: Child 2 detected![0m
+[0;32mI (244557) DEMO: Child 2: Setting brightness[0m
+[0;32mI (245057) DEMO: Child 2: YELLOW[0m
+[0;32mI (246057) DEMO: Child 2: CYAN[0m
+[0;32mI (247057) DEMO: Child 2: MAGENTA[0m
+[0;32mI (248057) DEMO: Child 2: CLEAR[0m
+[0;32mI (250057) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (250057) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (250057) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (250057) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (250057) I2C_COMM: Devices detected: 2[0m
+[0;32mI (250057) DEMO: Child 1 detected![0m
+[0;32mI (250067) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (250567) DEMO: Child 1: RED[0m
+[0;32mI (251567) DEMO: Child 1: GREEN[0m
+[0;32mI (252567) DEMO: Child 1: BLUE[0m
+[0;32mI (253567) DEMO: Child 1: CLEAR[0m
+[0;32mI (254067) DEMO: Child 2 detected![0m
+[0;32mI (254067) DEMO: Child 2: Setting brightness[0m
+[0;32mI (254567) DEMO: Child 2: YELLOW[0m
+[0;32mI (255567) DEMO: Child 2: CYAN[0m
+[0;32mI (256567) DEMO: Child 2: MAGENTA[0m
+[0;32mI (257567) DEMO: Child 2: CLEAR[0m
+[0;32mI (259567) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (259567) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (259567) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (259567) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (259567) I2C_COMM: Devices detected: 2[0m
+[0;32mI (259567) DEMO: Child 1 detected![0m
+[0;32mI (259577) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (260077) DEMO: Child 1: RED[0m
+[0;32mI (261077) DEMO: Child 1: GREEN[0m
+[0;32mI (262077) DEMO: Child 1: BLUE[0m
+[0;32mI (263077) DEMO: Child 1: CLEAR[0m
+[0;32mI (263577) DEMO: Child 2 detected![0m
+[0;32mI (263577) DEMO: Child 2: Setting brightness[0m
+[0;32mI (264077) DEMO: Child 2: YELLOW[0m
+[0;32mI (265077) DEMO: Child 2: CYAN[0m
+[0;32mI (266077) DEMO: Child 2: MAGENTA[0m
+[0;32mI (267077) DEMO: Child 2: CLEAR[0m
+[0;32mI (269077) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (269077) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (269077) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (269077) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (269077) I2C_COMM: Devices detected: 2[0m
+[0;32mI (269077) DEMO: Child 1 detected![0m
+[0;32mI (269087) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (269587) DEMO: Child 1: RED[0m
+[0;32mI (270587) DEMO: Child 1: GREEN[0m
+[0;32mI (271587) DEMO: Child 1: BLUE[0m
+[0;32mI (272587) DEMO: Child 1: CLEAR[0m
+[0;32mI (273087) DEMO: Child 2 detected![0m
+[0;32mI (273087) DEMO: Child 2: Setting brightness[0m
+[0;32mI (273587) DEMO: Child 2: YELLOW[0m
+[0;32mI (274587) DEMO: Child 2: CYAN[0m
+[0;32mI (275587) DEMO: Child 2: MAGENTA[0m
+[0;32mI (276587) DEMO: Child 2: CLEAR[0m
+[0;32mI (278587) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (278587) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (278587) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (278587) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (278587) I2C_COMM: Devices detected: 2[0m
+[0;32mI (278587) DEMO: Child 1 detected![0m
+[0;32mI (278597) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (279097) DEMO: Child 1: RED[0m
+[0;32mI (280097) DEMO: Child 1: GREEN[0m
+[0;32mI (281097) DEMO: Child 1: BLUE[0m
+[0;32mI (282097) DEMO: Child 1: CLEAR[0m
+[0;32mI (282597) DEMO: Child 2 detected![0m
+[0;32mI (282597) DEMO: Child 2: Setting brightness[0m
+[0;32mI (283097) DEMO: Child 2: YELLOW[0m
+[0;32mI (284097) DEMO: Child 2: CYAN[0m
+[0;32mI (285097) DEMO: Child 2: MAGENTA[0m
+[0;32mI (286097) DEMO: Child 2: CLEAR[0m
+[0;32mI (288097) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (288097) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (288097) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (288097) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (288097) I2C_COMM: Devices detected: 2[0m
+[0;32mI (288097) DEMO: Child 1 detected![0m
+[0;32mI (288107) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (288607) DEMO: Child 1: RED[0m
+[0;32mI (289607) DEMO: Child 1: GREEN[0m
+[0;32mI (290607) DEMO: Child 1: BLUE[0m
+[0;32mI (291607) DEMO: Child 1: CLEAR[0m
+[0;32mI (292107) DEMO: Child 2 detected![0m
+[0;32mI (292107) DEMO: Child 2: Setting brightness[0m
+[0;32mI (292607) DEMO: Child 2: YELLOW[0m
+[0;32mI (293607) DEMO: Child 2: CYAN[0m
+[0;32mI (294607) DEMO: Child 2: MAGENTA[0m
+[0;32mI (295607) DEMO: Child 2: CLEAR[0m
+[0;32mI (297607) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (297607) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (297607) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (297607) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (297607) I2C_COMM: Devices detected: 2[0m
+[0;32mI (297607) DEMO: Child 1 detected![0m
+[0;32mI (297617) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (298117) DEMO: Child 1: RED[0m
+[0;32mI (299117) DEMO: Child 1: GREEN[0m
+[0;32mI (300117) DEMO: Child 1: BLUE[0m
+[0;32mI (301117) DEMO: Child 1: CLEAR[0m
+[0;32mI (301617) DEMO: Child 2 detected![0m
+[0;32mI (301617) DEMO: Child 2: Setting brightness[0m
+[0;32mI (302117) DEMO: Child 2: YELLOW[0m
+[0;32mI (303117) DEMO: Child 2: CYAN[0m
+[0;32mI (304117) DEMO: Child 2: MAGENTA[0m
+[0;32mI (305117) DEMO: Child 2: CLEAR[0m
+[0;32mI (307117) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (307117) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (307117) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (307117) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (307117) I2C_COMM: Devices detected: 2[0m
+[0;32mI (307117) DEMO: Child 1 detected![0m
+[0;32mI (307127) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (307627) DEMO: Child 1: RED[0m
+[0;32mI (308627) DEMO: Child 1: GREEN[0m
+[0;32mI (309627) DEMO: Child 1: BLUE[0m
+[0;32mI (310627) DEMO: Child 1: CLEAR[0m
+[0;32mI (311127) DEMO: Child 2 detected![0m
+[0;32mI (311127) DEMO: Child 2: Setting brightness[0m
+[0;32mI (311627) DEMO: Child 2: YELLOW[0m
+[0;32mI (312627) DEMO: Child 2: CYAN[0m
+[0;32mI (313627) DEMO: Child 2: MAGENTA[0m
+[0;32mI (314627) DEMO: Child 2: CLEAR[0m
+[0;32mI (316627) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (316627) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (316627) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (316627) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (316627) I2C_COMM: Devices detected: 2[0m
+[0;32mI (316627) DEMO: Child 1 detected![0m
+[0;32mI (316637) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (317137) DEMO: Child 1: RED[0m
+[0;32mI (318137) DEMO: Child 1: GREEN[0m
+[0;32mI (319137) DEMO: Child 1: BLUE[0m
+[0;32mI (320137) DEMO: Child 1: CLEAR[0m
+[0;32mI (320637) DEMO: Child 2 detected![0m
+[0;32mI (320637) DEMO: Child 2: Setting brightness[0m
+[0;32mI (321137) DEMO: Child 2: YELLOW[0m
+[0;32mI (322137) DEMO: Child 2: CYAN[0m
+[0;32mI (323137) DEMO: Child 2: MAGENTA[0m
+[0;32mI (324137) DEMO: Child 2: CLEAR[0m
+[0;32mI (326137) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (326137) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (326137) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (326137) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (326137) I2C_COMM: Devices detected: 2[0m
+[0;32mI (326137) DEMO: Child 1 detected![0m
+[0;32mI (326147) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (326647) DEMO: Child 1: RED[0m
+[0;32mI (327647) DEMO: Child 1: GREEN[0m
+[0;32mI (328647) DEMO: Child 1: BLUE[0m
+[0;32mI (329647) DEMO: Child 1: CLEAR[0m
+[0;32mI (330147) DEMO: Child 2 detected![0m
+[0;32mI (330147) DEMO: Child 2: Setting brightness[0m
+[0;32mI (330647) DEMO: Child 2: YELLOW[0m
+[0;32mI (331647) DEMO: Child 2: CYAN[0m
+[0;32mI (332647) DEMO: Child 2: MAGENTA[0m
+[0;32mI (333647) DEMO: Child 2: CLEAR[0m
+[0;32mI (335647) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (335647) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (335647) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (335647) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (335647) I2C_COMM: Devices detected: 2[0m
+[0;32mI (335647) DEMO: Child 1 detected![0m
+[0;32mI (335657) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (336157) DEMO: Child 1: RED[0m
+[0;32mI (337157) DEMO: Child 1: GREEN[0m
+[0;32mI (338157) DEMO: Child 1: BLUE[0m
+[0;32mI (339157) DEMO: Child 1: CLEAR[0m
+[0;32mI (339657) DEMO: Child 2 detected![0m
+[0;32mI (339657) DEMO: Child 2: Setting brightness[0m
+[0;32mI (340157) DEMO: Child 2: YELLOW[0m
+[0;32mI (341157) DEMO: Child 2: CYAN[0m
+[0;32mI (342157) DEMO: Child 2: MAGENTA[0m
+[0;32mI (343157) DEMO: Child 2: CLEAR[0m
+[0;32mI (345157) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (345157) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (345157) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (345157) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (345157) I2C_COMM: Devices detected: 2[0m
+[0;32mI (345157) DEMO: Child 1 detected![0m
+[0;32mI (345167) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (345667) DEMO: Child 1: RED[0m
+[0;32mI (346667) DEMO: Child 1: GREEN[0m
+[0;32mI (347667) DEMO: Child 1: BLUE[0m
+[0;32mI (348667) DEMO: Child 1: CLEAR[0m
+[0;32mI (349167) DEMO: Child 2 detected![0m
+[0;32mI (349167) DEMO: Child 2: Setting brightness[0m
+[0;32mI (349667) DEMO: Child 2: YELLOW[0m
+[0;32mI (350667) DEMO: Child 2: CYAN[0m
+[0;32mI (351667) DEMO: Child 2: MAGENTA[0m
+[0;32mI (352667) DEMO: Child 2: CLEAR[0m
+[0;32mI (354667) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (354667) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (354667) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (354667) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (354667) I2C_COMM: Devices detected: 2[0m
+[0;32mI (354667) DEMO: Child 1 detected![0m
+[0;32mI (354677) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (355177) DEMO: Child 1: RED[0m
+[0;32mI (356177) DEMO: Child 1: GREEN[0m
+[0;32mI (357177) DEMO: Child 1: BLUE[0m
+[0;32mI (358177) DEMO: Child 1: CLEAR[0m
+[0;32mI (358677) DEMO: Child 2 detected![0m
+[0;32mI (358677) DEMO: Child 2: Setting brightness[0m
+[0;32mI (359177) DEMO: Child 2: YELLOW[0m
+[0;32mI (360177) DEMO: Child 2: CYAN[0m
+[0;32mI (361177) DEMO: Child 2: MAGENTA[0m
+[0;32mI (362177) DEMO: Child 2: CLEAR[0m
+[0;32mI (364177) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (364177) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (364177) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (364177) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (364177) I2C_COMM: Devices detected: 2[0m
+[0;32mI (364177) DEMO: Child 1 detected![0m
+[0;32mI (364187) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (364687) DEMO: Child 1: RED[0m
+[0;32mI (365687) DEMO: Child 1: GREEN[0m
+[0;32mI (366687) DEMO: Child 1: BLUE[0m
+[0;32mI (367687) DEMO: Child 1: CLEAR[0m
+[0;32mI (368187) DEMO: Child 2 detected![0m
+[0;32mI (368187) DEMO: Child 2: Setting brightness[0m
+[0;32mI (368687) DEMO: Child 2: YELLOW[0m
+[0;32mI (369687) DEMO: Child 2: CYAN[0m
+[0;32mI (370687) DEMO: Child 2: MAGENTA[0m
+[0;32mI (371687) DEMO: Child 2: CLEAR[0m
+[0;32mI (373687) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (373687) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (373687) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (373687) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (373687) I2C_COMM: Devices detected: 2[0m
+[0;32mI (373687) DEMO: Child 1 detected![0m
+[0;32mI (373697) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (374197) DEMO: Child 1: RED[0m
+[0;32mI (375197) DEMO: Child 1: GREEN[0m
+[0;32mI (376197) DEMO: Child 1: BLUE[0m
+[0;32mI (377197) DEMO: Child 1: CLEAR[0m
+[0;32mI (377697) DEMO: Child 2 detected![0m
+[0;32mI (377697) DEMO: Child 2: Setting brightness[0m
+[0;32mI (378197) DEMO: Child 2: YELLOW[0m
+[0;32mI (379197) DEMO: Child 2: CYAN[0m
+[0;32mI (380197) DEMO: Child 2: MAGENTA[0m
+[0;32mI (381197) DEMO: Child 2: CLEAR[0m
+[0;32mI (383197) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (383197) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (383197) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (383197) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (383197) I2C_COMM: Devices detected: 2[0m
+[0;32mI (383197) DEMO: Child 1 detected![0m
+[0;32mI (383207) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (383707) DEMO: Child 1: RED[0m
+[0;32mI (384707) DEMO: Child 1: GREEN[0m
+[0;32mI (385707) DEMO: Child 1: BLUE[0m
+[0;32mI (386707) DEMO: Child 1: CLEAR[0m
+[0;32mI (387207) DEMO: Child 2 detected![0m
+[0;32mI (387207) DEMO: Child 2: Setting brightness[0m
+[0;32mI (387707) DEMO: Child 2: YELLOW[0m
+[0;32mI (388707) DEMO: Child 2: CYAN[0m
+[0;32mI (389707) DEMO: Child 2: MAGENTA[0m
+[0;32mI (390707) DEMO: Child 2: CLEAR[0m
+[0;32mI (392707) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (392707) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (392707) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (392707) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (392707) I2C_COMM: Devices detected: 2[0m
+[0;32mI (392707) DEMO: Child 1 detected![0m
+[0;32mI (392717) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (393217) DEMO: Child 1: RED[0m
+[0;32mI (394217) DEMO: Child 1: GREEN[0m
+[0;32mI (395217) DEMO: Child 1: BLUE[0m
+[0;32mI (396217) DEMO: Child 1: CLEAR[0m
+[0;32mI (396717) DEMO: Child 2 detected![0m
+[0;32mI (396717) DEMO: Child 2: Setting brightness[0m
+[0;32mI (397217) DEMO: Child 2: YELLOW[0m
+[0;32mI (398217) DEMO: Child 2: CYAN[0m
+[0;32mI (399217) DEMO: Child 2: MAGENTA[0m
+[0;32mI (400217) DEMO: Child 2: CLEAR[0m
+[0;32mI (402217) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (402217) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (402217) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (402217) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (402217) I2C_COMM: Devices detected: 2[0m
+[0;32mI (402217) DEMO: Child 1 detected![0m
+[0;32mI (402227) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (402727) DEMO: Child 1: RED[0m
+[0;32mI (403727) DEMO: Child 1: GREEN[0m
+[0;32mI (404727) DEMO: Child 1: BLUE[0m
+[0;32mI (405727) DEMO: Child 1: CLEAR[0m
+[0;32mI (406227) DEMO: Child 2 detected![0m
+[0;32mI (406227) DEMO: Child 2: Setting brightness[0m
+[0;32mI (406727) DEMO: Child 2: YELLOW[0m
+[0;32mI (407727) DEMO: Child 2: CYAN[0m
+[0;32mI (408727) DEMO: Child 2: MAGENTA[0m
+[0;32mI (409727) DEMO: Child 2: CLEAR[0m
+[0;32mI (411727) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (411727) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (411727) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (411727) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (411727) I2C_COMM: Devices detected: 2[0m
+[0;32mI (411727) DEMO: Child 1 detected![0m
+[0;32mI (411737) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (412237) DEMO: Child 1: RED[0m
+[0;32mI (413237) DEMO: Child 1: GREEN[0m
+[0;32mI (414237) DEMO: Child 1: BLUE[0m
+[0;32mI (415237) DEMO: Child 1: CLEAR[0m
+[0;32mI (415737) DEMO: Child 2 detected![0m
+[0;32mI (415737) DEMO: Child 2: Setting brightness[0m
+[0;32mI (416237) DEMO: Child 2: YELLOW[0m
+[0;32mI (417237) DEMO: Child 2: CYAN[0m
+[0;32mI (418237) DEMO: Child 2: MAGENTA[0m
+[0;32mI (419237) DEMO: Child 2: CLEAR[0m
+[0;32mI (421237) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (421237) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (421237) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (421237) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (421237) I2C_COMM: Devices detected: 2[0m
+[0;32mI (421237) DEMO: Child 1 detected![0m
+[0;32mI (421247) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (421747) DEMO: Child 1: RED[0m
+[0;32mI (422747) DEMO: Child 1: GREEN[0m
+[0;32mI (423747) DEMO: Child 1: BLUE[0m
+[0;32mI (424747) DEMO: Child 1: CLEAR[0m
+[0;32mI (425247) DEMO: Child 2 detected![0m
+[0;32mI (425247) DEMO: Child 2: Setting brightness[0m
+[0;32mI (425747) DEMO: Child 2: YELLOW[0m
+[0;32mI (426747) DEMO: Child 2: CYAN[0m
+[0;32mI (427747) DEMO: Child 2: MAGENTA[0m
+[0;32mI (428747) DEMO: Child 2: CLEAR[0m
+[0;32mI (430747) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (430747) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (430747) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (430747) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (430747) I2C_COMM: Devices detected: 2[0m
+[0;32mI (430747) DEMO: Child 1 detected![0m
+[0;32mI (430757) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (431257) DEMO: Child 1: RED[0m
+[0;32mI (432257) DEMO: Child 1: GREEN[0m
+[0;32mI (433257) DEMO: Child 1: BLUE[0m
+[0;32mI (434257) DEMO: Child 1: CLEAR[0m
+[0;32mI (434757) DEMO: Child 2 detected![0m
+[0;32mI (434757) DEMO: Child 2: Setting brightness[0m
+[0;32mI (435257) DEMO: Child 2: YELLOW[0m
+[0;32mI (436257) DEMO: Child 2: CYAN[0m
+[0;32mI (437257) DEMO: Child 2: MAGENTA[0m
+[0;32mI (438257) DEMO: Child 2: CLEAR[0m
+[0;32mI (440257) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (440257) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (440257) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (440257) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (440257) I2C_COMM: Devices detected: 2[0m
+[0;32mI (440257) DEMO: Child 1 detected![0m
+[0;32mI (440267) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (440767) DEMO: Child 1: RED[0m
+[0;32mI (441767) DEMO: Child 1: GREEN[0m
+[0;32mI (442767) DEMO: Child 1: BLUE[0m
+[0;32mI (443767) DEMO: Child 1: CLEAR[0m
+[0;32mI (444267) DEMO: Child 2 detected![0m
+[0;32mI (444267) DEMO: Child 2: Setting brightness[0m
+[0;32mI (444767) DEMO: Child 2: YELLOW[0m
+[0;32mI (445767) DEMO: Child 2: CYAN[0m
+[0;32mI (446767) DEMO: Child 2: MAGENTA[0m
+[0;32mI (447767) DEMO: Child 2: CLEAR[0m
+[0;32mI (449767) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (449767) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (449767) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (449767) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (449767) I2C_COMM: Devices detected: 2[0m
+[0;32mI (449767) DEMO: Child 1 detected![0m
+[0;32mI (449777) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (450277) DEMO: Child 1: RED[0m
+[0;32mI (451277) DEMO: Child 1: GREEN[0m
+[0;32mI (452277) DEMO: Child 1: BLUE[0m
+[0;32mI (453277) DEMO: Child 1: CLEAR[0m
+[0;32mI (453777) DEMO: Child 2 detected![0m
+[0;32mI (453777) DEMO: Child 2: Setting brightness[0m
+[0;32mI (454277) DEMO: Child 2: YELLOW[0m
+[0;32mI (455277) DEMO: Child 2: CYAN[0m
+[0;32mI (456277) DEMO: Child 2: MAGENTA[0m
+[0;32mI (457277) DEMO: Child 2: CLEAR[0m
+[0;32mI (459277) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (459277) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (459277) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (459277) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (459277) I2C_COMM: Devices detected: 2[0m
+[0;32mI (459277) DEMO: Child 1 detected![0m
+[0;32mI (459287) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (459787) DEMO: Child 1: RED[0m
+[0;32mI (460787) DEMO: Child 1: GREEN[0m
+[0;32mI (461787) DEMO: Child 1: BLUE[0m
+[0;32mI (462787) DEMO: Child 1: CLEAR[0m
+[0;32mI (463287) DEMO: Child 2 detected![0m
+[0;32mI (463287) DEMO: Child 2: Setting brightness[0m
+[0;32mI (463787) DEMO: Child 2: YELLOW[0m
+[0;32mI (464787) DEMO: Child 2: CYAN[0m
+[0;32mI (465787) DEMO: Child 2: MAGENTA[0m
+[0;32mI (466787) DEMO: Child 2: CLEAR[0m
+[0;32mI (468787) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (468787) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (468787) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (468787) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (468787) I2C_COMM: Devices detected: 2[0m
+[0;32mI (468787) DEMO: Child 1 detected![0m
+[0;32mI (468797) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (469297) DEMO: Child 1: RED[0m
+[0;32mI (470297) DEMO: Child 1: GREEN[0m
+[0;32mI (471297) DEMO: Child 1: BLUE[0m
+[0;32mI (472297) DEMO: Child 1: CLEAR[0m
+[0;32mI (472797) DEMO: Child 2 detected![0m
+[0;32mI (472797) DEMO: Child 2: Setting brightness[0m
+[0;32mI (473297) DEMO: Child 2: YELLOW[0m
+[0;32mI (474297) DEMO: Child 2: CYAN[0m
+[0;32mI (475297) DEMO: Child 2: MAGENTA[0m
+[0;32mI (476297) DEMO: Child 2: CLEAR[0m
+[0;32mI (478297) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (478297) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (478297) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (478297) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (478297) I2C_COMM: Devices detected: 2[0m
+[0;32mI (478297) DEMO: Child 1 detected![0m
+[0;32mI (478307) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (478807) DEMO: Child 1: RED[0m
+[0;32mI (479807) DEMO: Child 1: GREEN[0m
+[0;32mI (480807) DEMO: Child 1: BLUE[0m
+[0;32mI (481807) DEMO: Child 1: CLEAR[0m
+[0;32mI (482307) DEMO: Child 2 detected![0m
+[0;32mI (482307) DEMO: Child 2: Setting brightness[0m
+[0;32mI (482807) DEMO: Child 2: YELLOW[0m
+[0;32mI (483807) DEMO: Child 2: CYAN[0m
+[0;32mI (484807) DEMO: Child 2: MAGENTA[0m
+[0;32mI (485807) DEMO: Child 2: CLEAR[0m
+[0;32mI (487807) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (487807) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (487807) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (487807) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (487807) I2C_COMM: Devices detected: 2[0m
+[0;32mI (487807) DEMO: Child 1 detected![0m
+[0;32mI (487817) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (488317) DEMO: Child 1: RED[0m
+[0;32mI (489317) DEMO: Child 1: GREEN[0m
+[0;32mI (490317) DEMO: Child 1: BLUE[0m
+[0;32mI (491317) DEMO: Child 1: CLEAR[0m
+[0;32mI (491817) DEMO: Child 2 detected![0m
+[0;32mI (491817) DEMO: Child 2: Setting brightness[0m
+[0;32mI (492317) DEMO: Child 2: YELLOW[0m
+[0;32mI (493317) DEMO: Child 2: CYAN[0m
+[0;32mI (494317) DEMO: Child 2: MAGENTA[0m
+[0;32mI (495317) DEMO: Child 2: CLEAR[0m
+[0;32mI (497317) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (497317) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (497317) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (497317) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (497317) I2C_COMM: Devices detected: 2[0m
+[0;32mI (497317) DEMO: Child 1 detected![0m
+[0;32mI (497327) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (497827) DEMO: Child 1: RED[0m
+[0;32mI (498827) DEMO: Child 1: GREEN[0m
+[0;32mI (499827) DEMO: Child 1: BLUE[0m
+[0;32mI (500827) DEMO: Child 1: CLEAR[0m
+[0;32mI (501327) DEMO: Child 2 detected![0m
+[0;32mI (501327) DEMO: Child 2: Setting brightness[0m
+[0;32mI (501827) DEMO: Child 2: YELLOW[0m
+[0;32mI (502827) DEMO: Child 2: CYAN[0m
+[0;32mI (503827) DEMO: Child 2: MAGENTA[0m
+[0;32mI (504827) DEMO: Child 2: CLEAR[0m
+[0;32mI (506827) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (506827) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (506827) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (506827) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (506827) I2C_COMM: Devices detected: 2[0m
+[0;32mI (506827) DEMO: Child 1 detected![0m
+[0;32mI (506837) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (507337) DEMO: Child 1: RED[0m
+[0;32mI (508337) DEMO: Child 1: GREEN[0m
+[0;32mI (509337) DEMO: Child 1: BLUE[0m
+[0;32mI (510337) DEMO: Child 1: CLEAR[0m
+[0;32mI (510837) DEMO: Child 2 detected![0m
+[0;32mI (510837) DEMO: Child 2: Setting brightness[0m
+[0;32mI (511337) DEMO: Child 2: YELLOW[0m
+[0;32mI (512337) DEMO: Child 2: CYAN[0m
+[0;32mI (513337) DEMO: Child 2: MAGENTA[0m
+[0;32mI (514337) DEMO: Child 2: CLEAR[0m
+[0;32mI (516337) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (516337) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (516337) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (516337) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (516337) I2C_COMM: Devices detected: 2[0m
+[0;32mI (516337) DEMO: Child 1 detected![0m
+[0;32mI (516347) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (516847) DEMO: Child 1: RED[0m
+[0;32mI (517847) DEMO: Child 1: GREEN[0m
+[0;32mI (518847) DEMO: Child 1: BLUE[0m
+[0;32mI (519847) DEMO: Child 1: CLEAR[0m
+[0;32mI (520347) DEMO: Child 2 detected![0m
+[0;32mI (520347) DEMO: Child 2: Setting brightness[0m
+[0;32mI (520847) DEMO: Child 2: YELLOW[0m
+[0;32mI (521847) DEMO: Child 2: CYAN[0m
+[0;32mI (522847) DEMO: Child 2: MAGENTA[0m
+[0;32mI (523847) DEMO: Child 2: CLEAR[0m
+[0;32mI (525847) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (525847) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (525847) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (525847) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (525847) I2C_COMM: Devices detected: 2[0m
+[0;32mI (525847) DEMO: Child 1 detected![0m
+[0;32mI (525857) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (526357) DEMO: Child 1: RED[0m
+[0;32mI (527357) DEMO: Child 1: GREEN[0m
+[0;32mI (528357) DEMO: Child 1: BLUE[0m
+[0;32mI (529357) DEMO: Child 1: CLEAR[0m
+[0;32mI (529857) DEMO: Child 2 detected![0m
+[0;32mI (529857) DEMO: Child 2: Setting brightness[0m
+[0;32mI (530357) DEMO: Child 2: YELLOW[0m
+[0;32mI (531357) DEMO: Child 2: CYAN[0m
+[0;32mI (532357) DEMO: Child 2: MAGENTA[0m
+[0;32mI (533357) DEMO: Child 2: CLEAR[0m
+[0;32mI (535357) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (535357) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (535357) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (535357) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (535357) I2C_COMM: Devices detected: 2[0m
+[0;32mI (535357) DEMO: Child 1 detected![0m
+[0;32mI (535367) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (535867) DEMO: Child 1: RED[0m
+[0;32mI (536867) DEMO: Child 1: GREEN[0m
+[0;32mI (537867) DEMO: Child 1: BLUE[0m
+[0;32mI (538867) DEMO: Child 1: CLEAR[0m
+[0;32mI (539367) DEMO: Child 2 detected![0m
+[0;32mI (539367) DEMO: Child 2: Setting brightness[0m
+[0;32mI (539867) DEMO: Child 2: YELLOW[0m
+[0;32mI (540867) DEMO: Child 2: CYAN[0m
+[0;32mI (541867) DEMO: Child 2: MAGENTA[0m
+[0;32mI (542867) DEMO: Child 2: CLEAR[0m
+[0;32mI (544867) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (544867) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (544867) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (544867) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (544867) I2C_COMM: Devices detected: 2[0m
+[0;32mI (544867) DEMO: Child 1 detected![0m
+[0;32mI (544877) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (545377) DEMO: Child 1: RED[0m
+[0;32mI (546377) DEMO: Child 1: GREEN[0m
+[0;32mI (547377) DEMO: Child 1: BLUE[0m
+[0;32mI (548377) DEMO: Child 1: CLEAR[0m
+[0;32mI (548877) DEMO: Child 2 detected![0m
+[0;32mI (548877) DEMO: Child 2: Setting brightness[0m
+[0;32mI (549377) DEMO: Child 2: YELLOW[0m
+[0;32mI (550377) DEMO: Child 2: CYAN[0m
+[0;32mI (551377) DEMO: Child 2: MAGENTA[0m
+[0;32mI (552377) DEMO: Child 2: CLEAR[0m
+[0;32mI (554377) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (554377) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (554377) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (554377) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (554377) I2C_COMM: Devices detected: 2[0m
+[0;32mI (554377) DEMO: Child 1 detected![0m
+[0;32mI (554387) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (554887) DEMO: Child 1: RED[0m
+[0;32mI (555887) DEMO: Child 1: GREEN[0m
+[0;32mI (556887) DEMO: Child 1: BLUE[0m
+[0;32mI (557887) DEMO: Child 1: CLEAR[0m
+[0;32mI (558387) DEMO: Child 2 detected![0m
+[0;32mI (558387) DEMO: Child 2: Setting brightness[0m
+[0;32mI (558887) DEMO: Child 2: YELLOW[0m
+[0;32mI (559887) DEMO: Child 2: CYAN[0m
+[0;32mI (560887) DEMO: Child 2: MAGENTA[0m
+[0;32mI (561887) DEMO: Child 2: CLEAR[0m
+[0;32mI (563887) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (563887) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (563887) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (563887) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (563887) I2C_COMM: Devices detected: 2[0m
+[0;32mI (563887) DEMO: Child 1 detected![0m
+[0;32mI (563897) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (564397) DEMO: Child 1: RED[0m
+[0;32mI (565397) DEMO: Child 1: GREEN[0m
+[0;32mI (566397) DEMO: Child 1: BLUE[0m
+[0;32mI (567397) DEMO: Child 1: CLEAR[0m
+[0;32mI (567897) DEMO: Child 2 detected![0m
+[0;32mI (567897) DEMO: Child 2: Setting brightness[0m
+[0;32mI (568397) DEMO: Child 2: YELLOW[0m
+[0;32mI (569397) DEMO: Child 2: CYAN[0m
+[0;32mI (570397) DEMO: Child 2: MAGENTA[0m
+[0;32mI (571397) DEMO: Child 2: CLEAR[0m
+[0;32mI (573397) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (573397) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (573397) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (573397) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (573397) I2C_COMM: Devices detected: 2[0m
+[0;32mI (573397) DEMO: Child 1 detected![0m
+[0;32mI (573407) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (573907) DEMO: Child 1: RED[0m
+[0;32mI (574907) DEMO: Child 1: GREEN[0m
+[0;32mI (575907) DEMO: Child 1: BLUE[0m
+[0;32mI (576907) DEMO: Child 1: CLEAR[0m
+[0;32mI (577407) DEMO: Child 2 detected![0m
+[0;32mI (577407) DEMO: Child 2: Setting brightness[0m
+[0;32mI (577907) DEMO: Child 2: YELLOW[0m
+[0;32mI (578907) DEMO: Child 2: CYAN[0m
+[0;32mI (579907) DEMO: Child 2: MAGENTA[0m
+[0;32mI (580907) DEMO: Child 2: CLEAR[0m
+[0;32mI (582907) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (582907) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (582907) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (582907) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (582907) I2C_COMM: Devices detected: 2[0m
+[0;32mI (582907) DEMO: Child 1 detected![0m
+[0;32mI (582917) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (583417) DEMO: Child 1: RED[0m
+[0;32mI (584417) DEMO: Child 1: GREEN[0m
+[0;32mI (585417) DEMO: Child 1: BLUE[0m
+[0;32mI (586417) DEMO: Child 1: CLEAR[0m
+[0;32mI (586917) DEMO: Child 2 detected![0m
+[0;32mI (586917) DEMO: Child 2: Setting brightness[0m
+[0;32mI (587417) DEMO: Child 2: YELLOW[0m
+[0;32mI (588417) DEMO: Child 2: CYAN[0m
+[0;32mI (589417) DEMO: Child 2: MAGENTA[0m
+[0;32mI (590417) DEMO: Child 2: CLEAR[0m
+[0;32mI (592417) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (592417) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (592417) I2C_COMM: Detected device at 0x08[0m
+[0;32mI (592417) I2C_COMM: Detected device at 0x09[0m
+[0;32mI (592417) I2C_COMM: Devices detected: 2[0m
+[0;32mI (592417) DEMO: Child 1 detected![0m
+[0;32mI (592427) DEMO: Child 1: Setting brightness to 30%[0m
+[0;32mI (592927) DEMO: Child 1: RED[0m
+[0;32mI (593927) DEMO: Child 1: GREEN[0m
+[0;32mI (594927) DEMO: Child 1: BLUE[0m
+[0;32mI (595927) DEMO: Child 1: CLEAR[0m
+[0;32mI (596427) DEMO: Child 2 detected![0m
+[0;32mI (596427) DEMO: Child 2: Setting brightness[0m
+[0;32mI (596927) DEMO: Child 2: YELLOW[0m
+[0;32mI (597927) DEMO: Child 2: CYAN[0m
+[0;32mI (598927) DEMO: Child 2: MAGENTA[0m
+[0;32mI (599927) DEMO: Child 2: CLEAR[0m
+[0;32mI (601927) DEMO: [0m
+--- NEW CYCLE ---
+[0;32mI (601927) I2C_COMM: === SAFE I²C SCAN ===[0m
+[0;32mI (601927) I2C_COMM: Detected d

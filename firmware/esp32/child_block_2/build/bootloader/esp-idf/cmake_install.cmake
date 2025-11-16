@@ -34,111 +34,111 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32s3-elf-objdump.exe")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/xtensa/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/xtensa/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/newlib/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/newlib/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/soc/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/soc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/micro-ecc/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/micro-ecc/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/hal/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/hal/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/spi_flash/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/spi_flash/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_bootloader_format/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_bootloader_format/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_app_format/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_app_format/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/bootloader_support/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/bootloader_support/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/efuse/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/efuse/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_security/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_security/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_system/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_system/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_hw_support/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_hw_support/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_common/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_common/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esp_rom/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esp_rom/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/log/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/log/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/esptool_py/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/esptool_py/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/partition_table/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/partition_table/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/bootloader/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/bootloader/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/freertos/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/freertos/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader/esp-idf/main/cmake_install.cmake")
+  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader/esp-idf/main/cmake_install.cmake")
 endif()
 

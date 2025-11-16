@@ -6,8 +6,8 @@ if("${CONFIG}" STREQUAL "" OR "${CONFIG}" STREQUAL "")
   "bootloader\\bootloader.bin"
   "bootloader\\bootloader.elf"
   "bootloader\\bootloader.map"
-  "child_block_1.bin"
-  "child_block_1.map"
+  "child_block_2.bin"
+  "child_block_2.map"
   "config\\sdkconfig.cmake"
   "config\\sdkconfig.h"
   "esp-idf\\esptool_py\\flasher_args.json.in"
@@ -18,7 +18,7 @@ if("${CONFIG}" STREQUAL "" OR "${CONFIG}" STREQUAL "")
   "flasher_args.json"
   "ldgen_libraries"
   "ldgen_libraries.in"
-  "project_elf_src_esp32.c"
+  "project_elf_src_esp32s3.c"
   "x509_crt_bundle.S"
   )
 endif()

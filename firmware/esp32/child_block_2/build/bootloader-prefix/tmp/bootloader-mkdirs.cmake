@@ -10,18 +10,18 @@ if(NOT EXISTS "C:/Espressif/frameworks/esp-idf-v5.5.1-2/components/bootloader/su
   file(MAKE_DIRECTORY "C:/Espressif/frameworks/esp-idf-v5.5.1-2/components/bootloader/subproject")
 endif()
 file(MAKE_DIRECTORY
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader"
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix"
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/tmp"
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/src/bootloader-stamp"
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/src"
-  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/src/bootloader-stamp"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/tmp"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/src/bootloader-stamp"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/src"
+  "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/src/bootloader-stamp"
 )
 
 set(configSubDirs )
 foreach(subDir IN LISTS configSubDirs)
-    file(MAKE_DIRECTORY "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
+    file(MAKE_DIRECTORY "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
 endforeach()
 if(cfgdir)
-  file(MAKE_DIRECTORY "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
+  file(MAKE_DIRECTORY "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_2/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
 endif()
