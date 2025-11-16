@@ -374,98 +374,6 @@ In the Brain Block's demo task, Child Block 1 cycles through:
 
 ---
 
-## Troubleshooting
-
-### **LEDs Don't Light Up**
-
-**Symptoms:** No LEDs turn on, even during startup animation
-
-**Possible Causes:**
-1. LED matrix not powered
-2. Wrong GPIO pin
-3. Incorrect wiring
-4. Faulty LED strip
-
-**Solutions:**
-- Verify 5V power to LED strip
-- Check GPIO 18 connection to DIN pin
-- Test with known-good LED strip
-- Check serial output for initialization errors
-
----
-
-### **LEDs Flicker or Show Wrong Colors**
-
-**Symptoms:** LEDs flicker, show random colors, or unstable
-
-**Possible Causes:**
-1. Insufficient power supply
-2. Missing ground connection
-3. Data line too long or noisy
-4. Capacitor missing
-
-**Solutions:**
-- Use external 5V power supply (not USB)
-- Verify GND connection between ESP32 and LED strip
-- Add 330Ω resistor on data line
-- Add 1000µF capacitor across LED power
-- Keep data wire short (<1 meter)
-
----
-
-### **I²C Communication Fails**
-
-**Symptoms:** Brain Block can't detect Child Block 1
-
-**Possible Causes:**
-1. Wrong I²C address
-2. SDA/SCL wires swapped
-3. Missing pull-up resistors
-4. I²C bus conflict
-
-**Solutions:**
-- Verify address is 0x08 in both Brain and Child code
-- Check I²C wiring (SDA=21, SCL=22)
-- Add 4.7kΩ pull-up resistors if needed
-- Ensure only one device uses address 0x08
-
----
-
-### **Startup Animation Works, Commands Don't**
-
-**Symptoms:** 3 red flashes appear on boot, but no response to commands
-
-**Possible Causes:**
-1. I²C slave not initialized
-2. I²C task crashed
-3. Command handler error
-
-**Solutions:**
-- Check serial output for I²C init errors
-- Look for task crash messages
-- Verify Brain Block is sending to correct address (0x08)
-
----
-
-### **Build Errors**
-
-**Error:** `led_strip.h: No such file or directory`
-
-**Solution:** Make sure `idf_component.yml` exists and run:
-```bash
-idf.py reconfigure
-idf.py build
-```
-
-**Error:** `Undefined reference to 'led_strip_new_rmt_device'`
-
-**Solution:** Verify `CMakeLists.txt` has `led_strip` in REQUIRES:
-```cmake
-REQUIRES driver led_strip
-```
-
----
-
 ## Development Guidelines
 
 ### **Adding New LED Patterns**
@@ -531,19 +439,6 @@ case CMD_MATRIX_RAINBOW:
 | Brightness Levels | 256 (0-255) |
 | Color Depth | 24-bit RGB (16.7M colors) |
 | LED Refresh Rate | On-demand (not continuous) |
-
----
-
-## Power Consumption
-
-| State | Current Draw |
-|-------|--------------|
-| Idle (LEDs off) | ~80mA |
-| All LEDs white (full) | ~960mA (16 LEDs × 60mA) |
-| All LEDs @ 30% brightness | ~300mA |
-| Typical usage | ~200-400mA |
-
-**Note:** Power draw depends heavily on color and brightness. Use adequate power supply!
 
 ---
 
