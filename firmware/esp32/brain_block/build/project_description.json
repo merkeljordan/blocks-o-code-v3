@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "brain_block",
-    "project_version":    "f38e858-dirty",
+    "project_version":    "c765b6f-dirty",
     "project_path":       "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block",
     "idf_path":           "C:/Espressif/frameworks/esp-idf-v5.5.1-2",
     "build_dir":          "C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build",

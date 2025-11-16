@@ -47,7 +47,34 @@ esp_err_t i2c_ping(uint8_t addr) {
     return ret;
 }
 
+void i2c_safe_scan(void) {
+    ESP_LOGI(TAG, "=== SAFE I²C SCAN ===");
 
+    int found = 0;
+
+    for (uint8_t addr = 0x08; addr <= 0x0F; addr++) {
+
+        // harmless 1-byte ping command
+        uint8_t data = CMD_PING;
+
+        esp_err_t ret = i2c_master_write_to_device(
+            I2C_NUM_0,
+            addr,
+            &data,
+            1,
+            pdMS_TO_TICKS(25)
+        );
+
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Detected device at 0x%02X", addr);
+            found++;
+        }
+    }
+
+    ESP_LOGI(TAG, "Devices detected: %d", found);
+}
+
+/*
 // I2C Bus Scanner
 // Scans all possible Child Block addresses ( 0x08 to 0x0F) to see what's connected
 // This runs at startup and periodically to detect connected Child Blocks
@@ -67,7 +94,7 @@ void i2c_scan(void) {
     
     ESP_LOGI(TAG, "Total devices: %d", found);
 }
-
+*/
 
 // Fill Matrix with Color
 // Sends CMD_MATRIX_FILL command to specified Child Block address
@@ -140,6 +167,30 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
     return ret;
 }
 
+// ----------------------------------------
+// Send Text to OLED Child Block (0xF1)
+// Format: [CMD_OLED_TEXT][LEN][chars...]
+// ----------------------------------------
+esp_err_t i2c_oled_text(uint8_t address, const char *msg) {
+    uint8_t len = strlen(msg);
+    if (len > 30) len = 30;  // Prevent overflow
+
+    uint8_t data[32];
+    data[0] = CMD_OLED_TEXT; // Command ID
+    data[1] = len;           // Length byte
+    memcpy(&data[2], msg, len);
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, len + 2, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    return ret;
+}
+
 
 // Main Communication Task
 // This is the brains main loop, continuously runs the demo sequence
@@ -161,7 +212,7 @@ void comm_task(void *arg) {
         ESP_LOGI(TAG, "\n--- NEW CYCLE ---");
         
         // Scan to see what's connected right now
-        i2c_scan();
+        i2c_safe_scan();
         
         // Child Block 1 - LED Matrix (Address 0x08)
         // If Child 1 responds to ping, its connected and ready
@@ -241,7 +292,7 @@ void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
     
     // Do initial I2C scan to see what's connected
-    i2c_scan();
+    i2c_safe_scan();
     
     // Create the communication task (runs continuously in background)
     // Stack size : 4096 bytes, Priority : 5 (high)
