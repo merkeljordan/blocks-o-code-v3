@@ -327,7 +327,7 @@ GND     ──────────→ GND
 
 ## Current Features
 
-### ✅ **Implemented**
+###  **Implemented**
 - [x] I²C slave initialization at address 0x08
 - [x] WS2812B LED matrix control (4x4 = 16 LEDs)
 - [x] RGB color fill with brightness control
@@ -337,7 +337,7 @@ GND     ──────────→ GND
 - [x] Status reporting task (every 10 seconds)
 - [x] Modular code structure
 
-### ⏳ **Planned (Future)**
+###  **Planned (Future)**
 - [ ] Individual LED addressing (set single pixel)
 - [ ] Patterns and animations
 - [ ] Color cycling modes
