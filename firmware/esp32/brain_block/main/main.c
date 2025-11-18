@@ -2,13 +2,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
-
-// Forward declarations from other modules
-extern esp_err_t i2c_master_init(void);
-extern void i2c_safe_scan(void);
-extern void demo_task(void *arg);
+#include "brain_block.h"
 
 static const char *TAG = "BRAIN";
+QueueHandle_t demo_cmd_queue = NULL;
 
 // ============================================================================
 // MAIN - Only initialization and task creation
@@ -22,9 +19,15 @@ void app_main(void) {
     
     // Initial scan
     i2c_safe_scan();
-    
+
+    // Create command queue for demo task
+    demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
+
     // Create demo task
     xTaskCreate(demo_task, "demo", 4096, NULL, 5, NULL);
+
+    // Create network client task
+    start_network_client();
     
     ESP_LOGI(TAG, "Brain Block initialized!");
 }

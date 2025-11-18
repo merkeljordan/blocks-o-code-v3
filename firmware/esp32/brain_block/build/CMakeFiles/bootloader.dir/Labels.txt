@@ -1,13 +1,13 @@
 # Target labels
  bootloader
 # Source files and their labels
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader-complete.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
-C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/bootloader-complete.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

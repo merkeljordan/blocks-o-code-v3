@@ -1,8 +1,8 @@
-# Install script for directory: C:/Espressif/frameworks/esp-idf-v5.5.1-2/components/mbedtls/mbedtls
+# Install script for directory: /home/merkelj/esp-idf/components/mbedtls/mbedtls
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "C:/Program Files (x86)/child_block_1")
+  set(CMAKE_INSTALL_PREFIX "/usr/local")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -32,17 +32,17 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
   set(CMAKE_CROSSCOMPILING "TRUE")
 endif()
 
-# Set path to fallback-tool for dependency-resolution.
+# Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "/home/merkelj/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/bin/xtensa-esp32-elf-objdump")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
-  include("C:/Blocks_O_Code/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/pkgconfig/cmake_install.cmake")
+  include("/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
+  include("/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
+  include("/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/child_block_1/build/esp-idf/mbedtls/mbedtls/pkgconfig/cmake_install.cmake")
 
 endif()
 
