@@ -11,11 +11,13 @@
 #include <string.h>
 #include "i2c_protocol.h"
 
+/*
 // ESP32-S3 uses different I²C pins
 #undef I2C_SDA_PIN
 #undef I2C_SCL_PIN
 #define I2C_SDA_PIN     8   // ESP32-S3 I²C pins
 #define I2C_SCL_PIN     9
+*/
 
 // Forward declarations
 extern void handle_command(uint8_t *buffer, int len);

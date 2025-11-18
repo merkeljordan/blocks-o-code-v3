@@ -1,0 +1,34 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe -DESP_PLATFORM=1 -DCCACHE_ENABLE=1 \\wsl$\Ubuntu\home\merkelj\fall25\blocks-o-code-v3\firmware\esp32\brain_block
+CMake Error at C:/Espressif/tools/cmake/3.30.2/share/cmake-3.30/Modules/CMakeTestCCompiler.cmake:67 (message):
+  The C compiler
+
+    "C:/Espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc.exe"
+
+  is not able to compile a simple test program.
+
+  It fails with the following output:
+
+    Change Dir: '//wsl$/Ubuntu/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/CMakeScratch/TryCompile-34d5km'
+    
+    Run Build Command(s): C:/Espressif/tools/ninja/1.12.1/ninja.exe -v cmTC_b3b01
+    [1/2] C:\Espressif\tools\xtensa-esp-elf\esp-14.2.0_20241119\xtensa-esp-elf\bin\xtensa-esp32-elf-gcc.exe   -mlongcalls -Wno-frame-address  -fno-builtin-memcpy -fno-builtin-memset -fno-builtin-bzero -fno-builtin-stpcpy -fno-builtin-strncpy -o CMakeFiles/cmTC_b3b01.dir/testCCompiler.c.obj -c //wsl$/Ubuntu/home/merkelj/fall25/blocks-o-code-v3/firmware/esp32/brain_block/build/CMakeFiles/CMakeScratch/TryCompile-34d5km/testCCompiler.c
+    [2/2] C:\WINDOWS\system32\cmd.exe /C "cd . && C:\Espressif\tools\xtensa-esp-elf\esp-14.2.0_20241119\xtensa-esp-elf\bin\xtensa-esp32-elf-gcc.exe -mlongcalls -Wno-frame-address  -fno-builtin-memcpy -fno-builtin-memset -fno-builtin-bzero -fno-builtin-stpcpy -fno-builtin-strncpy -nostartfiles CMakeFiles/cmTC_b3b01.dir/testCCompiler.c.obj -o cmTC_b3b01   && cd ."
+    FAILED: cmTC_b3b01 
+    C:\WINDOWS\system32\cmd.exe /C "cd . && C:\Espressif\tools\xtensa-esp-elf\esp-14.2.0_20241119\xtensa-esp-elf\bin\xtensa-esp32-elf-gcc.exe -mlongcalls -Wno-frame-address  -fno-builtin-memcpy -fno-builtin-memset -fno-builtin-bzero -fno-builtin-stpcpy -fno-builtin-strncpy -nostartfiles CMakeFiles/cmTC_b3b01.dir/testCCompiler.c.obj -o cmTC_b3b01   && cd ."
+    '\\wsl$\Ubuntu\home\merkelj\fall25\blocks-o-code-v3\firmware\esp32\brain_block\build\CMakeFiles\CMakeScratch\TryCompile-34d5km'
+    CMD.EXE was started with the above path as the current directory.
+    UNC paths are not supported.  Defaulting to Windows directory.
+    C:/Espressif/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/../lib/gcc/xtensa-esp-elf/14.2.0/../../../../xtensa-esp-elf/bin/ld.exe: cannot open output file cmTC_b3b01: Permission denied
+    collect2.exe: error: ld returned 1 exit status
+    ninja: build stopped: subcommand failed.
+    
+    
+
+  
+
+  CMake will not be able to correctly generate this project.
+Call Stack (most recent call first):
+  C:/Espressif/frameworks/esp-idf-v5.5.1/tools/cmake/project.cmake:589 (__project)
+  CMakeLists.txt:7 (project)
+
+
