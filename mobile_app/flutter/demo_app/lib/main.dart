@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:ui';
+import 'dart:convert';
+import 'models/block_telemetry.dart';
+import 'services/telemetry_parser.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,7 +61,31 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   bool isMenuOpen = false;
   bool isConnected = false;
   ServerSocket? tcpServer;
-  String connectionStatus = 'Not connected';
+  Socket? _clientSocket;
+  String connectionStatus = 'Server not started';
+  final int serverPort = 41233;
+  
+  // Telemetry parsing
+  final TelemetryParser _telemetryParser = TelemetryParser();
+  List<BlockTelemetry> _receivedTelemetry = [];
+  
+  // Heartbeat mechanism
+  Timer? _heartbeatTimer;
+  DateTime? _lastHeartbeatTime;
+  static const Duration _heartbeatInterval = Duration(seconds: 30);
+  static const Duration _heartbeatTimeout = Duration(seconds: 60); // 2x interval
+  bool _isReconnecting = false;
+  int _reconnectionAttempts = 0;
+  static const int _maxReconnectionAttempts = 5;
+  
+  // Stress testing
+  bool _isStressTesting = false;
+  Timer? _stressTestTimer;
+  int _stressTestMessagesSent = 0;
+  int _stressTestMessagesReceived = 0;
+  int _stressTestErrors = 0;
+  DateTime? _stressTestStartTime;
+  int _stressTestMessageRate = 10; // messages per second
   
   late AnimationController _menuAnimationController;
   late Animation<double> _menuAnimation;
@@ -79,7 +106,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _menuAnimationController.dispose();
+    _heartbeatTimer?.cancel();
+    _stressTestTimer?.cancel();
+    _clientSocket?.destroy();
+    _clientSocket = null;
     tcpServer?.close();
+    tcpServer = null;
     super.dispose();
   }
 
@@ -102,42 +134,364 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Future<void> _setupTCPServerAndConnect() async {
     try {
-      // Simulate TCP server setup
+      // Close existing server if running
+      await tcpServer?.close();
+      tcpServer = null;
+      
       setState(() {
         connectionStatus = 'Setting up TCP server...';
       });
       
-      await Future.delayed(const Duration(milliseconds: 800));
+      // Start TCP server
+      tcpServer = await ServerSocket.bind(InternetAddress.anyIPv4, serverPort);
       
-      // Simulate server listening
       setState(() {
-        connectionStatus = 'TCP server listening on port 8080...';
+        connectionStatus = 'Server listening on port $serverPort and address ${tcpServer!.address.address}';
       });
       
-      await Future.delayed(const Duration(milliseconds: 1000));
-      
-      // Simulate ESP32 connection
-      setState(() {
-        connectionStatus = 'Searching for ESP32...';
+      // Set up client connection handler
+      tcpServer!.listen(_handleClient, onError: (e) {
+        setState(() {
+          connectionStatus = 'Server error: $e';
+        });
+      }, onDone: () {
+        setState(() {
+          connectionStatus = 'Server closed';
+          isConnected = false;
+        });
       });
       
-      await Future.delayed(const Duration(milliseconds: 1200));
-      
-      // Simulate successful connection
-      setState(() {
-        connectionStatus = 'ESP32 connected!';
-        isConnected = true;
-      });
-      
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Navigate to block configuration screen
-      _navigateToScreen(ScreenType.blockConfig);
     } catch (e) {
       setState(() {
-        connectionStatus = 'Connection failed: $e';
+        connectionStatus = 'Failed to start server: $e';
+        isConnected = false;
       });
     }
+  }
+
+  void _handleClient(Socket client) {
+    // Close previous client if exists
+    _clientSocket?.destroy();
+    _clientSocket = client;
+    
+    setState(() {
+      connectionStatus = 'Client connected: ${client.remoteAddress.address}:${client.remotePort}';
+      isConnected = true;
+      _isReconnecting = false;
+      _reconnectionAttempts = 0;
+      _lastHeartbeatTime = DateTime.now();
+    });
+    
+    // Start heartbeat mechanism
+    _startHeartbeat();
+    
+    // Navigate to block configuration screen when client connects
+    _navigateToScreen(ScreenType.blockConfig);
+    
+    // Set up message listener with JSON parsing
+    String buffer = '';
+    client.listen((data) {
+      final msg = String.fromCharCodes(data);
+      buffer += msg;
+      
+      // Process complete messages (assuming newline-delimited)
+      final lines = buffer.split('\n');
+      buffer = lines.removeLast(); // Keep incomplete line in buffer
+      
+      for (final line in lines) {
+        if (line.trim().isEmpty) continue;
+        _processMessage(line.trim());
+      }
+    }, onDone: () {
+      setState(() {
+        connectionStatus = 'Client disconnected: ${client.remoteAddress.address}';
+        isConnected = false;
+      });
+      _stopHeartbeat();
+      if (_clientSocket == client) {
+        _clientSocket = null;
+      }
+      // Attempt reconnection
+      _attemptReconnection();
+    }, onError: (e) {
+      setState(() {
+        connectionStatus = 'Client error: $e';
+        isConnected = false;
+      });
+      _stopHeartbeat();
+      if (_clientSocket == client) {
+        _clientSocket = null;
+      }
+      // Attempt reconnection
+      _attemptReconnection();
+    });
+  }
+
+  void _processMessage(String message) {
+    try {
+      // Try to parse as JSON
+      final json = jsonDecode(message) as Map<String, dynamic>;
+      
+      // Check if it's a heartbeat acknowledgment
+      if (json.containsKey('type') && json['type'] == 'heartbeat_ack') {
+        setState(() {
+          _lastHeartbeatTime = DateTime.now();
+          connectionStatus = 'Heartbeat received';
+        });
+        return;
+      }
+      
+      // Try to parse as telemetry
+      final telemetryList = _telemetryParser.parse(message);
+      if (telemetryList.isNotEmpty) {
+        setState(() {
+          _receivedTelemetry.addAll(telemetryList);
+          // Keep only last 100 telemetry entries
+          if (_receivedTelemetry.length > 100) {
+            _receivedTelemetry = _receivedTelemetry.sublist(_receivedTelemetry.length - 100);
+          }
+          connectionStatus = 'Received telemetry: ${telemetryList.length} block(s)';
+          _lastHeartbeatTime = DateTime.now(); // Update on any message
+        });
+        
+        // Update stress test stats
+        if (_isStressTesting) {
+          _stressTestMessagesReceived++;
+        }
+      } else {
+        // Not valid telemetry, just log it
+        setState(() {
+          connectionStatus = 'Received: $message';
+        });
+      }
+    } catch (e) {
+      // Not JSON or parsing failed, treat as plain text
+      setState(() {
+        connectionStatus = 'Received: $message';
+      });
+      
+      // Update stress test stats
+      if (_isStressTesting) {
+        _stressTestMessagesReceived++;
+      }
+    }
+  }
+
+  void _sendMessageToESP(String msg) {
+    final client = _clientSocket;
+    if (client == null) {
+      setState(() {
+        connectionStatus = 'No ESP32 connected';
+      });
+      return;
+    }
+    try {
+      client.write(msg + '\n');
+      setState(() {
+        connectionStatus = 'Connected to ESP32 and sent: $msg';
+      });
+    } catch (e) {
+      setState(() {
+        connectionStatus = 'Send failed: $e';
+      });
+      // Connection might be lost
+      _attemptReconnection();
+    }
+  }
+
+  // Heartbeat mechanism
+  void _startHeartbeat() {
+    _stopHeartbeat();
+    _lastHeartbeatTime = DateTime.now();
+    
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (timer) {
+      _sendHeartbeat();
+      _checkHeartbeat();
+    });
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  void _sendHeartbeat() {
+    if (!isConnected || _clientSocket == null) {
+      return;
+    }
+    
+    try {
+      final heartbeat = jsonEncode({
+        'type': 'heartbeat',
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      _clientSocket!.write(heartbeat + '\n');
+    } catch (e) {
+      // Connection lost
+      setState(() {
+        connectionStatus = 'Heartbeat send failed: $e';
+        isConnected = false;
+      });
+      _attemptReconnection();
+    }
+  }
+
+  void _checkHeartbeat() {
+    if (!isConnected || _lastHeartbeatTime == null) {
+      return;
+    }
+    
+    final timeSinceLastHeartbeat = DateTime.now().difference(_lastHeartbeatTime!);
+    if (timeSinceLastHeartbeat > _heartbeatTimeout) {
+      setState(() {
+        connectionStatus = 'Heartbeat timeout - connection lost';
+        isConnected = false;
+      });
+      _stopHeartbeat();
+      _clientSocket?.destroy();
+      _clientSocket = null;
+      _attemptReconnection();
+    }
+  }
+
+  // Reconnection logic with exponential backoff
+  Future<void> _attemptReconnection() async {
+    if (_isReconnecting) {
+      return; // Already attempting reconnection
+    }
+    
+    if (_reconnectionAttempts >= _maxReconnectionAttempts) {
+      setState(() {
+        connectionStatus = 'Max reconnection attempts reached. Please restart server.';
+        _isReconnecting = false;
+        _reconnectionAttempts = 0;
+      });
+      return;
+    }
+    
+    setState(() {
+      _isReconnecting = true;
+      _reconnectionAttempts++;
+    });
+    
+    // Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
+    final delaySeconds = (1 << (_reconnectionAttempts - 1)).clamp(1, 30);
+    
+    setState(() {
+      connectionStatus = 'Reconnecting in ${delaySeconds}s (attempt $_reconnectionAttempts/$_maxReconnectionAttempts)...';
+    });
+    
+    await Future.delayed(Duration(seconds: delaySeconds));
+    
+    if (mounted) {
+      try {
+        // Restart TCP server
+      await _setupTCPServerAndConnect();
+        
+        // Reset reconnection state if successful
+        if (isConnected) {
+          setState(() {
+            _isReconnecting = false;
+            _reconnectionAttempts = 0;
+          });
+        } else {
+          // Try again
+          _attemptReconnection();
+        }
+      } catch (e) {
+        setState(() {
+          connectionStatus = 'Reconnection failed: $e';
+        });
+        // Try again
+        _attemptReconnection();
+      }
+    }
+  }
+
+  // Stress testing functionality
+  void _startStressTest({int? messageRate, Duration? duration}) {
+    if (_isStressTesting) {
+      _stopStressTest();
+    }
+    
+    setState(() {
+      _isStressTesting = true;
+      _stressTestMessagesSent = 0;
+      _stressTestMessagesReceived = 0;
+      _stressTestErrors = 0;
+      _stressTestStartTime = DateTime.now();
+      if (messageRate != null) {
+        _stressTestMessageRate = messageRate;
+      }
+    });
+    
+    final testDuration = duration ?? const Duration(minutes: 5);
+    final interval = Duration(milliseconds: 1000 ~/ _stressTestMessageRate);
+    
+    _stressTestTimer = Timer.periodic(interval, (timer) {
+      if (!_isStressTesting || !isConnected) {
+        _stopStressTest();
+        return;
+      }
+      
+      // Check if duration exceeded
+      if (_stressTestStartTime != null) {
+        final elapsed = DateTime.now().difference(_stressTestStartTime!);
+        if (elapsed >= testDuration) {
+          _stopStressTest();
+          return;
+        }
+      }
+      
+      // Send test message
+      try {
+        final testMessage = jsonEncode({
+          'type': 'stress_test',
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sequence': _stressTestMessagesSent,
+          'payload': 'A' * 100, // 100 character payload
+        });
+        _sendMessageToESP(testMessage);
+        _stressTestMessagesSent++;
+      } catch (e) {
+        _stressTestErrors++;
+      }
+    });
+    
+    // Auto-stop after duration
+    Timer(testDuration, () {
+      if (_isStressTesting) {
+        _stopStressTest();
+      }
+    });
+  }
+
+  void _stopStressTest() {
+    setState(() {
+      _isStressTesting = false;
+    });
+    _stressTestTimer?.cancel();
+    _stressTestTimer = null;
+  }
+
+  String _getStressTestStats() {
+    if (_stressTestStartTime == null) {
+      return 'No test running';
+    }
+    
+    final elapsed = DateTime.now().difference(_stressTestStartTime!);
+    final elapsedSeconds = elapsed.inSeconds;
+    final sentPerSec = elapsedSeconds > 0 ? (_stressTestMessagesSent / elapsedSeconds).toStringAsFixed(1) : '0';
+    final receivedPerSec = elapsedSeconds > 0 ? (_stressTestMessagesReceived / elapsedSeconds).toStringAsFixed(1) : '0';
+    final lossRate = _stressTestMessagesSent > 0 
+        ? ((_stressTestMessagesSent - _stressTestMessagesReceived) / _stressTestMessagesSent * 100).toStringAsFixed(1)
+        : '0';
+    
+    return 'Duration: ${elapsed.inMinutes}m ${elapsed.inSeconds % 60}s\n'
+           'Sent: $_stressTestMessagesSent ($sentPerSec/s)\n'
+           'Received: $_stressTestMessagesReceived ($receivedPerSec/s)\n'
+           'Errors: $_stressTestErrors\n'
+           'Loss: $lossRate%';
   }
 
   @override
@@ -217,6 +571,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         screen = BlockConfigScreen(
           key: const ValueKey('blockConfig'),
           isConnected: isConnected,
+          connectionStatus: connectionStatus,
+          lastHeartbeatTime: _lastHeartbeatTime,
+          isReconnecting: _isReconnecting,
+          reconnectionAttempts: _reconnectionAttempts,
+          isStressTesting: _isStressTesting,
+          stressTestStats: _getStressTestStats(),
+          onStartStressTest: () => _startStressTest(),
+          onStopStressTest: _stopStressTest,
+          receivedTelemetry: _receivedTelemetry,
         );
         break;
       case ScreenType.settings:
@@ -576,7 +939,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   const Spacer(),
                   
                   // Connection status if connecting
-                  if (widget.connectionStatus != 'Not connected')
+                  if (widget.connectionStatus != 'Server not started')
                     FadeTransition(
                       opacity: _fadeAnimation2,
                       child: Container(
@@ -1205,11 +1568,32 @@ class TutorialScreen extends StatelessWidget {
   }
 }
 
-// Block Configuration Screen (placeholder)
+// Block Configuration Screen
 class BlockConfigScreen extends StatelessWidget {
   final bool isConnected;
+  final String connectionStatus;
+  final DateTime? lastHeartbeatTime;
+  final bool isReconnecting;
+  final int reconnectionAttempts;
+  final bool isStressTesting;
+  final String stressTestStats;
+  final VoidCallback onStartStressTest;
+  final VoidCallback onStopStressTest;
+  final List<BlockTelemetry> receivedTelemetry;
 
-  const BlockConfigScreen({super.key, required this.isConnected});
+  const BlockConfigScreen({
+    super.key,
+    required this.isConnected,
+    required this.connectionStatus,
+    this.lastHeartbeatTime,
+    this.isReconnecting = false,
+    this.reconnectionAttempts = 0,
+    this.isStressTesting = false,
+    this.stressTestStats = '',
+    required this.onStartStressTest,
+    required this.onStopStressTest,
+    this.receivedTelemetry = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1236,110 +1620,260 @@ class BlockConfigScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    colorScheme.primary,
-                    colorScheme.secondary,
-                    colorScheme.tertiary,
-                  ],
+                  colors: isConnected
+                      ? [
+                          colorScheme.primary,
+                          colorScheme.secondary,
+                          colorScheme.tertiary,
+                        ]
+                      : [
+                          Colors.grey.shade700,
+                          Colors.grey.shade600,
+                        ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: colorScheme.primary.withOpacity(0.5),
+                    color: (isConnected ? colorScheme.primary : Colors.grey)
+                        .withOpacity(0.5),
                     blurRadius: 15,
                     spreadRadius: 2,
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: isConnected ? Colors.green : Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          isConnected
+                              ? 'Brain Block Connected'
+                              : isReconnecting
+                                  ? 'Reconnecting...'
+                                  : 'Not Connected',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isConnected ? 'ESP32 Connected' : 'Not Connected',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                          if (isConnected && lastHeartbeatTime != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Last heartbeat: ${_formatTimeSince(lastHeartbeatTime!)}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
                       ),
                     ),
-                  ),
+                  ],
+                  if (isReconnecting) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Attempt $reconnectionAttempts/5',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             
             // Main Content
             Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Telemetry Info
+                    if (receivedTelemetry.isNotEmpty) ...[
                       Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              colorScheme.primary,
-                              colorScheme.secondary,
-                              colorScheme.tertiary,
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.primary.withOpacity(0.5),
-                              blurRadius: 20,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.extension,
-                          size: 60,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Block Configuration',
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Configure your blocks here',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(
-                          'This screen will contain the block programming interface',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onPrimaryContainer,
-                          ),
-                          textAlign: TextAlign.center,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.sensors,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Telemetry Data',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Received: ${receivedTelemetry.length} messages',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            if (receivedTelemetry.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Latest: ${receivedTelemetry.last.blockId ?? "Unknown"} - ${receivedTelemetry.last.timestamp.toString().substring(11, 19)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
+
+                    // Stress Test Section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondaryContainer.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colorScheme.secondary.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.speed,
+                                color: colorScheme.secondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Stress Test',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (isStressTesting) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                stressTestStats,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSecondaryContainer,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: isConnected ? onStopStressTest : null,
+                                icon: const Icon(Icons.stop),
+                                label: const Text('Stop Stress Test'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            Text(
+                              'Test the TCP connection with high-frequency messages',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSecondaryContainer.withOpacity(0.8),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: isConnected ? onStartStressTest : null,
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Start Stress Test'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colorScheme.secondary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Connection Status Details
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: colorScheme.tertiary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Connection Status',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            connectionStatus,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1347,5 +1881,16 @@ class BlockConfigScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _formatTimeSince(DateTime time) {
+    final difference = DateTime.now().difference(time);
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ${difference.inSeconds % 60}s ago';
+    } else {
+      return '${difference.inHours}h ${difference.inMinutes % 60}m ago';
+    }
   }
 }
