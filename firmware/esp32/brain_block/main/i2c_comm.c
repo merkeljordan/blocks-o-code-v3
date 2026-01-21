@@ -1,11 +1,16 @@
+// Transport Layer for I²C Communication
+
 #include <stdio.h>
 #include <string.h>
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "i2c_protocol.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-static const char *TAG = "I2C_COMM";
+
+static const char *TAG = "I2C_MASTER";
 
 // ============================================================================
 // I²C MASTER INITIALIZATION
@@ -22,8 +27,8 @@ esp_err_t i2c_master_init(void) {
         .master.clk_speed = I2C_FREQ_HZ,
     };
     
-    i2c_param_config(I2C_NUM_0, &conf);
-    return i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
+    i2c_param_config(I2C_PORT_NUM, &conf);
+    return i2c_driver_install(I2C_PORT_NUM, conf.mode, 0, 0, 0);
 }
 
 // ============================================================================
@@ -35,7 +40,7 @@ esp_err_t i2c_ping(uint8_t addr) {
     i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
     i2c_master_stop(cmd);
     
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -51,7 +56,7 @@ void i2c_safe_scan(void) {
         uint8_t data = CMD_PING;
 
         esp_err_t ret = i2c_master_write_to_device(
-            I2C_NUM_0,
+            I2C_PORT_NUM,
             addr,
             &data,
             1,
@@ -68,6 +73,37 @@ void i2c_safe_scan(void) {
 }
 
 // ============================================================================
+// I2C WHOAMI READ REGISTER
+// ============================================================================
+esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
+    // Write register address
+    esp_err_t ret = i2c_master_write_to_device(
+        I2C_PORT_NUM,
+        addr,
+        &reg,
+        1,
+        pdMS_TO_TICKS(50)
+    );
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    // Small delay between write and read
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // Read data from register
+    ret = i2c_master_read_from_device(
+        I2C_PORT_NUM,
+        addr,
+        out,
+        len,
+        pdMS_TO_TICKS(50)
+    );
+    return ret;
+}
+
+
+// ============================================================================
 // MATRIX FILL
 // ============================================================================
 esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
@@ -79,7 +115,7 @@ esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
     i2c_master_write(cmd, data, 4, true);
     i2c_master_stop(cmd);
     
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
     
     return ret;
@@ -97,7 +133,7 @@ esp_err_t i2c_matrix_clear(uint8_t address) {
     i2c_master_write(cmd, data, 1, true);
     i2c_master_stop(cmd);
     
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
     
     return ret;
@@ -115,7 +151,7 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
     i2c_master_write(cmd, data, 2, true);
     i2c_master_stop(cmd);
     
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
     
     return ret;
@@ -139,7 +175,7 @@ esp_err_t i2c_oled_text(uint8_t address, const char *msg) {
     i2c_master_write(cmd, data, len + 2, true);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_NUM_0, cmd, pdMS_TO_TICKS(100));
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
     i2c_cmd_link_delete(cmd);
     return ret;
 }

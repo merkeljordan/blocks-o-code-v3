@@ -20,6 +20,7 @@ esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
 esp_err_t i2c_matrix_clear(uint8_t address);
 esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness);
 esp_err_t i2c_oled_text(uint8_t address, const char *msg);
+esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len);
 
 // Command Queue and definitions
 typedef enum {
