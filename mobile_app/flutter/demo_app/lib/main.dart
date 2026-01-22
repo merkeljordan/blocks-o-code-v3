@@ -126,6 +126,22 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// Load fake block configuration from assets for testing
+  Future<void> _loadFakeConfiguration(String assetPath) async {
+    try {
+      final jsonString = await rootBundle.loadString(assetPath);
+      // Process it the same way as a real TCP message
+      _processMessage(jsonString);
+      setState(() {
+        connectionStatus = 'Loaded fake config from $assetPath';
+      });
+    } catch (e) {
+      setState(() {
+        connectionStatus = 'Failed to load fake config: $e';
+      });
+    }
+  }
+
   void _navigateToScreen(ScreenType screen) {
     setState(() {
       currentScreen = screen;
@@ -614,6 +630,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           receivedTelemetry: _receivedTelemetry,
           currentConfiguration: _currentConfiguration,
           configViolations: _configViolations,
+          onLoadFakeConfig: (path) => _loadFakeConfiguration(path),
         );
         break;
       case ScreenType.settings:
@@ -1616,6 +1633,7 @@ class BlockConfigScreen extends StatelessWidget {
   final List<BlockTelemetry> receivedTelemetry;
   final BlockConfiguration? currentConfiguration;
   final List<RuleViolation> configViolations;
+  final Function(String)? onLoadFakeConfig;
 
   const BlockConfigScreen({
     super.key,
@@ -1631,6 +1649,7 @@ class BlockConfigScreen extends StatelessWidget {
     this.receivedTelemetry = const [],
     this.currentConfiguration,
     this.configViolations = const [],
+    this.onLoadFakeConfig,
   });
 
   @override
@@ -1739,6 +1758,71 @@ class BlockConfigScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Fake Config Loader (for testing)
+                    if (onLoadFakeConfig != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.amber.withOpacity(0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.bug_report,
+                                  color: Colors.amber.shade300,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Test Mode - Load Fake Config',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber.shade300,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => onLoadFakeConfig!('assets/sample_block_config.json'),
+                                    icon: const Icon(Icons.check_circle),
+                                    label: const Text('Load Valid Config'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => onLoadFakeConfig!('assets/sample_block_config_invalid.json'),
+                                    icon: const Icon(Icons.error),
+                                    label: const Text('Load Invalid Config'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
                     // Block Configuration Display
                     if (currentConfiguration != null) ...[
                       _buildBlockConfigurationSection(theme, colorScheme, currentConfiguration!),

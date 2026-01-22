@@ -1,0 +1,76 @@
+{
+  "type": "block_config",
+  "timestamp": 1234567890,
+  "config": {
+    "total_blocks": 6,
+    "blocks": [
+      {
+        "index": 0,
+        "i2c_address": 8,
+        "whoami": {
+          "block_type": "brain_block",
+          "block_id": "BLOCK_08",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 0
+      },
+      {
+        "index": 1,
+        "i2c_address": 9,
+        "whoami": {
+          "block_type": "if_block",
+          "block_id": "BLOCK_09",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 1
+      },
+      {
+        "index": 2,
+        "i2c_address": 10,
+        "whoami": {
+          "block_type": "button_press",
+          "block_id": "BLOCK_0A",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 2
+      },
+      {
+        "index": 3,
+        "i2c_address": 11,
+        "whoami": {
+          "block_type": "then_block",
+          "block_id": "BLOCK_0B",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 3
+      },
+      {
+        "index": 4,
+        "i2c_address": 12,
+        "whoami": {
+          "block_type": "note_block",
+          "block_id": "BLOCK_0C",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 4
+      },
+      {
+        "index": 5,
+        "i2c_address": 13,
+        "whoami": {
+          "block_type": "end_if_block",
+          "block_id": "BLOCK_0D",
+          "firmware_version": "1.0.0",
+          "capabilities": []
+        },
+        "connection_order": 5
+      }
+    ],
+    "errors": []
+  }
+}
