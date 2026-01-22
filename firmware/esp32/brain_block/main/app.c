@@ -37,19 +37,20 @@ Enhancement:
 #include "esp_system.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "nvs_flash.h"
 #include "esp_wifi.h"
 #include "esp_netif.h"
 
-#include "brain_block.h" // exposes i2c helpers and CHILD_1_ADDR
+#include "brain_block.h" // exposes i2c helpers and device registry
 #include "block_config_manager.h"
-#include "cJSON/cJSON.h"
+#include "cJSON.h"
 
-#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "WhiteSky-Accolade" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "34bwheaf"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "100.110.161.96" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */

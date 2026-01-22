@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "i2c_protocol.h"
 #include "brain_block.h"
+#include "device_registry.h"
 
 // Forward declarations from i2c_comm.c
 extern esp_err_t i2c_ping(uint8_t addr);
@@ -32,60 +33,63 @@ void demo_task(void *arg) {
             if (cmd == CMD_START) {
                 ESP_LOGI(TAG, "Demo START received");
                 
-                // ========== Child Block 1 - LED Matrix ==========
-                if (i2c_ping(CHILD_1_ADDR) == ESP_OK) {
-                    ESP_LOGI(TAG, "Child 1 detected!");
-
-                    ESP_LOGI(TAG, "Child 1: Setting brightness to 30%%");
-                    i2c_matrix_set_brightness(CHILD_1_ADDR, 76);
-                    vTaskDelay(pdMS_TO_TICKS(500));
-                    
-                    ESP_LOGI(TAG, "Child 1: RED");
-                    i2c_matrix_fill(CHILD_1_ADDR, 255, 0, 0);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 1: GREEN");
-                    i2c_matrix_fill(CHILD_1_ADDR, 0, 255, 0);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 1: BLUE");
-                    i2c_matrix_fill(CHILD_1_ADDR, 0, 0, 255);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 1: CLEAR");
-                    i2c_matrix_clear(CHILD_1_ADDR);
-                    vTaskDelay(pdMS_TO_TICKS(500));
-                }
+                // Get the device registry to find all connected devices
+                const device_registry_t *registry = device_registry_get();
                 
-                // ========== Child Block 2 - OLED Display ==========
-                if (i2c_ping(CHILD_2_ADDR) == ESP_OK) {
-                    ESP_LOGI(TAG, "Child 2 detected!");
-
-                    ESP_LOGI(TAG, "Child 2: Setting brightness");
-                    i2c_matrix_set_brightness(CHILD_2_ADDR, 76);
-                    vTaskDelay(pdMS_TO_TICKS(500));
+                if (registry->count == 0) {
+                    ESP_LOGW(TAG, "No devices detected, skipping demo");
+                } else {
+                    ESP_LOGI(TAG, "Found %d device(s), starting demo", registry->count);
                     
-                    ESP_LOGI(TAG, "Child 2: YELLOW");
-                    i2c_matrix_fill(CHILD_2_ADDR, 255, 255, 0);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 2: CYAN");
-                    i2c_matrix_fill(CHILD_2_ADDR, 0, 255, 255);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 2: MAGENTA");
-                    i2c_matrix_fill(CHILD_2_ADDR, 255, 0, 255);
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                    
-                    ESP_LOGI(TAG, "Child 2: CLEAR");
-                    i2c_matrix_clear(CHILD_2_ADDR);
+                    // Iterate through all discovered devices
+                    for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
+                        const device_entry_t *entry = &registry->devices[i];
+                        
+                        if (!entry->present) {
+                            continue;
+                        }
+                        
+                        uint8_t addr = entry->address;
+                        ESP_LOGI(TAG, "Demo on device 0x%02X (type: %s)", 
+                                addr, block_type_to_string(entry->type));
+                        
+                        // Set brightness
+                        ESP_LOGI(TAG, "Device 0x%02X: Setting brightness to 30%%", addr);
+                        i2c_matrix_set_brightness(addr, 76);
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                        
+                        // Cycle through colors
+                        ESP_LOGI(TAG, "Device 0x%02X: RED", addr);
+                        i2c_matrix_fill(addr, 255, 0, 0);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        
+                        ESP_LOGI(TAG, "Device 0x%02X: GREEN", addr);
+                        i2c_matrix_fill(addr, 0, 255, 0);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        
+                        ESP_LOGI(TAG, "Device 0x%02X: BLUE", addr);
+                        i2c_matrix_fill(addr, 0, 0, 255);
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        
+                        ESP_LOGI(TAG, "Device 0x%02X: CLEAR", addr);
+                        i2c_matrix_clear(addr);
+                        vTaskDelay(pdMS_TO_TICKS(500));
+                    }
                 }
             }
             else if (cmd == CMD_STOP) {
                 ESP_LOGI(TAG, "Demo STOP received");
-
-                i2c_matrix_clear(CHILD_1_ADDR);
-                i2c_matrix_clear(CHILD_2_ADDR);
+                
+                // Clear all discovered devices
+                const device_registry_t *registry = device_registry_get();
+                
+                for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
+                    const device_entry_t *entry = &registry->devices[i];
+                    if (entry->present) {
+                        ESP_LOGI(TAG, "Clearing device 0x%02X", entry->address);
+                        i2c_matrix_clear(entry->address);
+                    }
+                }
             }
         }
         // Wait before next cycle

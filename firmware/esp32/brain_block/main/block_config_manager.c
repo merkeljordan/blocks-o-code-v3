@@ -12,7 +12,7 @@
 #include "brain_block.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "cJSON/cJSON.h"
+#include "cJSON.h"
 
 static const char *TAG = "BLOCK_CONFIG";
 

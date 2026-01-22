@@ -12,6 +12,10 @@
 #include <stdint.h>
 #include "i2c_protocol.h"
 
+/* I2C child block addresses */
+#define CHILD_1_ADDR        0x08  // LED Matrix
+#define CHILD_2_ADDR        0x09  // OLED Display
+
 /* I2C primitives (implemented in i2c_comm.c) */
 esp_err_t i2c_master_init(void);
 esp_err_t i2c_ping(uint8_t addr);

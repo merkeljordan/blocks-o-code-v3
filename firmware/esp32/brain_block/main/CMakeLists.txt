@@ -8,5 +8,5 @@ idf_component_register(
         "block_config_manager.c"
     INCLUDE_DIRS "." 
     "../../include"
-    REQUIRES json
+    REQUIRES json driver esp_event esp_wifi esp_netif esp_timer nvs_flash
 )

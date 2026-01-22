@@ -1,0 +1,4 @@
+Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=C:\Espressif\python_env\idf5.5_py3.11_env\Scripts\python.exe -DESP_PLATFORM=1 -DCCACHE_ENABLE=1 C:\Projects\spring26\blocks-o-code-v3\firmware\esp32\brain_block
+C:\Users\JORDAN~1\AppData\Local\Temp\kconfgen_tmpi9nilxe9:5: warning: '"Not determined"' is not a valid value for the bool symbol SOC_BROWNOUT_RESET_SUPPORTED (defined at C:/Espressif/frameworks/esp-idf-v5.5.2\./components/soc/esp32/include/soc/Kconfig.soc_caps.in:270). Assignment ignored.
+warning: the value 'y' is invalid for SOC_MPI_OPERATIONS_NUM (defined at C:/Espressif/frameworks/esp-idf-v5.5.2\./components/soc/esp32/include/soc/Kconfig.soc_caps.in:826), which has type int -- assignment ignored
+warning: the value 'y' is invalid for SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS (defined at C:/Espressif/frameworks/esp-idf-v5.5.2\./components/soc/esp32/include/soc/Kconfig.soc_caps.in:850), which has type int -- assignment ignored

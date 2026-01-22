@@ -1,0 +1,2 @@
+source C:/Projects/spring26/blocks-o-code-v3/firmware/esp32/brain_block/build/gdbinit/symbols
+source C:/Projects/spring26/blocks-o-code-v3/firmware/esp32/brain_block/build/gdbinit/connect
