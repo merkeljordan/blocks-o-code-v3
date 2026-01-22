@@ -5,6 +5,8 @@ idf_component_register(
         "demo_task.c"
         "device_registry.c"
         "app.c"
-    INCLUDE_DIRS "."
+        "block_config_manager.c"
+    INCLUDE_DIRS "." 
     "../../include"
+    REQUIRES json
 )

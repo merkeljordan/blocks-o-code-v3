@@ -42,6 +42,8 @@ Enhancement:
 #include "esp_netif.h"
 
 #include "brain_block.h" // exposes i2c helpers and CHILD_1_ADDR
+#include "block_config_manager.h"
+#include "cJSON/cJSON.h"
 
 #define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
 #define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
@@ -55,6 +57,8 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
+#define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
@@ -170,23 +174,87 @@ static void tcp_client_task(void *pvParameters)
 
         ESP_LOGI(TAG, "Successfully connected to server");
 
+        // Perform initial scan and send configuration
+        block_config_manager_scan();
+        char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+        if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
+            size_t json_len = strlen(json_buffer);
+            if (json_len < sizeof(json_buffer) - 1) {
+                json_buffer[json_len] = '\n';
+                json_buffer[json_len + 1] = '\0';
+            }
+            int written = send(sock, json_buffer, strlen(json_buffer), 0);
+            if (written < 0) {
+                ESP_LOGE(TAG, "Error sending initial config: errno %d", errno);
+            } else {
+                ESP_LOGI(TAG, "Sent initial block configuration (%d bytes)", written);
+            }
+        }
+
+        TickType_t last_scan_time = xTaskGetTickCount();
+        bool initial_sent = true;
+
         /* Main send/receive loop */
         while (1) {
-            // --- Send a test message ---
-            const char *test_msg = "ESP32: hello from brain_block\n";
-            int to_write = strlen(test_msg);
-            int written = send(sock, test_msg, to_write, 0);
-            if (written < 0) {
-                ESP_LOGE(TAG, "Error sending: errno %d", errno);
-                break; // will reconnect
+            // --- Periodic block configuration scan ---
+            TickType_t current_time = xTaskGetTickCount();
+            if ((current_time - last_scan_time) >= pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS)) {
+                block_config_manager_scan();
+                last_scan_time = current_time;
+
+                // Send configuration if it changed or if this is the first scan after connection
+                if (block_config_manager_has_changed() || !initial_sent) {
+                    if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
+                        size_t json_len = strlen(json_buffer);
+                        if (json_len < sizeof(json_buffer) - 1) {
+                            json_buffer[json_len] = '\n';
+                            json_buffer[json_len + 1] = '\0';
+                        }
+                        int written = send(sock, json_buffer, strlen(json_buffer), 0);
+                        if (written < 0) {
+                            ESP_LOGE(TAG, "Error sending block config: errno %d", errno);
+                            break; // will reconnect
+                        } else {
+                            ESP_LOGI(TAG, "Sent block configuration (%d bytes)", written);
+                        }
+                    }
+                    initial_sent = true;
+                }
             }
-            ESP_LOGI(TAG, "Sent %d bytes", written);
 
             // --- Receive messages ---
             int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
             if (len > 0) {
                 rx_buffer[len] = '\0';
                 ESP_LOGI(TAG, "Received %d bytes: %s", len, rx_buffer);
+
+                // Try to parse as JSON first (for heartbeat messages)
+                cJSON *json = cJSON_Parse(rx_buffer);
+                if (json != NULL) {
+                    cJSON *type_item = cJSON_GetObjectItem(json, "type");
+                    if (type_item != NULL && cJSON_IsString(type_item)) {
+                        const char *type = cJSON_GetStringValue(type_item);
+                        
+                        if (strcmp(type, "heartbeat") == 0) {
+                            // Respond to heartbeat
+                            ESP_LOGI(TAG, "Received heartbeat, sending acknowledgment");
+                            cJSON *ack_json = cJSON_CreateObject();
+                            cJSON_AddStringToObject(ack_json, "type", "heartbeat_ack");
+                            cJSON_AddNumberToObject(ack_json, "timestamp", (double)(esp_timer_get_time() / 1000));
+                            char *ack_string = cJSON_Print(ack_json);
+                            if (ack_string != NULL) {
+                                strcat(ack_string, "\n");
+                                send(sock, ack_string, strlen(ack_string), 0);
+                                free(ack_string);
+                            }
+                            cJSON_Delete(ack_json);
+                            cJSON_Delete(json);
+                            vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
+                            continue;
+                        }
+                    }
+                    cJSON_Delete(json);
+                }
 
                 // Parse newline-delimited commands and act
                 char *saveptr = NULL;
@@ -233,7 +301,8 @@ static void tcp_client_task(void *pvParameters)
                 }
             }
 
-            vTaskDelay(pdMS_TO_TICKS(TCP_SEND_INTERVAL_MS));
+            // Small delay to prevent tight loop
+            vTaskDelay(pdMS_TO_TICKS(100));
         }
 
         /* Cleanup socket on disconnect */
@@ -258,6 +327,9 @@ void start_network_client(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+
+    // Initialize block configuration manager
+    block_config_manager_init();
 
     wifi_init_sta();
 
