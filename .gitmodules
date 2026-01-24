@@ -1,0 +1,6 @@
+[submodule "firmware/esp32/brain_block/components/tft_espi"]
+	path = firmware/esp32/brain_block/components/tft_espi
+	url = https://github.com/Bodmer/TFT_eSPI.git
+[submodule "firmware/esp32/brain_block/components/arduino"]
+	path = firmware/esp32/brain_block/components/arduino
+	url = https://github.com/espressif/arduino-esp32.git

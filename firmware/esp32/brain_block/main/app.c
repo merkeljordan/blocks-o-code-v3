@@ -45,6 +45,8 @@ Enhancement:
 #include "brain_block.h" // exposes i2c helpers and device registry
 #include "block_config_manager.h"
 #include "cJSON.h"
+#include "tft_ui.h"
+
 
 #define WIFI_SSID       "WhiteSky-Accolade" // <-- Set your Wi‑Fi SSID here
 #define WIFI_PASS       "34bwheaf"       // <-- Set your Wi‑Fi password here
