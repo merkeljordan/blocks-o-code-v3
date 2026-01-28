@@ -1,0 +1,16 @@
+# ESP-IDF build output
+build/
+build_full.log
+
+# ESP-IDF config backups
+sdkconfig.old
+
+# Dependency lock
+dependencies.lock
+
+# VSCode
+.vscode/
+
+# OS junk
+.DS_Store
+Thumbs.db

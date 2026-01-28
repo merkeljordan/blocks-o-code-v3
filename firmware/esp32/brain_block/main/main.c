@@ -4,6 +4,8 @@
 #include "esp_log.h"
 #include "brain_block.h"
 #include "device_registry.h"
+#include "tft_ui.h"
+
 
 static const char *TAG = "BRAIN";
 QueueHandle_t demo_cmd_queue = NULL;
@@ -34,6 +36,10 @@ void app_main(void) {
     
     // Initial scan
     i2c_safe_scan();
+
+    tft_ui_start();   // starts LVGL + GUI task (returns after creating tasks)
+    ESP_LOGI(TAG, "tft_ui_start() returned");
+
 
     // Create command queue for demo task
     demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));

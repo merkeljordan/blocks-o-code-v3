@@ -6,7 +6,9 @@ idf_component_register(
         "device_registry.c"
         "app.c"
         "block_config_manager.c"
+        "esp32_lcd_display.c"
+        "lcd_gui.c"
     INCLUDE_DIRS "." 
     "../../include"
-    REQUIRES json driver esp_event esp_wifi esp_netif esp_timer nvs_flash
+    REQUIRES json driver esp_event esp_wifi esp_netif esp_timer nvs_flash lvgl lvgl_esp32_drivers
 )
