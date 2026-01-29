@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:async';
-import 'dart:ui';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'models/block_telemetry.dart';
 import 'services/telemetry_parser.dart';
 import 'models/block_configuration.dart';
@@ -125,6 +125,14 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     tcpServer?.close();
     tcpServer = null;
     super.dispose();
+  }
+
+  void _handleGetStarted() {
+    // Start server if needed; otherwise just navigate without interrupting it.
+    if (!_isServerRunning) {
+      _setupTCPServerAndConnect();
+    }
+    _navigateToScreen(isConnected ? ScreenType.blockConfig : ScreenType.welcome);
   }
 
   /// Load fake block configuration from assets for testing
@@ -644,6 +652,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           connectionStatus: connectionStatus,
           isServerRunning: _isServerRunning,
           onStopServer: _stopTCPServer,
+          hasConfiguration: _currentConfiguration != null,
+          onGetStarted: _handleGetStarted,
         );
         break;
       case ScreenType.about:
@@ -760,11 +770,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             color: colorScheme.primary,
             onTap: () {
               _toggleMenu();
-              // Start server if needed; otherwise just navigate without interrupting it.
-              if (!_isServerRunning) {
-                _setupTCPServerAndConnect();
-              }
-              _navigateToScreen(isConnected ? ScreenType.blockConfig : ScreenType.welcome);
+              _handleGetStarted();
             },
             colorScheme: colorScheme,
             theme: theme,
@@ -913,6 +919,8 @@ class WelcomeScreen extends StatefulWidget {
   final String connectionStatus;
   final bool isServerRunning;
   final VoidCallback onStopServer;
+  final bool hasConfiguration;
+  final VoidCallback onGetStarted;
 
   const WelcomeScreen({
     super.key,
@@ -920,6 +928,8 @@ class WelcomeScreen extends StatefulWidget {
     required this.connectionStatus,
     required this.isServerRunning,
     required this.onStopServer,
+    required this.hasConfiguration,
+    required this.onGetStarted,
   });
 
   @override
@@ -927,10 +937,11 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation1;
   late Animation<double> _fadeAnimation2;
+  late AnimationController _bgController;
 
   @override
   void initState() {
@@ -955,11 +966,18 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     );
 
     _fadeController.forward();
+
+    _bgController = AnimationController(
+      vsync: this,
+      // Slightly faster loop for more energetic flow
+      duration: const Duration(seconds: 6),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    _bgController.dispose();
     super.dispose();
   }
 
@@ -975,118 +993,512 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           end: Alignment.bottomRight,
           colors: [
             colorScheme.surface,
-            colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            colorScheme.surfaceContainerHighest.withOpacity(0.4),
           ],
         ),
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Welcome text with fade-in
-              FadeTransition(
-                opacity: _fadeAnimation1,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(-0.2, 0),
-                    end: Offset.zero,
-                  ).animate(_fadeAnimation1),
-                  child: Text(
-                    'welcome to',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.7),
-                      fontWeight: FontWeight.w300,
-                      fontSize: 48,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              FadeTransition(
-                opacity: _fadeAnimation2,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(-0.2, 0),
-                    end: Offset.zero,
-                  ).animate(_fadeAnimation2),
-                  child: Text(
-                    "blocks o' code (v3)",
-                    style: theme.textTheme.displayMedium?.copyWith(
-                      fontFamily: 'Modak',
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.normal,
-                      fontSize: 80,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-                  
-                  const Spacer(),
-                  
-                  // Connection status if connecting
-                  if (widget.connectionStatus != 'Server not started')
-                    FadeTransition(
-                      opacity: _fadeAnimation2,
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                widget.connectionStatus,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: colorScheme.onPrimaryContainer,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+      child: CustomPaint(
+        painter: _LogicBackgroundPainter(
+          colorScheme: colorScheme,
+          t: _bgController.value,
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Welcome text with fade-in
+                FadeTransition(
+                  opacity: _fadeAnimation1,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(-0.2, 0),
+                      end: Offset.zero,
+                    ).animate(_fadeAnimation1),
+                    child: Text(
+                      'welcome to',
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.w300,
+                        fontSize: 48,
+                        letterSpacing: 2,
                       ),
                     ),
-                  
-                  const SizedBox(height: 40),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FadeTransition(
+                  opacity: _fadeAnimation2,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(-0.2, 0),
+                      end: Offset.zero,
+                    ).animate(_fadeAnimation2),
+                    child: Text(
+                      "blocks o' code (v3)",
+                      style: theme.textTheme.displayMedium?.copyWith(
+                        fontFamily: 'Modak',
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.normal,
+                        fontSize: 80,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
 
-                  // Stop Server control (only when running)
-                  if (widget.isServerRunning) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: widget.onStopServer,
-                        icon: const Icon(Icons.stop_circle_rounded),
-                        label: const Text('Stop Server'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
+                const SizedBox(height: 32),
+
+                // Hero 3D-style block strip
+                const _HeroBlocksStrip(),
+
+                const Spacer(),
+
+                // Connection status capsule (only when not idle)
+                if (widget.connectionStatus != 'Server not started')
+                  FadeTransition(
+                    opacity: _fadeAnimation2,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              widget.connectionStatus,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                ],
-              ),
+                  ),
+
+                const SizedBox(height: 16),
+
+                // Onboarding steps
+                _OnboardingStepsRow(
+                  isServerRunning: widget.isServerRunning,
+                  isConnected: widget.isConnected,
+                  hasConfiguration: widget.hasConfiguration,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Primary Get Started CTA
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onGetStarted,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Get Started'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      textStyle: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Stop Server control (only when running)
+                if (widget.isServerRunning)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onStopServer,
+                      icon: const Icon(Icons.stop_circle_rounded),
+                      label: const Text('Stop Server'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: BorderSide(color: Colors.redAccent.withOpacity(0.7)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroBlocksStrip extends StatelessWidget {
+  const _HeroBlocksStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final blockCount = 5;
+        final width = constraints.maxWidth;
+        final spacing = width / (blockCount + 1);
+
+        return SizedBox(
+          height: 170,
+          child: Stack(
+            children: List.generate(blockCount, (i) {
+              final t = i / (blockCount - 1);
+              final x = spacing * (i + 1);
+              final baseColor = [
+                colorScheme.primary,
+                colorScheme.secondary,
+                Colors.orange,
+                colorScheme.tertiary,
+                colorScheme.secondary,
+              ][i % 5];
+
+              return Positioned(
+                left: x - 55,
+                top: 40 + (1 - t) * 10,
+                child: _HeroCube(color: baseColor),
+              );
+            }),
+          ),
         );
+      },
+    );
+  }
+}
+
+class _HeroCube extends StatelessWidget {
+  final Color color;
+
+  const _HeroCube({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 110,
+      height: 110,
+      child: CustomPaint(
+        painter: _HeroCubePainter(color: color),
+      ),
+    );
+  }
+}
+
+class _HeroCubePainter extends CustomPainter {
+  final Color color;
+
+  _HeroCubePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2 + 4;
+
+    const double edge = 64;
+    const double depth = 22;
+
+    final frontTopLeft = Offset(cx - edge / 2, cy - edge / 2);
+    final frontTopRight = Offset(cx + edge / 2, cy - edge / 2);
+    final frontBottomLeft = Offset(cx - edge / 2, cy + edge / 2);
+    final frontBottomRight = Offset(cx + edge / 2, cy + edge / 2);
+
+    final depthOffset = Offset(depth * -0.7, depth * -0.6);
+
+    final backTopLeft = frontTopLeft + depthOffset;
+    final backTopRight = frontTopRight + depthOffset;
+    final backBottomLeft = frontBottomLeft + depthOffset;
+    final backBottomRight = frontBottomRight + depthOffset;
+
+    final frontRect = Path()
+      ..moveTo(frontTopLeft.dx, frontTopLeft.dy)
+      ..lineTo(frontTopRight.dx, frontTopRight.dy)
+      ..lineTo(frontBottomRight.dx, frontBottomRight.dy)
+      ..lineTo(frontBottomLeft.dx, frontBottomLeft.dy)
+      ..close();
+
+    final topFace = Path()
+      ..moveTo(backTopLeft.dx, backTopLeft.dy)
+      ..lineTo(backTopRight.dx, backTopRight.dy)
+      ..lineTo(frontTopRight.dx, frontTopRight.dy)
+      ..lineTo(frontTopLeft.dx, frontTopLeft.dy)
+      ..close();
+
+    final sideFace = Path()
+      ..moveTo(frontTopRight.dx, frontTopRight.dy)
+      ..lineTo(backTopRight.dx, backTopRight.dy)
+      ..lineTo(backBottomRight.dx, backBottomRight.dy)
+      ..lineTo(frontBottomRight.dx, frontBottomRight.dy)
+      ..close();
+
+    final leftFace = Path()
+      ..moveTo(backTopLeft.dx, backTopLeft.dy)
+      ..lineTo(frontTopLeft.dx, frontTopLeft.dy)
+      ..lineTo(frontBottomLeft.dx, frontBottomLeft.dy)
+      ..lineTo(backBottomLeft.dx, backBottomLeft.dy)
+      ..close();
+
+    final hsl = HSLColor.fromColor(color);
+    final topColor = hsl.withLightness((hsl.lightness + 0.18).clamp(0.0, 1.0)).toColor();
+    final sideColor =
+        hsl.withLightness((hsl.lightness - 0.12).clamp(0.0, 1.0)).toColor();
+    final leftColor =
+        hsl.withLightness((hsl.lightness - 0.18).clamp(0.0, 1.0)).toColor();
+
+    canvas.drawPath(
+      topFace,
+      Paint()..color = topColor.withOpacity(0.95),
+    );
+
+    canvas.drawPath(
+      sideFace,
+      Paint()..color = sideColor.withOpacity(0.95),
+    );
+
+    canvas.drawPath(
+      leftFace,
+      Paint()..color = leftColor.withOpacity(0.95),
+    );
+
+    canvas.drawPath(
+      frontRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.95),
+            color.withOpacity(0.75),
+          ],
+        ).createShader(
+          Rect.fromPoints(frontTopLeft, frontBottomRight),
+        ),
+    );
+
+    final edgePaint = Paint()
+      ..color = Colors.white.withOpacity(0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeJoin = StrokeJoin.miter;
+
+    // Draw all cube edges for a rigid outline.
+    final edges = <List<Offset>>[
+      [frontTopLeft, frontTopRight],
+      [frontTopRight, frontBottomRight],
+      [frontBottomRight, frontBottomLeft],
+      [frontBottomLeft, frontTopLeft],
+      [backTopLeft, backTopRight],
+      [backTopRight, backBottomRight],
+      [backBottomRight, backBottomLeft],
+      [backBottomLeft, backTopLeft],
+      [frontTopLeft, backTopLeft],
+      [frontTopRight, backTopRight],
+      [frontBottomRight, backBottomRight],
+      [frontBottomLeft, backBottomLeft],
+    ];
+
+    for (final e in edges) {
+      canvas.drawLine(e[0], e[1], edgePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroCubePainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _OnboardingStepsRow extends StatelessWidget {
+  final bool isServerRunning;
+  final bool isConnected;
+  final bool hasConfiguration;
+
+  const _OnboardingStepsRow({
+    required this.isServerRunning,
+    required this.isConnected,
+    required this.hasConfiguration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        _StepChip(
+          index: 1,
+          label: 'Start server',
+          isDone: isServerRunning,
+          color: colorScheme.primary,
+        ),
+        const SizedBox(width: 8),
+        _StepChip(
+          index: 2,
+          label: 'Connect Brain Block',
+          isDone: isConnected,
+          color: colorScheme.secondary,
+        ),
+        const SizedBox(width: 8),
+        _StepChip(
+          index: 3,
+          label: 'Detect blocks',
+          isDone: hasConfiguration,
+          color: colorScheme.tertiary,
+        ),
+      ],
+    );
+  }
+}
+
+class _StepChip extends StatelessWidget {
+  final int index;
+  final String label;
+  final bool isDone;
+  final Color color;
+
+  const _StepChip({
+    required this.index,
+    required this.label,
+    required this.isDone,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: isDone
+                ? [color.withOpacity(0.9), color.withOpacity(0.7)]
+                : [color.withOpacity(0.35), color.withOpacity(0.15)],
+          ),
+          border: Border.all(
+            color: isDone ? Colors.white : color.withOpacity(0.6),
+            width: 1.4,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 10,
+              backgroundColor: Colors.white.withOpacity(isDone ? 1 : 0.7),
+              child: isDone
+                  ? Icon(
+                      Icons.check,
+                      size: 14,
+                      color: color,
+                    )
+                  : Text(
+                      '$index',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: color.withOpacity(0.9),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogicBackgroundPainter extends CustomPainter {
+  final ColorScheme colorScheme;
+  final double t; // 0..1 looping animation phase
+
+  _LogicBackgroundPainter({
+    required this.colorScheme,
+    required this.t,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pathPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = colorScheme.primary.withOpacity(0.25);
+
+    final nodePaint = Paint()..color = colorScheme.secondary.withOpacity(0.6);
+
+    const rows = 4;
+    for (var r = 0; r < rows; r++) {
+      final tRow = r / (rows - 1);
+      final phase = t * 2.4 * math.pi + tRow * 1.6;
+      final wobble = math.sin(phase) * 22;
+      final baseY = size.height * 0.5 + (tRow - 0.5) * 34 + wobble;
+
+      final path = Path();
+      path.moveTo(0, baseY);
+      path.cubicTo(
+        size.width * 0.18,
+        baseY - 26 - 8 * tRow,
+        size.width * 0.45,
+        baseY + 32 + 12 * (1 - tRow),
+        size.width * 0.7,
+        baseY - 18,
+      );
+      path.quadraticBezierTo(
+        size.width * 0.9,
+        baseY + 10,
+        size.width,
+        baseY - 6,
+      );
+      canvas.drawPath(path, pathPaint);
+    }
+
+    // Logic "nodes" that follow a flowing, bouncing trajectory
+    for (var i = 0; i < 8; i++) {
+      final u = i / 7;
+      final phase = t * 3.2 * math.pi + u * 2.8;
+      final cx = size.width * (0.08 + 0.84 * u) + math.sin(phase) * 36;
+      final cy =
+          size.height * 0.55 + math.sin(phase * 1.7 + math.pi / 3) * 40;
+      canvas.drawCircle(Offset(cx, cy), 3.5, nodePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LogicBackgroundPainter oldDelegate) {
+    return oldDelegate.colorScheme != colorScheme || oldDelegate.t != t;
   }
 }
 
@@ -2066,11 +2478,21 @@ class BlockConfigScreen extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            connectionStatus,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.8),
-                            ),
+                          Builder(
+                            builder: (context) {
+                              final errorCount = configViolations
+                                  .where((v) => v.severity == Severity.error)
+                                  .length;
+                              final statusText = currentConfiguration != null
+                                  ? 'Block config: ${currentConfiguration!.totalBlocks} block(s), $errorCount error(s)'
+                                  : connectionStatus;
+                              return Text(
+                                statusText,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.onSurface.withOpacity(0.8),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
