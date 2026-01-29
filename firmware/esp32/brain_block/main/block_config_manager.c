@@ -44,6 +44,7 @@ const char* block_type_to_json_string(block_type_t type) {
         case BLOCK_TYPE_MUSIC_SEQ:  return "music_sequence_block";
         case BLOCK_TYPE_LED_FLASH:  return "led_color_flash_block";
         case BLOCK_TYPE_DISCO:      return "disco_mode_block";
+        case BLOCK_TYPE_DELAY:      return "delay_block";
         default:                    return "unknown";
     }
 }
@@ -349,7 +350,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     }
 
     // Convert to JSON string
-    char *json_string = cJSON_Print(root);
+    char *json_string = cJSON_PrintUnformatted(root);
     if (json_string == NULL) {
         cJSON_Delete(root);
         return ESP_ERR_NO_MEM;
