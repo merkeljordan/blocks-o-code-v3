@@ -970,7 +970,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     _bgController = AnimationController(
       vsync: this,
       // Slightly faster loop for more energetic flow
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 8),
     )..repeat();
   }
 
