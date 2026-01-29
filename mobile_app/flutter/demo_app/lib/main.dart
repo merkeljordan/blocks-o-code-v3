@@ -11,6 +11,7 @@ import 'models/configuration_rules.dart';
 import 'services/block_config_parser.dart';
 import 'services/configuration_validator.dart';
 import 'models/block_type.dart';
+import 'widgets/block_3d_visualizer.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -159,11 +160,42 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _setupTCPServerAndConnect() async {
+  bool get _isServerRunning => tcpServer != null;
+
+  Future<void> _stopTCPServer() async {
     try {
-      // Close existing server if running
+      _stopHeartbeat();
+
+      // Disconnect any active client
+      _clientSocket?.destroy();
+      _clientSocket = null;
+
+      // Close the server
       await tcpServer?.close();
       tcpServer = null;
+
+      setState(() {
+        isConnected = false;
+        _currentConfiguration = null;
+        _configViolations = [];
+        connectionStatus = 'Server stopped';
+      });
+    } catch (e) {
+      setState(() {
+        connectionStatus = 'Failed to stop server: $e';
+      });
+    }
+  }
+
+  Future<void> _setupTCPServerAndConnect() async {
+    try {
+      // If already running, don't restart/close it (clicking Get Started twice should be safe)
+      if (_isServerRunning) {
+        setState(() {
+          connectionStatus = 'Server already running on port $serverPort';
+        });
+        return;
+      }
       
       setState(() {
         connectionStatus = 'Setting up TCP server...';
@@ -610,6 +642,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           key: const ValueKey('welcome'),
           isConnected: isConnected,
           connectionStatus: connectionStatus,
+          isServerRunning: _isServerRunning,
+          onStopServer: _stopTCPServer,
         );
         break;
       case ScreenType.about:
@@ -726,11 +760,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             color: colorScheme.primary,
             onTap: () {
               _toggleMenu();
-              if (!isConnected) {
+              // Start server if needed; otherwise just navigate without interrupting it.
+              if (!_isServerRunning) {
                 _setupTCPServerAndConnect();
-              } else {
-                _navigateToScreen(ScreenType.blockConfig);
               }
+              _navigateToScreen(isConnected ? ScreenType.blockConfig : ScreenType.welcome);
             },
             colorScheme: colorScheme,
             theme: theme,
@@ -877,11 +911,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 class WelcomeScreen extends StatefulWidget {
   final bool isConnected;
   final String connectionStatus;
+  final bool isServerRunning;
+  final VoidCallback onStopServer;
 
   const WelcomeScreen({
     super.key,
     required this.isConnected,
     required this.connectionStatus,
+    required this.isServerRunning,
+    required this.onStopServer,
   });
 
   @override
@@ -1026,6 +1064,24 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     ),
                   
                   const SizedBox(height: 40),
+
+                  // Stop Server control (only when running)
+                  if (widget.isServerRunning) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: widget.onStopServer,
+                        icon: const Icon(Icons.stop_circle_rounded),
+                        label: const Text('Stop Server'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ],
               ),
             ),
@@ -1794,7 +1850,9 @@ class BlockConfigScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: () => onLoadFakeConfig!('assets/sample_block_config.json'),
+                                    onPressed: () => onLoadFakeConfig!(
+                                      'assets/sample_block_config.json',
+                                    ),
                                     icon: const Icon(Icons.check_circle),
                                     label: const Text('Load Valid Config'),
                                     style: ElevatedButton.styleFrom(
@@ -1806,7 +1864,9 @@ class BlockConfigScreen extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton.icon(
-                                    onPressed: () => onLoadFakeConfig!('assets/sample_block_config_invalid.json'),
+                                    onPressed: () => onLoadFakeConfig!(
+                                      'assets/sample_block_config_invalid.json',
+                                    ),
                                     icon: const Icon(Icons.error),
                                     label: const Text('Load Invalid Config'),
                                     style: ElevatedButton.styleFrom(
@@ -1825,7 +1885,15 @@ class BlockConfigScreen extends StatelessWidget {
 
                     // Block Configuration Display
                     if (currentConfiguration != null) ...[
-                      _buildBlockConfigurationSection(theme, colorScheme, currentConfiguration!),
+                      // 3D visualizer (Windows only) as an enhanced view.
+                      Block3DVisualizer(configuration: currentConfiguration!),
+                      const SizedBox(height: 16),
+                      // Existing 2D list as a reliable, readable fallback.
+                      _buildBlockConfigurationSection(
+                        theme,
+                        colorScheme,
+                        currentConfiguration!,
+                      ),
                       const SizedBox(height: 16),
                     ],
 
