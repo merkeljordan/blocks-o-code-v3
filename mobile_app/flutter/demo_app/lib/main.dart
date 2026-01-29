@@ -997,10 +997,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           ],
         ),
       ),
-      child: CustomPaint(
-        painter: _LogicBackgroundPainter(
-          colorScheme: colorScheme,
-          t: _bgController.value,
+      child: AnimatedBuilder(
+        animation: _bgController,
+        builder: (context, child) => CustomPaint(
+          painter: _LogicBackgroundPainter(
+            colorScheme: colorScheme,
+            t: _bgController.value,
+          ),
+          child: child,
         ),
         child: SafeArea(
           child: Padding(
