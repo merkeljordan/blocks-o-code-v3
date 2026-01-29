@@ -10,7 +10,8 @@ enum BlockType {
   ledColorFlashBlock,
   buttonPress,
   loopBlock,
-  endLoopBlock;
+  endLoopBlock,
+  delayBlock;
 
   /// Get the string identifier for this block type (used in JSON/WHOAMI)
   String get identifier {
@@ -37,6 +38,8 @@ enum BlockType {
         return 'loop_block';
       case BlockType.endLoopBlock:
         return 'end_loop_block';
+      case BlockType.delayBlock:
+        return 'delay_block';
     }
   }
 
@@ -65,6 +68,8 @@ enum BlockType {
         return 'Loop Block';
       case BlockType.endLoopBlock:
         return 'End Loop Block';
+      case BlockType.delayBlock:
+        return 'Delay Block';
     }
   }
 
@@ -78,6 +83,7 @@ enum BlockType {
       case BlockType.endIfBlock:
       case BlockType.loopBlock:
       case BlockType.endLoopBlock:
+      case BlockType.delayBlock:
         return BlockCategory.controlFlow;
       case BlockType.buttonPress:
         return BlockCategory.input;
@@ -218,6 +224,13 @@ class BlockTypeDefinition {
         category: BlockCategory.controlFlow,
         capabilities: ['iteration_terminator'],
         iconName: 'end_loop',
+      ),
+      BlockTypeDefinition(
+        type: BlockType.delayBlock,
+        displayName: 'Delay Block',
+        category: BlockCategory.controlFlow,
+        capabilities: ['timing_control', 'execution_pause'],
+        iconName: 'delay',
       ),
     ];
   }
