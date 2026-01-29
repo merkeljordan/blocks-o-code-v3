@@ -315,18 +315,11 @@ class ConfigurationRules {
     // Check Brain Block rule
     violations.addAll(checkBrainBlockRule(config));
 
-    // Only validate sequences if Brain Block is valid
-    if (violations.where((v) => v.type == RuleViolationType.brainBlockMissing || 
-                                v.type == RuleViolationType.brainBlockNotFirst).isEmpty) {
-      // Check If Block sequences
-      violations.addAll(checkIfBlockSequences(config));
-
-      // Check Loop Block sequences
-      violations.addAll(checkLoopBlockSequences(config));
-
-      // Check sequence isolation (warnings)
-      violations.addAll(checkSequenceIsolation(config));
-    }
+    // Always validate sequences too, so users can see all placement issues
+    // in a single pass (Brain Block plus If/Loop/ordering problems).
+    violations.addAll(checkIfBlockSequences(config));
+    violations.addAll(checkLoopBlockSequences(config));
+    violations.addAll(checkSequenceIsolation(config));
 
     return violations;
   }

@@ -107,7 +107,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer> {
                   Icon(Icons.view_in_ar, color: colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
-                    '3D Block Layout (Windows only)',
+                    '3D Block Visualization',
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -147,7 +147,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer> {
                     const double cubeHalf = 0.55;
                     const double cubeScale = 70;
                     final double cubeWidthPx = 2 * cubeHalf * cubeScale;
-                    final double spacing = cubeWidthPx * 1.02;
+                    final double spacing = cubeWidthPx * 1.5;
 
                     final projected = <_ProjectedBlock>[];
                     for (var i = 0; i < blocks.length; i++) {
