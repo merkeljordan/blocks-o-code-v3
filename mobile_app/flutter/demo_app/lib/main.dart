@@ -1168,7 +1168,8 @@ class _HeroBlocksStrip extends StatelessWidget {
           height: 170,
           child: Stack(
             children: List.generate(blockCount, (i) {
-              final t = i / (blockCount - 1);
+              final denom = blockCount - 1;
+              final t = denom == 0 ? 0.0 : i / denom;
               final x = spacing * (i + 1);
               final baseColor = [
                 colorScheme.primary,
