@@ -6,13 +6,22 @@ class BlockConfiguration {
   final List<BlockInfo> blocks;
   final List<ConfigurationError> errors;
   final DateTime timestamp;
+  
+  /// The original block count reported by firmware before any synthetic blocks were added
+  final int originalFirmwareBlockCount;
+  
+  /// Whether a synthetic Brain Block was injected by the app (true when firmware reported 0 blocks)
+  final bool hasSyntheticBrainBlock;
 
   BlockConfiguration({
     required this.totalBlocks,
     required this.blocks,
     this.errors = const [],
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+    int? originalFirmwareBlockCount,
+    this.hasSyntheticBrainBlock = false,
+  }) : timestamp = timestamp ?? DateTime.now(),
+       originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
 
   /// Create from JSON map
   factory BlockConfiguration.fromJson(Map<String, dynamic> json) {
@@ -43,6 +52,8 @@ class BlockConfiguration {
     // and inject a synthetic Brain Block so the app can still visualize it.
     List<BlockInfo> finalBlocks = blocks;
     int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
+    int originalFirmwareCount = reportedTotalBlocks;
+    bool hasSynthetic = false;
 
     BlockInfo buildBrainBlock() {
       final brainWhoami = WhoAmIData(
@@ -64,6 +75,7 @@ class BlockConfiguration {
     if (blocks.isEmpty) {
       finalBlocks = [buildBrainBlock()];
       reportedTotalBlocks = 1;
+      hasSynthetic = true;
     }
 
     return BlockConfiguration(
@@ -71,6 +83,8 @@ class BlockConfiguration {
       blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
+      originalFirmwareBlockCount: originalFirmwareCount,
+      hasSyntheticBrainBlock: hasSynthetic,
     );
   }
 
@@ -83,6 +97,8 @@ class BlockConfiguration {
         'total_blocks': totalBlocks,
         'blocks': blocks.map((b) => b.toJson()).toList(),
         'errors': errors.map((e) => e.toJson()).toList(),
+        'original_firmware_block_count': originalFirmwareBlockCount,
+        'has_synthetic_brain_block': hasSyntheticBrainBlock,
       },
     };
   }
