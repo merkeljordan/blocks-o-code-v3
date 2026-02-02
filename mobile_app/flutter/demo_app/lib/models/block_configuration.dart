@@ -21,7 +21,7 @@ class BlockConfiguration {
     int? originalFirmwareBlockCount,
     this.hasSyntheticBrainBlock = false,
   }) : timestamp = timestamp ?? DateTime.now(),
-       originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
+       this.originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
 
   /// Create from JSON map
   factory BlockConfiguration.fromJson(Map<String, dynamic> json) {
