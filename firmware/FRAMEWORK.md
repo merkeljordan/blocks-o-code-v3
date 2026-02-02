@@ -24,7 +24,7 @@ This document defines the minimum contract and implementation checklist for ever
 - `CMD_RESET` - return to idle and clear configuration.
 
 ### Shared Peripherals (Every Block)
-- **LED matrix**: used for confirmation flashes and quick feedback.
+- **LED matrix**: used for disco color flashes
 - **Addressable LEDs**: used for block type color coding and status.
 - **Speaker**: used for click feedback and sound preview.
 
@@ -68,7 +68,7 @@ Each block returns a small payload on `CMD_GET_DATA`. Keep it fixed-length per b
 
 ## Block-Specific Requirements
 
-### Brain Block (already implemented)
+### Brain Block (already started to implement)
 - Discovers blocks, builds JSON configuration, handles events.
 - Touch TFT, wireless link to app, program orchestration.
 

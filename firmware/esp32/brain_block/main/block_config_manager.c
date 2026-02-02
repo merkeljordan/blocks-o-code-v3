@@ -350,11 +350,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     }
 
     // Convert to JSON string
-#ifdef CONFIG_DEBUG_JSON_FORMATTED
-    char *json_string = cJSON_Print(root);
-#else
     char *json_string = cJSON_PrintUnformatted(root);
-#endif
     if (json_string == NULL) {
         cJSON_Delete(root);
         return ESP_ERR_NO_MEM;
