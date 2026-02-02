@@ -44,17 +44,30 @@ class BlockConfiguration {
     List<BlockInfo> finalBlocks = blocks;
     int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
 
+    /// Creates a synthetic Brain Block for visualization when no blocks are detected.
+    /// 
+    /// The Brain Block never appears in firmware scan results because the Brain doesn't
+    /// scan its own I2C address - it only scans child blocks (addresses 0x08-0x15).
+    /// This synthetic block ensures the UI can always display at least the Brain Block.
+    /// 
+    /// Values are chosen to align with firmware conventions:
+    /// - blockId: 'BLOCK_0x00' follows firmware's "BLOCK_0x{i2c_address}" format
+    /// - i2cAddress: 0x00 represents the Brain (BLOCK_TYPE_BRAIN = 0x00 in firmware)
+    /// - firmwareVersion: '1.0.0' matches firmware's default version string
+    /// 
+    /// Note: If firmware is ever modified to report the Brain Block in scan results,
+    /// these values should match exactly to avoid conflicts.
     BlockInfo buildBrainBlock() {
       final brainWhoami = WhoAmIData(
         blockType: BlockType.brainBlock.identifier,
-        blockId: 'BRAIN',
-        firmwareVersion: null,
+        blockId: 'BLOCK_0x00',
+        firmwareVersion: '1.0.0',
         capabilities: const [],
       );
 
       return BlockInfo(
         index: 0,
-        i2cAddress: 0,
+        i2cAddress: 0x00,
         whoami: brainWhoami,
         connectionOrder: 0,
         blockType: BlockType.brainBlock,
