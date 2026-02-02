@@ -39,9 +39,36 @@ class BlockConfiguration {
       }
     }
 
+    // If the firmware reports zero blocks, treat this as a "brain-only" configuration
+    // and inject a synthetic Brain Block so the app can still visualize it.
+    List<BlockInfo> finalBlocks = blocks;
+    int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
+
+    BlockInfo buildBrainBlock() {
+      final brainWhoami = WhoAmIData(
+        blockType: BlockType.brainBlock.identifier,
+        blockId: 'BRAIN',
+        firmwareVersion: null,
+        capabilities: const [],
+      );
+
+      return BlockInfo(
+        index: 0,
+        i2cAddress: 0,
+        whoami: brainWhoami,
+        connectionOrder: 0,
+        blockType: BlockType.brainBlock,
+      );
+    }
+
+    if (blocks.isEmpty) {
+      finalBlocks = [buildBrainBlock()];
+      reportedTotalBlocks = 1;
+    }
+
     return BlockConfiguration(
-      totalBlocks: config['total_blocks'] as int? ?? blocks.length,
-      blocks: blocks,
+      totalBlocks: reportedTotalBlocks,
+      blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
     );

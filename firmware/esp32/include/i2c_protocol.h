@@ -69,6 +69,7 @@ typedef enum {
     BLOCK_TYPE_END_IF      = 0x12,
     BLOCK_TYPE_LOOP        = 0x13,
     BLOCK_TYPE_END_LOOP    = 0x14,
+    BLOCK_TYPE_DELAY       = 0x15,
 
     // Input Blocks
     BLOCK_TYPE_BUTTON      = 0x20,
@@ -120,6 +121,7 @@ static inline const char* block_type_to_string(block_type_t type) {
         case BLOCK_TYPE_END_IF:     return "END_IF";
         case BLOCK_TYPE_LOOP:       return "LOOP";
         case BLOCK_TYPE_END_LOOP:   return "END_LOOP";
+        case BLOCK_TYPE_DELAY:      return "DELAY";
         case BLOCK_TYPE_BUTTON:     return "BUTTON";
         case BLOCK_TYPE_NOTE:       return "NOTE";
         case BLOCK_TYPE_MUSIC_SEQ:  return "MUSIC_SEQ";
