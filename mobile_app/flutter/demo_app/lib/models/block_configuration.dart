@@ -44,7 +44,7 @@ class BlockConfiguration {
     List<BlockInfo> finalBlocks = blocks;
     int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
 
-    if (blocks.isEmpty && reportedTotalBlocks == 0) {
+    BlockInfo buildBrainBlock() {
       final brainWhoami = WhoAmIData(
         blockType: BlockType.brainBlock.identifier,
         blockId: 'BRAIN',
@@ -52,15 +52,17 @@ class BlockConfiguration {
         capabilities: const [],
       );
 
-      final brainBlock = BlockInfo(
+      return BlockInfo(
         index: 0,
         i2cAddress: 0,
         whoami: brainWhoami,
         connectionOrder: 0,
         blockType: BlockType.brainBlock,
       );
+    }
 
-      finalBlocks = [brainBlock];
+    if (blocks.isEmpty) {
+      finalBlocks = [buildBrainBlock()];
       reportedTotalBlocks = 1;
     }
 
