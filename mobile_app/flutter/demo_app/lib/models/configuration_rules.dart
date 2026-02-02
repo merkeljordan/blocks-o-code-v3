@@ -147,6 +147,7 @@ class ConfigurationRules {
             i++;
           } else if (currentBlock.blockType == BlockType.delayBlock) {
             // Valid delay block
+            hasOutput = true;
             sequenceBlocks.add(i);
             i++;
           } else {
@@ -224,6 +225,7 @@ class ConfigurationRules {
             i++;
           } else if (currentBlock.blockType == BlockType.delayBlock) {
             // Valid delay block
+            hasOutput = true;
             sequenceBlocks.add(i);
             i++;
           } else {
