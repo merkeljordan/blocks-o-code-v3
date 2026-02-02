@@ -132,7 +132,7 @@ class ConfigurationRules {
         sequenceBlocks.add(i);
         i++;
 
-        // Check for at least one Output Block
+        // Check for at least one Output Block or Delay Block
         bool hasOutput = false;
         while (i < blocks.length) {
           final currentBlock = blocks[i];
@@ -142,6 +142,11 @@ class ConfigurationRules {
             break;
           } else if (currentBlock.blockType?.isOutput ?? false) {
             // Valid output block
+            hasOutput = true;
+            sequenceBlocks.add(i);
+            i++;
+          } else if (currentBlock.blockType == BlockType.delayBlock) {
+            // Valid delay block
             hasOutput = true;
             sequenceBlocks.add(i);
             i++;
@@ -205,7 +210,7 @@ class ConfigurationRules {
         final sequenceBlocks = <int>[i];
         i++; // Move to next block
 
-        // Check for at least one Output Block
+        // Check for at least one Output Block or Delay Block
         bool hasOutput = false;
         while (i < blocks.length) {
           final currentBlock = blocks[i];
@@ -215,6 +220,11 @@ class ConfigurationRules {
             break;
           } else if (currentBlock.blockType?.isOutput ?? false) {
             // Valid output block
+            hasOutput = true;
+            sequenceBlocks.add(i);
+            i++;
+          } else if (currentBlock.blockType == BlockType.delayBlock) {
+            // Valid delay block
             hasOutput = true;
             sequenceBlocks.add(i);
             i++;

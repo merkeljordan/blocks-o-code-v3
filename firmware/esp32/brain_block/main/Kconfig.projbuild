@@ -1,0 +1,15 @@
+menu "Brain Block Configuration"
+
+    config DEBUG_JSON_FORMATTED
+        bool "Enable formatted JSON output for debugging"
+        default n
+        help
+            When enabled, JSON output will be formatted with indentation and newlines,
+            making it easier to read in logs during development and debugging.
+            When disabled (default), JSON output is compact/unformatted to reduce
+            message size over the network.
+            
+            Enable this option for development/debugging purposes.
+            Disable for production to optimize network bandwidth.
+
+endmenu
