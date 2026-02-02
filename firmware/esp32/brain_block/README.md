@@ -204,6 +204,24 @@ All commands follow this structure:
 - ESP32 development board
 - USB cable
 
+### **Configuration Options**
+
+The project includes configuration options that can be set via `idf.py menuconfig`:
+
+#### **DEBUG_JSON_FORMATTED** (Brain Block Configuration)
+- **Default:** Disabled
+- **Purpose:** Control JSON output formatting in block configuration messages
+- **Options:**
+  - **Disabled (default):** JSON is compact/unformatted for optimal network bandwidth
+  - **Enabled:** JSON is formatted with indentation for easier debugging
+
+To enable formatted JSON output for debugging:
+```bash
+idf.py menuconfig
+# Navigate to: Brain Block Configuration → Enable formatted JSON output for debugging
+# Select [*] to enable, then save and exit
+```
+
 ### **Build Commands**
 ```bash
 cd firmware/esp32/brain_block

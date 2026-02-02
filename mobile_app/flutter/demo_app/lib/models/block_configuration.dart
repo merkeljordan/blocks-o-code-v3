@@ -6,13 +6,22 @@ class BlockConfiguration {
   final List<BlockInfo> blocks;
   final List<ConfigurationError> errors;
   final DateTime timestamp;
+  
+  /// The original block count reported by firmware before any synthetic blocks were added
+  final int originalFirmwareBlockCount;
+  
+  /// Whether a synthetic Brain Block was injected by the app (true when firmware reported 0 blocks)
+  final bool hasSyntheticBrainBlock;
 
   BlockConfiguration({
     required this.totalBlocks,
     required this.blocks,
     this.errors = const [],
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+    int? originalFirmwareBlockCount,
+    this.hasSyntheticBrainBlock = false,
+  }) : timestamp = timestamp ?? DateTime.now(),
+       this.originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
 
   /// Create from JSON map
   factory BlockConfiguration.fromJson(Map<String, dynamic> json) {
@@ -43,18 +52,33 @@ class BlockConfiguration {
     // and inject a synthetic Brain Block so the app can still visualize it.
     List<BlockInfo> finalBlocks = blocks;
     int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
+    int originalFirmwareCount = reportedTotalBlocks;
+    bool hasSynthetic = false;
 
+    /// Creates a synthetic Brain Block for visualization when no blocks are detected.
+    /// 
+    /// The Brain Block never appears in firmware scan results because the Brain doesn't
+    /// scan its own I2C address - it only scans child blocks (addresses 0x08-0x15).
+    /// This synthetic block ensures the UI can always display at least the Brain Block.
+    /// 
+    /// Values are chosen to align with firmware conventions:
+    /// - blockId: 'BLOCK_0x00' follows firmware's "BLOCK_0x{i2c_address}" format
+    /// - i2cAddress: 0x00 represents the Brain (BLOCK_TYPE_BRAIN = 0x00 in firmware)
+    /// - firmwareVersion: '1.0.0' matches firmware's default version string
+    /// 
+    /// Note: If firmware is ever modified to report the Brain Block in scan results,
+    /// these values should match exactly to avoid conflicts.
     BlockInfo buildBrainBlock() {
       final brainWhoami = WhoAmIData(
         blockType: BlockType.brainBlock.identifier,
-        blockId: 'BRAIN',
-        firmwareVersion: null,
+        blockId: 'BLOCK_0x00',
+        firmwareVersion: '1.0.0',
         capabilities: const [],
       );
 
       return BlockInfo(
         index: 0,
-        i2cAddress: 0,
+        i2cAddress: 0x00,
         whoami: brainWhoami,
         connectionOrder: 0,
         blockType: BlockType.brainBlock,
@@ -64,6 +88,7 @@ class BlockConfiguration {
     if (blocks.isEmpty) {
       finalBlocks = [buildBrainBlock()];
       reportedTotalBlocks = 1;
+      hasSynthetic = true;
     }
 
     return BlockConfiguration(
@@ -71,6 +96,8 @@ class BlockConfiguration {
       blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
+      originalFirmwareBlockCount: originalFirmwareCount,
+      hasSyntheticBrainBlock: hasSynthetic,
     );
   }
 
@@ -83,6 +110,8 @@ class BlockConfiguration {
         'total_blocks': totalBlocks,
         'blocks': blocks.map((b) => b.toJson()).toList(),
         'errors': errors.map((e) => e.toJson()).toList(),
+        'original_firmware_block_count': originalFirmwareBlockCount,
+        'has_synthetic_brain_block': hasSyntheticBrainBlock,
       },
     };
   }
