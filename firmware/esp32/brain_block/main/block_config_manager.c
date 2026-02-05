@@ -268,19 +268,37 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     cJSON *config = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "config", config);
 
-    // Add total_blocks
-    cJSON_AddNumberToObject(config, "total_blocks", s_config_state.block_count);
+    // Add total_blocks (include Brain as a synthetic entry)
+    int total_blocks = s_config_state.block_count + 1;
+    cJSON_AddNumberToObject(config, "total_blocks", total_blocks);
 
     // Create blocks array
     cJSON *blocks_array = cJSON_CreateArray();
     cJSON_AddItemToObject(config, "blocks", blocks_array);
 
-    // Add each block
+    // Add Brain block as a synthetic entry (not on I2C bus)
+    {
+        cJSON *block_obj = cJSON_CreateObject();
+        cJSON_AddNumberToObject(block_obj, "index", 0);
+        cJSON_AddNumberToObject(block_obj, "i2c_address", 0);
+        cJSON_AddNumberToObject(block_obj, "connection_order", -1);
+
+        cJSON *whoami_obj = cJSON_CreateObject();
+        cJSON_AddItemToObject(block_obj, "whoami", whoami_obj);
+        cJSON_AddStringToObject(whoami_obj, "block_type", "brain_block");
+        cJSON_AddStringToObject(whoami_obj, "block_id", "BRAIN");
+        cJSON_AddStringToObject(whoami_obj, "firmware_version", "1.0.0");
+        add_capabilities_array(whoami_obj, 0);
+
+        cJSON_AddItemToArray(blocks_array, block_obj);
+    }
+
+    // Add each detected child block
     for (int i = 0; i < s_config_state.block_count; i++) {
         const block_config_entry_t *entry = &s_config_state.blocks[i];
         
         cJSON *block_obj = cJSON_CreateObject();
-        cJSON_AddNumberToObject(block_obj, "index", i);
+        cJSON_AddNumberToObject(block_obj, "index", i + 1);
         cJSON_AddNumberToObject(block_obj, "i2c_address", entry->i2c_address);
         cJSON_AddNumberToObject(block_obj, "connection_order", entry->connection_order);
 

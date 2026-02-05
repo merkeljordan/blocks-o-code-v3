@@ -6,6 +6,7 @@ idf_component_register(
         "device_registry.c"
         "app.c"
         "block_config_manager.c"
+        "brain_event_handler.c"
         "esp32_lcd_display.c"
         "lcd_gui.c"
     INCLUDE_DIRS "." 

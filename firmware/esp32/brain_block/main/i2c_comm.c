@@ -158,6 +158,42 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
 }
 
 // ============================================================================
+// SET LED (RGB)
+// ============================================================================
+esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
+    uint8_t data[4] = {CMD_SET_LED, r, g, b};
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 4, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+
+    return ret;
+}
+
+// ============================================================================
+// EXECUTE (Trigger configured action)
+// ============================================================================
+esp_err_t i2c_execute(uint8_t address) {
+    uint8_t data[1] = {CMD_EXECUTE};
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 1, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+
+    return ret;
+}
+
+// ============================================================================
 // OLED TEXT
 // ============================================================================
 esp_err_t i2c_oled_text(uint8_t address, const char *msg) {

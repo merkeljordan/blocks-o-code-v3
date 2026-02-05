@@ -12,6 +12,8 @@ extern void i2c_safe_scan(void);
 extern esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
 extern esp_err_t i2c_matrix_clear(uint8_t address);
 extern esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness);
+extern esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
+extern esp_err_t i2c_execute(uint8_t address);
 
 static const char *TAG = "DEMO";
 
@@ -53,27 +55,46 @@ void demo_task(void *arg) {
                         ESP_LOGI(TAG, "Demo on device 0x%02X (type: %s)", 
                                 addr, block_type_to_string(entry->type));
                         
-                        // Set brightness
-                        ESP_LOGI(TAG, "Device 0x%02X: Setting brightness to 30%%", addr);
-                        i2c_matrix_set_brightness(addr, 76);
-                        vTaskDelay(pdMS_TO_TICKS(500));
-                        
-                        // Cycle through colors
-                        ESP_LOGI(TAG, "Device 0x%02X: RED", addr);
-                        i2c_matrix_fill(addr, 255, 0, 0);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        
-                        ESP_LOGI(TAG, "Device 0x%02X: GREEN", addr);
-                        i2c_matrix_fill(addr, 0, 255, 0);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        
-                        ESP_LOGI(TAG, "Device 0x%02X: BLUE", addr);
-                        i2c_matrix_fill(addr, 0, 0, 255);
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        
-                        ESP_LOGI(TAG, "Device 0x%02X: CLEAR", addr);
-                        i2c_matrix_clear(addr);
-                        vTaskDelay(pdMS_TO_TICKS(500));
+                        if (entry->type == BLOCK_TYPE_LED_FLASH) {
+                            ESP_LOGI(TAG, "Device 0x%02X: LED_FLASH demo", addr);
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: FLASH RED", addr);
+                            i2c_set_led(addr, 255, 0, 0);
+                            i2c_execute(addr);
+                            vTaskDelay(pdMS_TO_TICKS(400));
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: FLASH GREEN", addr);
+                            i2c_set_led(addr, 0, 255, 0);
+                            i2c_execute(addr);
+                            vTaskDelay(pdMS_TO_TICKS(400));
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: FLASH BLUE", addr);
+                            i2c_set_led(addr, 0, 0, 255);
+                            i2c_execute(addr);
+                            vTaskDelay(pdMS_TO_TICKS(400));
+                        } else {
+                            // Set brightness
+                            ESP_LOGI(TAG, "Device 0x%02X: Setting brightness to 30%%", addr);
+                            i2c_matrix_set_brightness(addr, 76);
+                            vTaskDelay(pdMS_TO_TICKS(500));
+                            
+                            // Cycle through colors
+                            ESP_LOGI(TAG, "Device 0x%02X: RED", addr);
+                            i2c_matrix_fill(addr, 255, 0, 0);
+                            vTaskDelay(pdMS_TO_TICKS(1000));
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: GREEN", addr);
+                            i2c_matrix_fill(addr, 0, 255, 0);
+                            vTaskDelay(pdMS_TO_TICKS(1000));
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: BLUE", addr);
+                            i2c_matrix_fill(addr, 0, 0, 255);
+                            vTaskDelay(pdMS_TO_TICKS(1000));
+                            
+                            ESP_LOGI(TAG, "Device 0x%02X: CLEAR", addr);
+                            i2c_matrix_clear(addr);
+                            vTaskDelay(pdMS_TO_TICKS(500));
+                        }
                     }
                 }
             }
