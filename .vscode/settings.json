@@ -59,5 +59,8 @@
   "C_Cpp_Runner.useLeakSanitizer": false,
   "C_Cpp_Runner.showCompilationTime": false,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
-  "C_Cpp_Runner.msvcSecureNoWarnings": false
+  "C_Cpp_Runner.msvcSecureNoWarnings": false,
+  "idf.currentSetup": "C:\\Users\\dke81\\esp\\v5.5.2\\esp-idf",
+  "idf.portWin": "COM3",
+  "cmake.sourceDirectory": "C:/Users/dke81/Downloads/test/blocks-o-code-v3/firmware/esp32/brain_block"
 }
