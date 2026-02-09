@@ -48,6 +48,20 @@ static int s_retry_num = 0;
 lv_obj_t* sys_stat_tab;
 
 static lv_obj_t *time_label = NULL;
+static lv_obj_t *touch_status_label = NULL;
+static int touch_count = 0;
+static lv_obj_t *status_label = NULL;
+static int64_t last_touch_us = 0;
+static lv_obj_t *intro_screen = NULL;
+static lv_obj_t *home_screen = NULL;
+static lv_obj_t *detail_screen = NULL;
+static lv_obj_t *detail_title_label = NULL;
+static lv_obj_t *notification_panel = NULL;
+static bool notification_open = false;
+static lv_obj_t *wifi_button = NULL;
+
+static void back_button_cb(lv_obj_t *obj, lv_event_t event);
+static void show_notification_panel(bool show);
 
 static void update_time_label(void)
 {
@@ -61,88 +75,524 @@ static void update_time_label(void)
     char buf[16];
     // HH:MM:SS (24-hour). If you want 12-hour, tell me.
     strftime(buf, sizeof(buf), "%I:%M %p", &timeinfo);
-if (buf[0] == '0') {
-    memmove(buf, buf + 1, strlen(buf));
-}
+    if (buf[0] == '0') {
+        memmove(buf, buf + 1, strlen(buf));
+    }
 
     lv_label_set_text(time_label, buf);
 }
 
+static void touch_test_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    if ((now_us - last_touch_us) < 200000) {
+        return;
+    }
+    last_touch_us = now_us;
+
+    touch_count += 1;
+    if (touch_status_label) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "Touch: %d", touch_count);
+        lv_label_set_text(touch_status_label, buf);
+    }
+}
+
+static void nav_button_cb(lv_obj_t *obj, lv_event_t event)
+{
+    if (event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    if ((now_us - last_touch_us) < 200000) {
+        return;
+    }
+    last_touch_us = now_us;
+
+    if (!status_label) {
+        return;
+    }
+
+    lv_obj_t *icon_label = lv_obj_get_child(obj, NULL);
+    lv_obj_t *text_label = icon_label ? lv_obj_get_child(obj, icon_label) : NULL;
+    const char *text = text_label ? lv_label_get_text(text_label) : "Tap";
+
+    char buf[48];
+    snprintf(buf, sizeof(buf), "Selected: %s", text);
+    lv_label_set_text(status_label, buf);
+
+    if (!detail_screen) {
+        detail_screen = lv_obj_create(NULL, NULL);
+        lv_obj_set_style_local_bg_color(detail_screen, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF2F1F7));
+        lv_obj_set_style_local_bg_opa(detail_screen, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+        lv_obj_t *header = lv_cont_create(detail_screen, NULL);
+        lv_obj_set_size(header, LV_HOR_RES_MAX, 28);
+        lv_obj_align(header, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+        lv_obj_set_style_local_bg_color(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x3A3D5C));
+        lv_obj_set_style_local_bg_opa(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+        lv_obj_set_style_local_border_width(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+        lv_obj_t *back_btn = lv_btn_create(header, NULL);
+        lv_obj_set_size(back_btn, 28, 24);
+        lv_obj_align(back_btn, header, LV_ALIGN_IN_LEFT_MID, 4, 0);
+        lv_obj_set_event_cb(back_btn, back_button_cb);
+
+        lv_obj_t *back_label = lv_label_create(back_btn, NULL);
+        lv_label_set_text(back_label, LV_SYMBOL_LEFT);
+
+        detail_title_label = lv_label_create(header, NULL);
+        lv_label_set_text(detail_title_label, "Detail");
+        lv_obj_set_style_local_text_color(detail_title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+        lv_obj_align(detail_title_label, header, LV_ALIGN_CENTER, 0, 0);
+
+        lv_obj_t *body = lv_label_create(detail_screen, NULL);
+        lv_label_set_text(body, "Coming soon...");
+        lv_obj_set_style_local_text_color(body, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D2F45));
+        lv_obj_align(body, detail_screen, LV_ALIGN_CENTER, 0, 20);
+    }
+
+    if (detail_title_label) {
+        lv_label_set_text(detail_title_label, text);
+    }
+
+    lv_scr_load_anim(detail_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
+}
+
+static void back_button_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    if ((now_us - last_touch_us) < 200000) {
+        return;
+    }
+    last_touch_us = now_us;
+
+    if (home_screen) {
+        lv_scr_load_anim(home_screen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 250, 0, false);
+        update_time_label();
+    }
+}
+
+static lv_obj_t *create_nav_button(lv_obj_t *parent, const char *text, const char *icon, lv_coord_t x, lv_coord_t y)
+{
+    lv_obj_t *btn = lv_btn_create(parent, NULL);
+    lv_obj_set_size(btn, 100, 80);
+    lv_obj_set_pos(btn, x, y);
+    lv_obj_set_event_cb(btn, nav_button_cb);
+    lv_obj_set_style_local_bg_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFFFFFF));
+    lv_obj_set_style_local_border_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xD0D0D0));
+    lv_obj_set_style_local_border_width(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_radius(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 8);
+
+    lv_obj_t *icon_label = lv_label_create(btn, NULL);
+    lv_label_set_text(icon_label, icon);
+    lv_obj_set_style_local_text_color(icon_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D2F45));
+    lv_obj_align(icon_label, btn, LV_ALIGN_IN_TOP_MID, 0, 6);
+
+    lv_obj_t *label = lv_label_create(btn, NULL);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_local_text_color(label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D2F45));
+    lv_obj_align(label, btn, LV_ALIGN_IN_BOTTOM_MID, 0, -6);
+
+    return btn;
+}
+
+
+static lv_obj_t *create_status_card(lv_obj_t *parent, const char *title, const char *value)
+{
+    lv_obj_t *card = lv_cont_create(parent, NULL);
+    lv_obj_set_size(card, 150, 70);
+    lv_cont_set_layout(card, LV_LAYOUT_OFF);
+    lv_obj_set_style_local_bg_color(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFFFFFF));
+    lv_obj_set_style_local_bg_opa(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_border_color(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xD0D0D0));
+    lv_obj_set_style_local_radius(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_pad_left(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_pad_right(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_pad_top(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_pad_bottom(card, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+
+    lv_obj_t *title_label = lv_label_create(card, NULL);
+    lv_label_set_text(title_label, title);
+    lv_obj_set_style_local_text_color(title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF699CD));
+    lv_obj_align(title_label, card, LV_ALIGN_IN_TOP_LEFT, 0, 0);
+
+    lv_obj_t *value_label = lv_label_create(card, NULL);
+    lv_label_set_text(value_label, value);
+    lv_obj_set_style_local_text_color(value_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x111111));
+    lv_obj_align(value_label, card, LV_ALIGN_IN_BOTTOM_LEFT, 0, 0);
+
+    return card;
+}
+
+static void anim_border_opa(void *obj, lv_anim_value_t value)
+{
+    lv_obj_set_style_local_border_opa(obj, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, value);
+}
+
+static void anim_obj_y(void *obj, lv_anim_value_t value)
+{
+    lv_obj_set_y(obj, value);
+}
+
+static void notification_panel_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event == LV_EVENT_CLICKED) {
+        show_notification_panel(false);
+    }
+}
+
+static void home_gesture_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event != LV_EVENT_GESTURE) {
+        return;
+    }
+
+    lv_indev_t *indev = lv_indev_get_act();
+    if (!indev) {
+        return;
+    }
+
+    lv_gesture_dir_t dir = lv_indev_get_gesture_dir(indev);
+    if (dir == LV_GESTURE_DIR_BOTTOM) {
+        show_notification_panel(true);
+    } else if (dir == LV_GESTURE_DIR_TOP) {
+        show_notification_panel(false);
+    }
+}
+
+static void wifi_button_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    show_notification_panel(!notification_open);
+}
+
+static void show_notification_panel(bool show)
+{
+    if (!notification_panel || notification_open == show) {
+        return;
+    }
+
+    notification_open = show;
+    if (show) {
+        lv_obj_move_foreground(notification_panel);
+    }
+    lv_coord_t target_y = show ? 120 : -200;
+
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, notification_panel);
+    lv_anim_set_exec_cb(&anim, anim_obj_y);
+    lv_anim_set_values(&anim, lv_obj_get_y(notification_panel), target_y);
+    lv_anim_set_time(&anim, 200);
+    lv_anim_start(&anim);
+}
+
+static lv_obj_t *create_home_screen(void)
+{
+    lv_obj_t *scr = lv_obj_create(NULL, NULL);
+
+    // Screen background: soft lavender
+    lv_obj_set_style_local_bg_color(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF699CD));
+    lv_obj_set_style_local_bg_opa(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    // ---------- Header ----------
+    lv_obj_t *header = lv_cont_create(scr, NULL);
+    lv_obj_set_size(header, LV_HOR_RES_MAX, 28);
+    lv_obj_align(header, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+    lv_obj_set_style_local_bg_color(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x3A3D5C));
+    lv_obj_set_style_local_bg_opa(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+    lv_obj_t *title = lv_label_create(header, NULL);
+    lv_label_set_text(title, "Brain Block");
+    lv_obj_set_style_local_text_color(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_align(title, header, LV_ALIGN_IN_LEFT_MID, 8, 0);
+
+    lv_obj_t *wifi_label = lv_label_create(header, NULL);
+    lv_label_set_text(wifi_label, LV_SYMBOL_WIFI);
+    lv_obj_set_style_local_text_color(wifi_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_align(wifi_label, header, LV_ALIGN_IN_RIGHT_MID, -8, 0);
+
+    wifi_button = lv_btn_create(header, NULL);
+    lv_obj_set_size(wifi_button, 28, 24);
+    lv_obj_align(wifi_button, header, LV_ALIGN_IN_RIGHT_MID, -4, 0);
+    lv_obj_set_style_local_bg_opa(wifi_button, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_obj_set_style_local_border_width(wifi_button, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_event_cb(wifi_button, wifi_button_cb);
+    lv_obj_move_foreground(wifi_label);
+
+    time_label = lv_label_create(header, NULL);
+    lv_label_set_text(time_label, "--:-- --");
+    lv_obj_set_style_local_text_color(time_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_align(time_label, header, LV_ALIGN_IN_RIGHT_MID, -48, 0);
+    update_time_label();
+
+    lv_obj_set_event_cb(scr, home_gesture_cb);
+
+    // ---------- Notification panel ----------
+    notification_panel = lv_cont_create(scr, NULL);
+    lv_obj_set_size(notification_panel, LV_HOR_RES_MAX, 200);
+    lv_obj_set_pos(notification_panel, 0, -200);
+    lv_obj_set_style_local_bg_color(notification_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF2F1F7));
+    lv_obj_set_style_local_bg_opa(notification_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(notification_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_border_color(notification_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xD0D0D0));
+    lv_obj_set_style_local_radius(notification_panel, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_event_cb(notification_panel, notification_panel_cb);
+
+    lv_obj_t *notif_title = lv_label_create(notification_panel, NULL);
+    lv_label_set_text(notif_title, "Notifications");
+    lv_obj_set_style_local_text_color(notif_title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D2F45));
+    lv_obj_align(notif_title, notification_panel, LV_ALIGN_IN_TOP_LEFT, 10, 8);
+
+    lv_obj_t *notif_body = lv_label_create(notification_panel, NULL);
+    lv_label_set_text(notif_body, LV_SYMBOL_WARNING "  Battery low");
+    lv_obj_set_style_local_text_color(notif_body, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xB53389));
+    lv_obj_align(notif_body, notification_panel, LV_ALIGN_IN_TOP_LEFT, 10, 34);
+
+    // ---------- Content ----------
+    lv_obj_t *content = lv_cont_create(scr, NULL);
+    lv_obj_set_pos(content, 0, 28);
+    lv_obj_set_size(content, LV_HOR_RES_MAX, LV_VER_RES_MAX - 28);
+    lv_cont_set_layout(content, LV_LAYOUT_OFF);
+    lv_obj_set_style_local_bg_color(content, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFCBACB));
+    lv_obj_set_style_local_bg_opa(content, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_border_width(content, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+
+    lv_obj_t *subtitle = lv_label_create(content, NULL);
+    lv_label_set_text(subtitle, "Tap a block to begin");
+    lv_obj_set_style_local_text_color(subtitle, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x6B6E8A));
+    lv_obj_align(subtitle, content, LV_ALIGN_IN_TOP_MID, 0, 6);
+
+    create_nav_button(content, "Start", LV_SYMBOL_PLAY, 10, 30);
+    create_nav_button(content, "Blocks", LV_SYMBOL_LIST, 130, 30);
+    create_nav_button(content, "Sound", LV_SYMBOL_VOLUME_MID, 10, 120);
+    create_nav_button(content, "Help", LV_SYMBOL_SETTINGS, 130, 120);
+
+    status_label = lv_label_create(content, NULL);
+    lv_label_set_text(status_label, "Selected: None");
+    lv_obj_set_style_local_text_color(status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x3A3D5C));
+    lv_obj_align(status_label, content, LV_ALIGN_IN_BOTTOM_LEFT, 10, -26);
+
+    lv_obj_t *btn = lv_btn_create(content, NULL);
+    lv_obj_set_size(btn, 140, 36);
+    lv_obj_align(btn, content, LV_ALIGN_IN_BOTTOM_RIGHT, -10, -10);
+    lv_obj_set_event_cb(btn, touch_test_cb);
+
+    lv_obj_t *btn_label = lv_label_create(btn, NULL);
+    lv_label_set_text(btn_label, "Touch test");
+
+    touch_status_label = lv_label_create(content, NULL);
+    lv_label_set_text(touch_status_label, "Touch: 0");
+    lv_obj_set_style_local_text_color(touch_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x6B6E8A));
+    lv_obj_align(touch_status_label, content, LV_ALIGN_IN_BOTTOM_LEFT, 10, -8);
+
+    return scr;
+}
+
+static void begin_button_cb(lv_obj_t *obj, lv_event_t event)
+{
+    (void) obj;
+
+    if (event != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    int64_t now_us = esp_timer_get_time();
+    if ((now_us - last_touch_us) < 200000) {
+        return;
+    }
+    last_touch_us = now_us;
+
+    if (!home_screen) {
+        home_screen = create_home_screen();
+    }
+
+    lv_scr_load_anim(home_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
+    update_time_label();
+}
+
+static lv_obj_t *create_intro_screen(void)
+{
+    lv_obj_t *scr = lv_obj_create(NULL, NULL);
+    lv_obj_set_style_local_bg_color(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF699CD));
+    lv_obj_set_style_local_bg_opa(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+
+    lv_obj_t *title = lv_label_create(scr, NULL);
+    lv_label_set_text(title, "Welcome to\nBlocks of Code");
+    lv_label_set_align(title, LV_LABEL_ALIGN_CENTER);
+    lv_obj_set_style_local_text_font(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_24);
+    lv_obj_set_style_local_bg_opa(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_obj_set_style_local_text_opa(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_text_color(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D2F45));
+    lv_obj_align(title, scr, LV_ALIGN_IN_TOP_MID, 0, 30);
+
+    lv_obj_t *subtitle = lv_label_create(scr, NULL);
+    lv_label_set_text(subtitle, "Tap Begin to start");
+    lv_obj_set_style_local_text_color(subtitle, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x6B6E8A));
+    lv_obj_align(subtitle, scr, LV_ALIGN_IN_TOP_MID, 0, 90);
+
+    lv_coord_t block_size = 34;
+    lv_coord_t y_pos = (LV_VER_RES_MAX / 2) - 8;
+    lv_coord_t left_start = 20;
+    lv_coord_t left_end = (LV_HOR_RES_MAX / 2) - block_size - 2;
+    lv_coord_t right_start = LV_HOR_RES_MAX - block_size - 20;
+    lv_coord_t right_end = (LV_HOR_RES_MAX / 2) + 2;
+
+    lv_obj_t *frame = lv_cont_create(scr, NULL);
+    lv_obj_set_size(frame, LV_HOR_RES_MAX - 8, LV_VER_RES_MAX - 8);
+    lv_obj_align(frame, scr, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_local_bg_opa(frame, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_TRANSP);
+    lv_obj_set_style_local_border_width(frame, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_border_color(frame, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFF8FAB));
+    lv_obj_set_style_local_border_opa(frame, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_0);
+    lv_obj_set_style_local_radius(frame, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 10);
+
+    lv_anim_t frame_anim;
+    lv_anim_init(&frame_anim);
+    lv_anim_set_var(&frame_anim, frame);
+    lv_anim_set_exec_cb(&frame_anim, anim_border_opa);
+    lv_anim_set_values(&frame_anim, LV_OPA_0, LV_OPA_80);
+    lv_anim_set_time(&frame_anim, 900);
+    lv_anim_set_playback_time(&frame_anim, 900);
+    lv_anim_set_repeat_count(&frame_anim, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&frame_anim);
+
+    lv_obj_t *block_left = lv_cont_create(scr, NULL);
+    lv_obj_set_size(block_left, block_size, block_size);
+    lv_obj_set_pos(block_left, left_start, y_pos);
+    lv_obj_set_style_local_bg_color(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE295));
+    lv_obj_set_style_local_bg_opa(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_radius(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_border_width(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_border_color(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE295));
+    lv_obj_set_style_local_border_opa(block_left, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_0);
+
+    lv_obj_t *block_right = lv_cont_create(scr, NULL);
+    lv_obj_set_size(block_right, block_size, block_size);
+    lv_obj_set_pos(block_right, right_start, y_pos);
+    lv_obj_set_style_local_bg_color(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x6EC6FF));
+    lv_obj_set_style_local_bg_opa(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_radius(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_border_width(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 2);
+    lv_obj_set_style_local_border_color(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE295));
+    lv_obj_set_style_local_border_opa(block_right, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_0);
+
+    lv_anim_t anim_left;
+    lv_anim_init(&anim_left);
+    lv_anim_set_var(&anim_left, block_left);
+    lv_anim_set_exec_cb(&anim_left, (lv_anim_exec_xcb_t) lv_obj_set_x);
+    lv_anim_set_values(&anim_left, left_start, left_end);
+    lv_anim_set_time(&anim_left, 800);
+    lv_anim_set_playback_delay(&anim_left, 250);
+    lv_anim_set_playback_time(&anim_left, 600);
+    lv_anim_set_repeat_delay(&anim_left, 250);
+    lv_anim_set_repeat_count(&anim_left, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&anim_left);
+
+    lv_anim_t anim_right;
+    lv_anim_init(&anim_right);
+    lv_anim_set_var(&anim_right, block_right);
+    lv_anim_set_exec_cb(&anim_right, (lv_anim_exec_xcb_t) lv_obj_set_x);
+    lv_anim_set_values(&anim_right, right_start, right_end);
+    lv_anim_set_time(&anim_right, 800);
+    lv_anim_set_playback_delay(&anim_right, 250);
+    lv_anim_set_playback_time(&anim_right, 600);
+    lv_anim_set_repeat_delay(&anim_right, 250);
+    lv_anim_set_repeat_count(&anim_right, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&anim_right);
+
+    lv_anim_t glow_left;
+    lv_anim_init(&glow_left);
+    lv_anim_set_var(&glow_left, block_left);
+    lv_anim_set_exec_cb(&glow_left, anim_border_opa);
+    lv_anim_set_values(&glow_left, LV_OPA_0, LV_OPA_80);
+    lv_anim_set_delay(&glow_left, 800);
+    lv_anim_set_time(&glow_left, 120);
+    lv_anim_set_playback_time(&glow_left, 120);
+    lv_anim_set_repeat_delay(&glow_left, 860);
+    lv_anim_set_repeat_count(&glow_left, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&glow_left);
+
+    lv_anim_t glow_right;
+    lv_anim_init(&glow_right);
+    lv_anim_set_var(&glow_right, block_right);
+    lv_anim_set_exec_cb(&glow_right, anim_border_opa);
+    lv_anim_set_values(&glow_right, LV_OPA_0, LV_OPA_80);
+    lv_anim_set_delay(&glow_right, 800);
+    lv_anim_set_time(&glow_right, 120);
+    lv_anim_set_playback_time(&glow_right, 120);
+    lv_anim_set_repeat_delay(&glow_right, 860);
+    lv_anim_set_repeat_count(&glow_right, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&glow_right);
+
+    lv_anim_t snap_left;
+    lv_anim_init(&snap_left);
+    lv_anim_set_var(&snap_left, block_left);
+    lv_anim_set_exec_cb(&snap_left, (lv_anim_exec_xcb_t) lv_obj_set_y);
+    lv_anim_set_values(&snap_left, y_pos, y_pos - 6);
+    lv_anim_set_delay(&snap_left, 800);
+    lv_anim_set_time(&snap_left, 120);
+    lv_anim_set_playback_time(&snap_left, 120);
+    lv_anim_set_repeat_delay(&snap_left, 860);
+    lv_anim_set_repeat_count(&snap_left, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&snap_left);
+
+    lv_anim_t snap_right;
+    lv_anim_init(&snap_right);
+    lv_anim_set_var(&snap_right, block_right);
+    lv_anim_set_exec_cb(&snap_right, (lv_anim_exec_xcb_t) lv_obj_set_y);
+    lv_anim_set_values(&snap_right, y_pos, y_pos - 6);
+    lv_anim_set_delay(&snap_right, 800);
+    lv_anim_set_time(&snap_right, 120);
+    lv_anim_set_playback_time(&snap_right, 120);
+    lv_anim_set_repeat_delay(&snap_right, 860);
+    lv_anim_set_repeat_count(&snap_right, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&snap_right);
+
+    lv_obj_t *begin_btn = lv_btn_create(scr, NULL);
+    lv_obj_set_size(begin_btn, 140, 44);
+    lv_obj_align(begin_btn, scr, LV_ALIGN_IN_BOTTOM_MID, 0, -24);
+    lv_obj_set_event_cb(begin_btn, begin_button_cb);
+
+    lv_obj_t *begin_label = lv_label_create(begin_btn, NULL);
+    lv_label_set_text(begin_label, "Begin");
+
+    return scr;
+}
 
 static void create_demo_application(void *pvParameters)
 {
     (void) pvParameters;
 
-    lv_obj_t *scr = lv_scr_act();
-
-    // Screen background: pink/purple
-    lv_obj_set_style_local_bg_color(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF4B6D8));
-    lv_obj_set_style_local_bg_opa(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-
-    // ---------- Header ----------
-    lv_obj_t *header = lv_cont_create(scr, NULL);
-    lv_obj_set_size(header, 320, 32);
-    lv_obj_align(header, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
-
-    // Header background: deeper purple
-    lv_obj_set_style_local_bg_color(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xC77DFF));
-    lv_obj_set_style_local_bg_opa(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-    lv_obj_set_style_local_border_width(header, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
-
-    // Title (left)
-    lv_obj_t *title = lv_label_create(header, NULL);
-    lv_label_set_text(title, "Blocks of Code");
-    lv_obj_set_style_local_text_color(title, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_obj_align(title, header, LV_ALIGN_IN_LEFT_MID, 8, 0);
-
-    // Time label (right)
-    time_label = lv_label_create(header, NULL);
-    lv_label_set_text(time_label, "--:-- --");
-    lv_obj_set_style_local_text_color(time_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_obj_align(time_label, header, LV_ALIGN_IN_RIGHT_MID, -8, 0);
-
-    update_time_label();
-
-    // ---------- Tabview (below header) ----------
-    lv_obj_t *tv = lv_tabview_create(scr, NULL);
-
-    // Move the tabview down below header
-    lv_obj_set_pos(tv, 0, 32);
-    lv_obj_set_size(tv, 320, 240 - 32);
-
-    // Optional: make tab background match theme
-    lv_obj_set_style_local_bg_color(tv, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF4B6D8));
-    lv_obj_set_style_local_bg_opa(tv, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
-
-    // Tabs
-    lv_obj_t *tab_home   = lv_tabview_add_tab(tv, "Home");
-    lv_obj_t *tab_status = lv_tabview_add_tab(tv, "Status");
-    lv_obj_t *tab_about  = lv_tabview_add_tab(tv, "About");
-
-    // ----- HOME TAB -----
-    lv_obj_t *welcome = lv_label_create(tab_home, NULL);
-    lv_label_set_text(welcome, "Welcome to\nBlocks of Code");
-    lv_obj_set_style_local_text_color(welcome, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_label_set_align(welcome, LV_LABEL_ALIGN_CENTER);
-    lv_obj_align(welcome, NULL, LV_ALIGN_CENTER, 0, -10);
-
-    lv_obj_t *sub = lv_label_create(tab_home, NULL);
-    lv_label_set_text(sub, "Brain Block UI");
-    lv_obj_set_style_local_text_color(sub, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_label_set_align(sub, LV_LABEL_ALIGN_CENTER);
-    lv_obj_align(sub, NULL, LV_ALIGN_CENTER, 0, 25);
-
-    // ----- STATUS TAB -----
-    lv_obj_t *status = lv_label_create(tab_status, NULL);
-    lv_label_set_text(status, "Status:\nWiFi: TBD\nBlocks: TBD");
-    lv_obj_set_style_local_text_color(status, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_obj_align(status, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 10);
-
-    // ----- ABOUT TAB -----
-    lv_obj_t *about = lv_label_create(tab_about, NULL);
-    lv_label_set_text(about, "Blocks of Code (v3)\nUCF Senior Design\nGroup 28");
-    lv_obj_set_style_local_text_color(about, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
-    lv_obj_align(about, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 10);
+    if (!intro_screen) {
+        intro_screen = create_intro_screen();
+    }
+    lv_scr_load(intro_screen);
 
     // ---------- LVGL loop + time update ----------
     int ms = 0;
@@ -358,6 +808,8 @@ void tft_ui_start(void)
 
 
 	lv_init();
+	setenv("TZ", "EST5EDT,M3.2.0/2,M11.1.0/2", 1);
+	tzset();
 
     	lvgl_driver_init();
 
@@ -383,12 +835,11 @@ void tft_ui_start(void)
     	disp_drv.buffer = &disp_buf;
     	lv_disp_drv_register(&disp_drv);
 
-    	/*lv_indev_drv_t indev_drv;
-    	lv_indev_drv_init(&indev_drv);
-    	indev_drv.read_cb = touch_driver_read;
-    	indev_drv.type = LV_INDEV_TYPE_POINTER;
-    	lv_indev_drv_register(&indev_drv);
-	*/
+	lv_indev_drv_t indev_drv;
+	lv_indev_drv_init(&indev_drv);
+	indev_drv.read_cb = touch_driver_read;
+	indev_drv.type = LV_INDEV_TYPE_POINTER;
+	lv_indev_drv_register(&indev_drv);
 	
     	/* Create and start a periodic timer interrupt to call lv_tick_inc */
     	const esp_timer_create_args_t periodic_timer_args = {
