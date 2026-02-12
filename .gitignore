@@ -11,6 +11,20 @@ dependencies.lock
 # VSCode
 .vscode/
 
+# IDE caches
+.cache/
+*.idx
+**/.cache/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
 # OS junk
 .DS_Store
 Thumbs.db

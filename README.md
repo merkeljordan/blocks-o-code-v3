@@ -11,22 +11,28 @@ This repository contains everything needed for the v3 prototype: firmware, deskt
 
 ## Repository Structure
 
-- **`firmware/`**: ESP32 Brain Block firmware (ESP‑IDF project) that:
-  - Scans the I2C bus for connected blocks
-  - Maintains a device registry and block configuration
-  - Generates newline‑delimited JSON messages
-  - Connects as a TCP client to the Flutter app
-- **`mobile_app/flutter/demo_app/`**: Flutter application that:
+- **`firmware_blocks/`**: ESP32 firmware blocks (ESP‑IDF projects) including:
+  - **`brain_block/`**: Main Brain Block firmware that:
+    - Scans the I2C bus for connected blocks
+    - Maintains a device registry and block configuration
+    - Generates newline‑delimited JSON messages
+    - Connects as a TCP client to the companion app
+  - **`child_block_1/`**, **`child_block_2/`**: Example child block implementations
+  - **`block_templates/`**: Templates for creating new blocks
+- **`companion_app/`**: Flutter companion application that:
   - Listens for TCP connections from the Brain Block (default port `41233`)
   - Parses configuration and telemetry JSON
   - Validates configurations using rule logic
   - Visualizes blocks, errors, warnings, and telemetry
-- **`docs/`**
-  - `ESP-IDF-setup.md`: In‑depth documentation for the block configuration system and firmware/app integration.
-- **`BLOCK_INVENTORY.md`**: Placeholder for the master list and drawings of all physical blocks.
+- **`docs/`**: Comprehensive documentation (see [docs/README.md](docs/README.md))
+  - `getting-started/`: Setup guides for firmware and app
+  - `architecture/`: System and component architecture
+  - `development/`: Contributing, code style, and testing guides
+  - `hardware/`: Block inventory and hardware specifications
+  - `api/`: API reference for firmware and app
 - **`scripts/`** and **`tools/`**: Reserved for helper scripts and utilities (currently minimal/placeholder).
 
-For a deeper explanation of the configuration pipeline and data model, see `docs/ESP-IDF-setup.md`.
+For detailed documentation, see the [Documentation Index](docs/README.md).
 
 ---
 
@@ -37,7 +43,7 @@ The core architecture is:
 ```text
 ESP32 Brain Block (firmware)  ──TCP (port 41233)──▶  Flutter App (TCP server + UI)
            │                                           │
-        I2C Bus                                   Desktop / Mobile
+        I2C Bus                                     Desktop
 ```
 
 - **Firmware (ESP32 Brain Block)**:
@@ -64,7 +70,7 @@ Details of the JSON formats, rule set, and data flow are documented in `docs/ESP
   - A supported OS (Windows, macOS, or Linux)
 
 - **Firmware / ESP32**
-  - ESP‑IDF installed and configured (see `docs/ESP-IDF-setup.md` for guidance).
+  - ESP‑IDF installed and configured (see [Firmware Setup Guide](docs/getting-started/firmware-setup.md) for guidance).
   - Supported ESP32 development board for the Brain Block.
   - USB cable and basic hardware setup for the block chain (I2C bus).
 
@@ -79,7 +85,7 @@ Details of the JSON formats, rule set, and data flow are documented in `docs/ESP
 
 ## Firmware: ESP32 Brain Block
 
-The Brain Block firmware is located under `firmware/esp32/brain_block/` and is built with ESP‑IDF.
+The Brain Block firmware is located under `firmware_blocks/brain_block/` and is built with ESP‑IDF.
 
 ### Key Responsibilities
 
@@ -97,14 +103,14 @@ The Brain Block firmware is located under `firmware/esp32/brain_block/` and is b
 Exact commands depend on your local ESP‑IDF setup, but the typical flow is:
 
 ```bash
-cd firmware/esp32/brain_block
+cd firmware_blocks/brain_block
 idf.py set-target esp32
 idf.py menuconfig      # configure Wi‑Fi credentials and other options
 idf.py build
 idf.py flash monitor
 ```
 
-Refer to `docs/ESP-IDF-setup.md` for the concrete configuration details, message formats, and integration points (`app.c`, `main.c`, and `block_config_manager.c`).
+Refer to the [Firmware Architecture](docs/architecture/firmware-architecture.md) and [Firmware API](docs/api/firmware-api.md) documentation for detailed information.
 
 ---
 
@@ -144,7 +150,7 @@ The Flutter app lives at `mobile_app/flutter/demo_app/`.
 From the repository root:
 
 ```bash
-cd mobile_app/flutter/demo_app
+cd companion_app
 flutter pub get
 ```
 
@@ -195,7 +201,7 @@ The Brain Block sends newline‑delimited JSON messages. The main configuration 
 
 The Flutter app maps firmware string identifiers (e.g., `brain_block`, `if_block`, `loop_block`) to enum values in `block_type.dart` and validates sequences using `configuration_rules.dart`.
 
-For full JSON examples and a reference table of block types, see `docs/ESP-IDF-setup.md`.
+For full JSON examples and API reference, see the [API Documentation](docs/api/).
 
 ---
 
@@ -204,14 +210,14 @@ For full JSON examples and a reference table of block types, see `docs/ESP-IDF-s
 - **Firmware**
   - Keep `block_config_manager.c` and the device registry logic in sync with any new block types.
   - When changing JSON formats, also update:
-    - `lib/services/block_config_parser.dart`
-    - `lib/models/block_configuration.dart`
+    - `companion_app/lib/services/block_config_parser.dart`
+    - `companion_app/lib/models/block_configuration.dart`
 
-- **Flutter App**
+- **Companion App**
   - New block types should be added to:
-    - `lib/models/block_type.dart`
-    - Validation logic in `lib/models/configuration_rules.dart` (if they participate in sequences).
-  - UI changes for configuration/telemetry live primarily in `lib/main.dart` and `lib/widgets/`.
+    - `companion_app/lib/models/block_type.dart`
+    - Validation logic in `companion_app/lib/models/configuration_rules.dart` (if they participate in sequences).
+  - UI changes for configuration/telemetry live in `companion_app/lib/screens/` and `companion_app/lib/widgets/`.
 
 ---
 
