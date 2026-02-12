@@ -224,7 +224,7 @@ idf.py menuconfig
 
 ### **Build Commands**
 ```bash
-cd firmware/esp32/brain_block
+cd firmware_blocks/brain_block
 
 # Build project
 idf.py build

@@ -57,7 +57,7 @@ ESP32 Brain Block (firmware)  ──TCP (port 41233)──▶  Flutter App (TCP 
   - Validates configurations with `ConfigurationRules` (e.g., Brain Block at index 0, valid If/Loop sequences).
   - Displays configuration, validation errors/warnings, telemetry, and stress‑test tools.
 
-Details of the JSON formats, rule set, and data flow are documented in `docs/ESP-IDF-setup.md`.
+Details of the JSON formats, rule set, and data flow are documented in `docs/getting-started/firmware-setup.md` and `docs/api/firmware-api.md`.
 
 ---
 
@@ -116,7 +116,7 @@ Refer to the [Firmware Architecture](docs/architecture/firmware-architecture.md)
 
 ## Flutter App: Block Configuration & Telemetry Viewer
 
-The Flutter app lives at `mobile_app/flutter/demo_app/`.
+The Flutter app lives at `companion_app/`.
 
 ### Features
 
@@ -225,7 +225,7 @@ For full JSON examples and API reference, see the [API Documentation](docs/api/)
 
 Pull requests and issue reports are welcome. If you are working with a specific hardware set of blocks:
 
-- Document new block types in `BLOCK_INVENTORY.md`.
+- Document new block types in `docs/hardware/block-inventory.md`.
 - Update firmware WHOAMI handling and Flutter models/rules accordingly.
 
 ---
