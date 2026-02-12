@@ -34,6 +34,5 @@ API documentation for firmware and app interfaces.
 ## Quick Links
 
 - **Main README**: [../README.md](../README.md)
-- **Organization Recommendations**: [ORGANIZATION_RECOMMENDATIONS.md](./ORGANIZATION_RECOMMENDATIONS.md)
 
 
