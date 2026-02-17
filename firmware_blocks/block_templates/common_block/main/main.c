@@ -13,22 +13,17 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 extern void led_status_task(void *arg);
 
-static const char *TAG = "CHILD_1";
-
-#define MY_ADDRESS      0x08
-#define MY_BLOCK_TYPE   BLOCK_TYPE_LED_FLASH
+static const char *TAG = "BLOCK_TEMPLATE";
 
 // ============================================================================
 // MAIN - Only initialization and task creation
 // ============================================================================
 void app_main(void) {
     ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "    CHILD BLOCK 1 - LED MATRIX");
-    ESP_LOGI(TAG, "    Address: 0x%02X", MY_ADDRESS);
-    ESP_LOGI(TAG, "    Type: %s", block_type_to_string(MY_BLOCK_TYPE));
+    ESP_LOGI(TAG, "    BLOCK TEMPLATE BOOT");
     ESP_LOGI(TAG, "========================================");
-    
-    // Initialize speaker early for error beeps
+
+    // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
         speaker_beep_ok();
@@ -41,7 +36,7 @@ void app_main(void) {
         speaker_beep_error();
         return;
     }
-    
+
     // Show startup animation
     led_matrix_startup_animation();
 
@@ -52,14 +47,13 @@ void app_main(void) {
         speaker_beep_error();
         return;
     }
-    
+
     vTaskDelay(pdMS_TO_TICKS(500));
-    
-    ESP_LOGI(TAG, "Child Block 1 ready and waiting for commands!\n");
-    
+    ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
+
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
     xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
-    
+
     ESP_LOGI(TAG, "All tasks created successfully!");
 }
