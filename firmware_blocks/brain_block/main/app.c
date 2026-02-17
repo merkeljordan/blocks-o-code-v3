@@ -48,8 +48,8 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "GL-AR300M-203" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "goodlife"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
 #define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
