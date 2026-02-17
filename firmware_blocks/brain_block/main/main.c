@@ -41,11 +41,9 @@ void app_main(void) {
     ESP_LOGI(TAG, "tft_ui_start() returned");
 
 
-    // Create command queue for demo task
+    // Demo task is intentionally disabled while the event executor is active.
+    // Keep queue allocation for compatibility with older modules that reference it.
     demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
-
-    // Create demo task
-    xTaskCreate(demo_task, "demo", 4096, NULL, 5, NULL);
     
     // Create registry scan task (scans every 1 second)
     xTaskCreate(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL);

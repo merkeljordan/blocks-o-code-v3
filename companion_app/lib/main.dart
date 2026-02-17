@@ -80,6 +80,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
+  bool _hasLastValidationResult = false;
+  bool _lastConfigIsValid = false;
+  int _lastConfigErrorCount = 0;
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -254,6 +257,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     
     // Navigate to block configuration screen when client connects
     _navigateToScreen(ScreenType.blockConfig);
+    _resendLastConfigValidation();
     
     // Set up message listener with JSON parsing
     String buffer = '';
@@ -314,11 +318,17 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         if (config != null) {
           // Validate configuration
           final violations = _configValidator.validate(config);
+          final errorCount = violations.where((v) => v.severity == Severity.error).length;
+          final isValid = errorCount == 0;
+          _hasLastValidationResult = true;
+          _lastConfigIsValid = isValid;
+          _lastConfigErrorCount = errorCount;
+          _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
           
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
-            connectionStatus = 'Block config: ${config.totalBlocks} block(s), ${violations.where((v) => v.severity == Severity.error).length} error(s)';
+            connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
         } else {
@@ -385,6 +395,39 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       // Connection might be lost
       _attemptReconnection();
     }
+  }
+
+  void _sendConfigValidationEvent({
+    required bool isValid,
+    required int errorCount,
+  }) {
+    final client = _clientSocket;
+    if (client == null || !isConnected) {
+      return;
+    }
+
+    final validationEvent = jsonEncode({
+      'type': 'config_validation',
+      'is_valid': isValid,
+      'error_count': errorCount,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+
+    try {
+      client.write('$validationEvent\n');
+    } catch (_) {
+      // Reconnection path handles retries.
+    }
+  }
+
+  void _resendLastConfigValidation() {
+    if (!_hasLastValidationResult) {
+      return;
+    }
+    _sendConfigValidationEvent(
+      isValid: _lastConfigIsValid,
+      errorCount: _lastConfigErrorCount,
+    );
   }
 
   // Heartbeat mechanism

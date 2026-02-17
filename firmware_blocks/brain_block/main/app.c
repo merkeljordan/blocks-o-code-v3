@@ -63,10 +63,20 @@ Enhancement:
 #define TCP_RX_BUF_SIZE       512
 #define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
+#define EXECUTOR_TICK_INTERVAL_MS 20
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
+
+static void executor_task(void *pvParameters)
+{
+    (void)pvParameters;
+    while (1) {
+        brain_executor_tick();
+        vTaskDelay(pdMS_TO_TICKS(EXECUTOR_TICK_INTERVAL_MS));
+    }
+}
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
@@ -298,12 +308,16 @@ static void tcp_client_task(void *pvParameters)
 
                     if (strcasecmp(line, "START") == 0) {
                         if (brain_event_handler_can_start_execution()) {
-                            ESP_LOGI(TAG, "Handling START: validation passed, starting demo");
-                            demo_cmd_t cmd = CMD_START;
-                            xQueueSend(demo_cmd_queue, &cmd, 0);
-
-                            const char *ack = "ACK:START\n";
-                            send(sock, ack, strlen(ack), 0);
+                            ESP_LOGI(TAG, "Handling START: validation passed, starting executor");
+                            esp_err_t start_ret = brain_executor_start();
+                            if (start_ret == ESP_OK) {
+                                const char *ack = "ACK:START\n";
+                                send(sock, ack, strlen(ack), 0);
+                            } else {
+                                ESP_LOGW(TAG, "Executor start rejected: %s", esp_err_to_name(start_ret));
+                                const char *nak = "NAK:INVALID_STATE\n";
+                                send(sock, nak, strlen(nak), 0);
+                            }
                         } else {
                             const brain_validation_state_t *validation_state =
                                 brain_event_handler_get_validation_state();
@@ -316,11 +330,8 @@ static void tcp_client_task(void *pvParameters)
                             send(sock, nak, strlen(nak), 0);
                         }
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
-                        demo_cmd_t cmd = CMD_STOP;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-
+                        ESP_LOGI(TAG, "Handling STOP: stopping executor");
+                        brain_executor_stop();
                         const char *ack = "ACK:STOP\n";
                         send(sock, ack, strlen(ack), 0);
                     } else {
@@ -353,6 +364,7 @@ static void tcp_client_task(void *pvParameters)
             close(sock);
             sock = -1;
         }
+        brain_executor_stop();
         brain_event_handler_reset_validation();
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
@@ -377,6 +389,9 @@ void start_network_client(void)
     brain_event_handler_init();
 
     wifi_init_sta();
+
+    /* Start executor tick task */
+    xTaskCreate(executor_task, "executor_task", 4096, NULL, 5, NULL);
 
     /* Start TCP client task */
     xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);

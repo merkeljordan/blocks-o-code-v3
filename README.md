@@ -213,132 +213,6 @@ For detailed information, see:
 
 ---
 
-## 🧩 Child Blocks: Control Flow, Input & Output
-
-The Blocks o' Code system includes **14 child blocks** that connect to the Brain Block via I2C bus (addresses 0x08-0x15). Each block implements a common I2C protocol and follows the framework defined in [`FRAMEWORK.md`](firmware_blocks/FRAMEWORK.md).
-
-### Block Categories
-
-#### Control Flow Blocks
-These blocks define program structure and flow control:
-
-- **If Block** (`if_block`) - Conditional logic start marker
-  - No configuration payload (marker only)
-  - Non-touch TFT display
-  - Part of: `If → Input → Then → [Output+] → End If` sequence
-
-- **Then Block** (`then_block`) - Conditional logic branch marker
-  - No configuration payload (marker only)
-  - Non-touch TFT display
-  - Separates condition from action in If sequences
-
-- **End If Block** (`end_if_block`) - Conditional logic end marker
-  - No configuration payload (marker only)
-  - TFT display only
-  - Closes If block sequences
-
-- **Loop Block** (`loop_block`) - Loop start with iteration count
-  - Configuration: `loop_count` (uint8, 1-99 typical)
-  - Numpad input for loop count
-  - Part of: `Loop → [Output+] → End Loop` sequence
-
-- **End Loop Block** (`end_loop_block`) - Loop end marker
-  - No configuration payload (marker only)
-  - TFT display only
-  - Closes Loop sequences
-
-- **Delay Block** (`delay_block`) - Program delay/pause
-  - Configuration: `delay_ms` (uint16/uint32, milliseconds)
-  - Numpad input for delay duration
-  - Adds timing control to programs
-
-#### Input Blocks
-
-- **Button Press Block** (`button_press`) - Button input detection
-  - Configuration: `button_id` (uint8, 0-9; only one button enabled)
-  - Numpad with single active button
-  - Features: Debounce and preview on press
-  - Used in If sequences to trigger conditional logic
-
-#### Output Blocks
-These blocks produce visual or audio output:
-
-- **Note Block** (`note_block`) - Play musical note
-  - Configuration: `note_id` (uint8, A-G mapped 0-6)
-  - Numpad maps to notes A-G
-  - Preview: Plays selected note immediately
-
-- **Music Sequence Block** (`music_sequence_block`) - Play pre-made musical sequence
-  - Configuration: `sequence_id` (uint8, pre-made sequence index)
-  - Numpad selects sequence index
-  - Preview: Plays short clip of chosen sequence
-
-- **LED Color Flash Block** (`led_color_flash_block`) - Flash LED matrix with color
-  - Configuration: `color_id` (uint8, map numpad to color)
-  - Numpad selects color
-  - Preview: Flashes selected color on LED matrix + addressable LEDs
-
-- **Disco Mode Block** (`disco_mode_block`) - Rhythm and LED tempo mode
-  - Configuration: `mode_id` (uint8, rhythm + LED tempo mode)
-  - Numpad chooses mode
-  - Preview: Plays short pattern and LED tempo
-
-### Common Features
-
-All child blocks share:
-
-- **I2C Communication**: Slave mode, responds to standard commands
-  - `CMD_PING` - Health check
-  - `CMD_GET_STATUS` - Status flags (READY, BUSY, ERROR, DATA_READY)
-  - `CMD_GET_DATA` - Return configuration payload
-  - `CMD_EXECUTE` - Run configured behavior
-  - `CMD_RESET` - Return to idle and clear configuration
-
-- **Shared Peripherals**:
-  - **LED Matrix**: Used for disco color flashes and status display
-  - **Addressable LEDs**: Used for block type color coding and status
-  - **Speaker**: Used for click feedback and sound preview
-
-- **Common UX Rules**:
-  - On boot: Short LED matrix flash + beep to indicate readiness
-  - While configuring: Show current selection on LED matrix
-  - On confirm: Green flash + short positive beep
-  - On invalid input: Red flash + short error beep
-  - When executing: Show "running" pattern on LED matrix
-
-### Block Templates
-
-Templates for creating new blocks are available in `firmware_blocks/block_templates/`. Each template includes:
-- Basic I2C slave implementation
-- Block type definition
-- Minimal main.c structure
-- Required module layout (i2c_comm.c, command_handler.c, led_matrix.c, etc.)
-
-### Example Implementations
-
-- **`child_block_1/`**: Example implementation with LED Matrix
-- **`child_block_2/`**: Example implementation with OLED Display
-
-### Building Child Blocks
-
-Child blocks are built similarly to the Brain Block:
-
-```bash
-cd firmware_blocks/child_block_1  # or any child block
-idf.py set-target esp32
-idf.py build
-idf.py flash monitor
-```
-
-**Important**: Each child block must have a unique I2C address (0x08-0x15) configured in its firmware.
-
-For detailed information about child blocks, see:
-- [Block Inventory](docs/hardware/block-inventory.md) - Complete list and specifications
-- [Firmware Framework](firmware_blocks/FRAMEWORK.md) - Block contract and requirements
-- [Firmware API](docs/api/firmware-api.md) - I2C protocol details
-
----
-
 ## 📱 Flutter App: Block Configuration & Telemetry Viewer
 
 The Flutter app lives at `companion_app/`.
@@ -498,6 +372,40 @@ The Flutter app maps firmware string identifiers to enum values:
 For full JSON examples and API reference, see:
 - [Firmware API](docs/api/firmware-api.md)
 - [App API](docs/api/app-api.md)
+
+### Execution Validation Event (`config_validation`)
+
+The companion app sends a newline-delimited validation event to the Brain Block
+after each configuration validation and on reconnect:
+
+```json
+{
+  "type": "config_validation",
+  "is_valid": true,
+  "error_count": 0,
+  "timestamp": 1739836800000
+}
+```
+
+Brain-side rules:
+- Startup default is invalid until a valid event is received.
+- `START` is blocked while invalid and returns `NAK:INVALID_CONFIG`.
+- `STOP` is always accepted and returns `ACK:STOP`.
+- On TCP disconnect/reconnect, Brain resets back to invalid until validation is resent.
+
+## ▶️ Execution Flow (v1)
+
+The Brain Block now includes a firmware-side execution gate and interpreter scaffold:
+
+- **Validation gate**: app-provided `config_validation` controls whether execution can start.
+- **Sequence map**: firmware derives IF/LOOP/input/output metadata from scanned block config.
+- **Executor task**: a periodic tick-based runner (`brain_executor_tick`) advances a program counter.
+- **Control flow support**: IF/THEN/END_IF, LOOP/END_LOOP, and DELAY are interpreted in sequence order.
+- **Output actions**: LED flash, note, and music-sequence actions are dispatched through executor action hooks.
+
+Current v1 scope:
+- Includes start/stop gating and interpreter state machine scaffolding.
+- Excludes full parameterized hardware broadcast implementation for every output block type.
 
 ---
 

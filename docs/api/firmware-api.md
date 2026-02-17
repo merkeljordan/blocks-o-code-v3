@@ -2,6 +2,94 @@
 
 This document provides API reference for the ESP32 Brain Block firmware.
 
+## App -> Brain Events
+
+### `config_validation`
+
+The companion app sends this newline-delimited JSON event after each configuration
+validation result and when reconnecting to the Brain Block.
+
+**Contract**:
+```json
+{
+  "type": "config_validation",
+  "is_valid": true,
+  "error_count": 0
+}
+```
+
+**Fields**:
+- `type` (string, required): Must be `"config_validation"`.
+- `is_valid` (boolean, required): Whether the app's latest config validation passed.
+- `error_count` (number, optional): Number of validation errors from the app.
+- `timestamp` (number, optional): App timestamp in milliseconds.
+
+**Behavior**:
+- Brain defaults to **invalid** until at least one valid event is received.
+- Brain should block `START` requests when invalid and respond with `NAK:INVALID_CONFIG`.
+- Brain should keep `STOP` always allowed.
+- Brain should reset validation state to invalid on TCP disconnect.
+
+## Runtime Command Responses
+
+The Brain TCP command channel uses newline-delimited plain text acknowledgements:
+
+- `START` -> `ACK:START` when config is valid and execution starts.
+- `START` -> `NAK:INVALID_CONFIG` when validation gate is not satisfied.
+- `START` -> `NAK:INVALID_STATE` when executor cannot start (for example no runnable program).
+- `STOP` -> `ACK:STOP` (always accepted).
+- Unknown command -> `NAK:UNKNOWN`.
+
+## Brain Event Handler + Executor
+
+### Validation Gate API (`brain_event_handler.h`)
+
+```c
+void brain_event_handler_init(void);
+void brain_event_handler_reset_validation(void);
+void brain_event_handler_set_config_validation(bool is_valid, uint32_t error_count, uint64_t timestamp_ms);
+const brain_validation_state_t *brain_event_handler_get_validation_state(void);
+bool brain_event_handler_can_start_execution(void);
+```
+
+### Scan-Derived Event Map
+
+The block configuration manager exposes metadata derived from scanned block topology:
+
+```c
+const block_event_map_t* block_config_manager_get_event_map(void);
+```
+
+`block_event_map_t` summarizes:
+- IF/LOOP control-start and boundary counts
+- sequence boundaries
+- presence/count of input blocks inside IF sequences
+- presence/count of output-or-delay blocks inside sequence bodies
+
+### Executor API
+
+```c
+void brain_executor_set_params(const brain_executor_params_t *params);
+const brain_executor_context_t *brain_executor_get_context(void);
+void brain_executor_set_button_state(bool is_pressed);
+esp_err_t brain_executor_start(void);
+void brain_executor_stop(void);
+void brain_executor_tick(void);
+```
+
+Executor state enum:
+- `EXECUTOR_IDLE`
+- `EXECUTOR_RUNNING`
+- `EXECUTOR_WAIT_INPUT`
+- `EXECUTOR_WAIT_DELAY`
+- `EXECUTOR_STOPPED`
+- `EXECUTOR_DONE`
+
+Notes:
+- Executor is tick-driven (periodic task) and non-blocking.
+- IF/LOOP/DELAY control flow is interpreted with a program counter.
+- Config refresh during execution triggers an execution stop to avoid stale topology behavior.
+
 ## Block Configuration Manager
 
 ### `block_config_manager_init()`
