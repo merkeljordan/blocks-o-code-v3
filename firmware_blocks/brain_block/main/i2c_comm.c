@@ -158,39 +158,48 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
 }
 
 // ============================================================================
-// SET LED (RGB)
+// GENERIC COMMAND (no payload)
 // ============================================================================
-esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
-    uint8_t data[4] = {CMD_SET_LED, r, g, b};
+static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd) {
+    uint8_t data[1] = {cmd};
 
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 4, true);
-    i2c_master_stop(cmd);
+    i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
+    i2c_master_start(i2c_cmd);
+    i2c_master_write_byte(i2c_cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(i2c_cmd, data, 1, true);
+    i2c_master_stop(i2c_cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, i2c_cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(i2c_cmd);
     return ret;
 }
 
 // ============================================================================
-// EXECUTE (Trigger configured action)
+// SET LED COLOR ID (LED_FLASH block)
+// ============================================================================
+esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
+    uint8_t data[2] = {CMD_SET_LED, color_id};
+
+    i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
+    i2c_master_start(i2c_cmd);
+    i2c_master_write_byte(i2c_cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(i2c_cmd, data, 2, true);
+    i2c_master_stop(i2c_cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, i2c_cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(i2c_cmd);
+    return ret;
+}
+
+// ============================================================================
+// EXECUTE / RESET
 // ============================================================================
 esp_err_t i2c_execute(uint8_t address) {
-    uint8_t data[1] = {CMD_EXECUTE};
+    return i2c_send_cmd(address, CMD_EXECUTE);
+}
 
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 1, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-
-    return ret;
+esp_err_t i2c_reset(uint8_t address) {
+    return i2c_send_cmd(address, CMD_RESET);
 }
 
 // ============================================================================
