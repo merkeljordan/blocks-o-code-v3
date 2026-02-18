@@ -5,6 +5,7 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "speaker.h"
+#include "tft_ui.h"
 
 // Forward declarations from other modules
 extern esp_err_t led_matrix_init(void);
@@ -50,6 +51,10 @@ void app_main(void) {
 
     vTaskDelay(pdMS_TO_TICKS(500));
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
+
+    // Start TFT UI (intro screen -> Start button -> numpad sequence control).
+    // This launches an internal GUI task and returns immediately.
+    tft_ui_start();
 
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
