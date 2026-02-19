@@ -14,7 +14,7 @@
 
 // Address range for child blocks
 #define DEVICE_REGISTRY_ADDR_MIN    0x08
-#define DEVICE_REGISTRY_ADDR_MAX    0x15
+#define DEVICE_REGISTRY_ADDR_MAX    0x33
 #define DEVICE_REGISTRY_MAX_DEVICES (DEVICE_REGISTRY_ADDR_MAX - DEVICE_REGISTRY_ADDR_MIN + 1)
 
 // Device entry in the registry

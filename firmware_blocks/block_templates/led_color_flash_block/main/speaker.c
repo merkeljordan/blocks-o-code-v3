@@ -10,12 +10,14 @@ static const char *TAG = "SPEAKER";
 // Adjust for your wiring.
 #define SPEAKER_GPIO            25
 
-#define SPEAKER_LEDC_MODE       LEDC_LOW_SPEED_MODE
+#define SPEAKER_LEDC_MODE       LEDC_HIGH_SPEED_MODE
 #define SPEAKER_LEDC_TIMER      LEDC_TIMER_0
 #define SPEAKER_LEDC_CHANNEL    LEDC_CHANNEL_0
 #define SPEAKER_LEDC_DUTY_RES   LEDC_TIMER_10_BIT
 
-#define SPEAKER_DEFAULT_VOLUME  30  // percent
+#define SPEAKER_DEFAULT_VOLUME  100  // percent
+#define SPEAKER_FADE_STEPS      4
+#define SPEAKER_FADE_STEP_MS    3
 
 static bool s_inited = false;
 static uint8_t s_volume = SPEAKER_DEFAULT_VOLUME;
@@ -95,14 +97,33 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
         return err;
     }
 
-    uint32_t duty = speaker_get_duty(s_volume);
-    ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, duty);
-    ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+    uint32_t target_duty = speaker_get_duty(s_volume);
+    uint32_t fade_total_ms = SPEAKER_FADE_STEPS * SPEAKER_FADE_STEP_MS * 2;
 
-    vTaskDelay(pdMS_TO_TICKS(duration_ms));
+    if (duration_ms <= fade_total_ms) {
+        ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, target_duty);
+        ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+        vTaskDelay(pdMS_TO_TICKS(duration_ms));
+        ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
+        ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+        return ESP_OK;
+    }
 
-    ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
-    ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+    for (uint32_t i = 1; i <= SPEAKER_FADE_STEPS; i++) {
+        uint32_t step_duty = (target_duty * i) / SPEAKER_FADE_STEPS;
+        ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, step_duty);
+        ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+        vTaskDelay(pdMS_TO_TICKS(SPEAKER_FADE_STEP_MS));
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(duration_ms - fade_total_ms));
+
+    for (int i = SPEAKER_FADE_STEPS - 1; i >= 0; i--) {
+        uint32_t step_duty = (target_duty * (uint32_t)i) / SPEAKER_FADE_STEPS;
+        ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, step_duty);
+        ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+        vTaskDelay(pdMS_TO_TICKS(SPEAKER_FADE_STEP_MS));
+    }
     return ESP_OK;
 }
 

@@ -6,6 +6,7 @@
 #include "i2c_protocol.h"
 #include "speaker.h"
 #include "tft_ui.h"
+#include "command_handler.h"
 
 // Forward declarations from other modules
 extern esp_err_t led_matrix_init(void);
@@ -19,6 +20,18 @@ static const char *TAG = "LED_FLASH";
 // ============================================================================
 // MAIN - Only initialization and task creation
 // ============================================================================
+/*
+ * Boot sequence overview:
+ * 1) Bring up local peripherals (speaker + matrix).
+ * 2) Bring up I2C slave interface so Brain can discover/control this block.
+ * 3) Bring up command handler queue/task for non-blocking action execution.
+ * 4) Start TFT UI task.
+ * 5) Start background tasks pinned to Core 0.
+ *
+ * Core split used in this project:
+ * - Core 1: LVGL UI task (created inside tft_ui_start()).
+ * - Core 0: I2C task + command/action worker + status task.
+ */
 void app_main(void) {
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "    LED COLOR FLASH BLOCK BOOT");
@@ -41,7 +54,7 @@ void app_main(void) {
     // Show startup animation
     led_matrix_startup_animation();
 
-    // Initialize I²C slave
+    // I2C slave is the Brain-facing interface for this child block.
     ret = i2c_slave_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize I²C slave!");
@@ -52,13 +65,21 @@ void app_main(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
 
+    // Initializes action queue + worker task that executes LED actions off the UI thread.
+    ret = command_handler_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize command handler!");
+        speaker_beep_error();
+        return;
+    }
+
     // Start TFT UI (intro screen -> Start button -> numpad sequence control).
     // This launches an internal GUI task and returns immediately.
     tft_ui_start();
 
-    // Create tasks
-    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
+    // Keep non-UI tasks on Core 0 so TFT interactions on Core 1 remain smooth.
+    xTaskCreatePinnedToCore(i2c_task, "i2c", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(led_status_task, "led_status", 2048, NULL, 3, NULL, 0);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

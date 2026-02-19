@@ -10,6 +10,7 @@
 
 #include "esp_err.h"
 #include <stdint.h>
+#include <stddef.h>
 #include "i2c_protocol.h"
 
 /* I2C child block addresses */
@@ -28,6 +29,7 @@ esp_err_t i2c_execute(uint8_t address);
 esp_err_t i2c_reset(uint8_t address);
 esp_err_t i2c_oled_text(uint8_t address, const char *msg);
 esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len);
+esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len);
 
 // Command Queue and definitions
 typedef enum {

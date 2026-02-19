@@ -8,7 +8,7 @@
 static const char *TAG = "LED_MATRIX";
 
 // LED Matrix Configuration (update per block)
-#define LED_GPIO            18
+#define LED_GPIO            15
 #define LED_MATRIX_SIZE     30
 
 // Module-private state
@@ -100,6 +100,28 @@ void matrix_clear(void) {
 // ============================================================================
 void matrix_show(void) {
     led_strip_refresh(led_strip);
+}
+
+// ============================================================================
+// SET SINGLE PIXEL (for advanced animation patterns)
+// ============================================================================
+void matrix_set_pixel(uint8_t idx, uint8_t r, uint8_t g, uint8_t b) {
+    if (!led_strip || idx >= LED_MATRIX_SIZE) {
+        return;
+    }
+
+    // Apply global brightness scaling consistently with matrix_fill().
+    r = (r * matrix_brightness) / 255;
+    g = (g * matrix_brightness) / 255;
+    b = (b * matrix_brightness) / 255;
+    led_strip_set_pixel(led_strip, idx, r, g, b);
+}
+
+// ============================================================================
+// GET MATRIX SIZE
+// ============================================================================
+uint8_t matrix_get_size(void) {
+    return LED_MATRIX_SIZE;
 }
 
 // ============================================================================

@@ -1,11 +1,15 @@
-// Brain block event handler skeleton.
-// Implement message parsing + routing here.
-
 #include "brain_event_handler.h"
 
 #include <string.h>
 #include "esp_timer.h"
+#include <stdlib.h>
+
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
+
+#include "brain_block.h"
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
@@ -96,6 +100,155 @@ static bool load_program_from_config(void) {
         s_executor_ctx.program[i] = config->blocks[i].block_type;
     }
     return true;
+}
+
+typedef enum {
+    EVT_SRC_MESSAGE = 0,
+    EVT_SRC_BLOCK   = 1,
+} brain_event_src_t;
+
+typedef struct {
+    brain_event_src_t src;
+    union {
+        char message[96];
+        struct {
+            uint8_t block_addr;
+            uint8_t event_id;
+            uint8_t payload[16];
+            uint8_t payload_len;
+        } block;
+    } data;
+} brain_event_t;
+
+static QueueHandle_t s_event_queue = NULL;
+
+static bool parse_u8_token(const char *s, uint8_t *out) {
+    if (!s || !out) {
+        return false;
+    }
+    char *end = NULL;
+    long value = strtol(s, &end, 0); // accepts decimal and 0x-prefixed hex
+    if (end == s || *end != '\0' || value < 0 || value > 255) {
+        return false;
+    }
+    *out = (uint8_t)value;
+    return true;
+}
+
+static bool process_message_event(const char *message) {
+    if (!message || message[0] == '\0') {
+        return false;
+    }
+
+    if (strcasecmp(message, "START") == 0) {
+        if (!demo_cmd_queue) {
+            ESP_LOGW(TAG, "START ignored: demo queue not ready");
+            return false;
+        }
+        demo_cmd_t cmd = CMD_START;
+        if (xQueueSend(demo_cmd_queue, &cmd, 0) != pdTRUE) {
+            ESP_LOGW(TAG, "START dropped: demo queue full");
+            return false;
+        }
+        ESP_LOGI(TAG, "Handled START");
+        return true;
+    }
+
+    if (strcasecmp(message, "STOP") == 0) {
+        if (!demo_cmd_queue) {
+            ESP_LOGW(TAG, "STOP ignored: demo queue not ready");
+            return false;
+        }
+        demo_cmd_t cmd = CMD_STOP;
+        if (xQueueSend(demo_cmd_queue, &cmd, 0) != pdTRUE) {
+            ESP_LOGW(TAG, "STOP dropped: demo queue full");
+            return false;
+        }
+        ESP_LOGI(TAG, "Handled STOP");
+        return true;
+    }
+
+    // Optional direct-control commands for quick testing from app:
+    //   SET_LED <addr> <color_id>
+    //   EXEC <addr>
+    //   RESET <addr>
+    //   BRIGHT <addr> <brightness_0_255>
+    char cmd[16] = {0};
+    char arg1[16] = {0};
+    char arg2[16] = {0};
+    int n = sscanf(message, "%15s %15s %15s", cmd, arg1, arg2);
+
+    if (n >= 2 && strcasecmp(cmd, "EXEC") == 0) {
+        uint8_t addr = 0;
+        if (!parse_u8_token(arg1, &addr)) {
+            return false;
+        }
+        return i2c_execute(addr) == ESP_OK;
+    }
+
+    if (n >= 2 && strcasecmp(cmd, "RESET") == 0) {
+        uint8_t addr = 0;
+        if (!parse_u8_token(arg1, &addr)) {
+            return false;
+        }
+        return i2c_reset(addr) == ESP_OK;
+    }
+
+    if (n >= 3 && strcasecmp(cmd, "SET_LED") == 0) {
+        uint8_t addr = 0;
+        uint8_t color_id = 0;
+        if (!parse_u8_token(arg1, &addr) || !parse_u8_token(arg2, &color_id)) {
+            return false;
+        }
+        return i2c_set_led_color_id(addr, color_id) == ESP_OK;
+    }
+
+    if (n >= 3 && strcasecmp(cmd, "BRIGHT") == 0) {
+        uint8_t addr = 0;
+        uint8_t brightness = 0;
+        if (!parse_u8_token(arg1, &addr) || !parse_u8_token(arg2, &brightness)) {
+            return false;
+        }
+        return i2c_matrix_set_brightness(addr, brightness) == ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "Unhandled message: %s", message);
+    return false;
+}
+
+static bool process_block_event(uint8_t block_addr,
+                                uint8_t event_id,
+                                const uint8_t *payload,
+                                size_t payload_len) {
+    if (event_id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT && payload && payload_len >= 1) {
+        uint8_t selection = payload[0];
+        ESP_LOGI(TAG, "Block 0x%02X selection submit: %u", block_addr, selection);
+        esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
+        esp_err_t exec_ret = i2c_execute(block_addr);
+        return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
+    }
+
+    ESP_LOGW(TAG, "Unhandled block event: addr=0x%02X id=0x%02X len=%u",
+             block_addr, event_id, (unsigned)payload_len);
+    return false;
+}
+
+static void brain_event_task(void *arg) {
+    (void)arg;
+    brain_event_t evt;
+    while (1) {
+        if (xQueueReceive(s_event_queue, &evt, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+        if (evt.src == EVT_SRC_MESSAGE) {
+            process_message_event(evt.data.message);
+        } else {
+            process_block_event(evt.data.block.block_addr,
+                                evt.data.block.event_id,
+                                evt.data.block.payload,
+                                evt.data.block.payload_len);
+        }
+    }
 }
 
 void brain_event_handler_init(void) {
@@ -308,20 +461,56 @@ void brain_executor_tick(void) {
             s_executor_ctx.pc++;
             return;
     }
+    if (s_event_queue) {
+        ESP_LOGI(TAG, "brain_event_handler already initialized");
+        return;
+    }
+
+    s_event_queue = xQueueCreate(12, sizeof(brain_event_t));
+    if (!s_event_queue) {
+        ESP_LOGE(TAG, "Failed to create brain event queue");
+        return;
+    }
+
+    // Keep Brain event orchestration on Core 0; GUI runs on Core 1.
+    BaseType_t ok = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
+    if (ok != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create brain event task");
+        return;
+    }
+
+    ESP_LOGI(TAG, "brain_event_handler initialized");
 }
 
-void brain_event_handle_message(const char *message) {
-    (void)message;
-    // TODO: parse app/host messages and route to handlers
+bool brain_event_handle_message(const char *message) {
+    if (!s_event_queue || !message) {
+        return false;
+    }
+
+    brain_event_t evt = {0};
+    evt.src = EVT_SRC_MESSAGE;
+    strncpy(evt.data.message, message, sizeof(evt.data.message) - 1);
+    evt.data.message[sizeof(evt.data.message) - 1] = '\0';
+
+    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
 }
 
-void brain_event_handle_block_event(uint8_t block_addr,
+bool brain_event_handle_block_event(uint8_t block_addr,
                                     uint8_t event_id,
                                     const uint8_t *payload,
                                     size_t payload_len) {
-    (void)block_addr;
-    (void)event_id;
-    (void)payload;
-    (void)payload_len;
-    // TODO: react to block-side events
+    if (!s_event_queue || payload_len > 16) {
+        return false;
+    }
+
+    brain_event_t evt = {0};
+    evt.src = EVT_SRC_BLOCK;
+    evt.data.block.block_addr = block_addr;
+    evt.data.block.event_id = event_id;
+    evt.data.block.payload_len = (uint8_t)payload_len;
+    if (payload && payload_len > 0) {
+        memcpy(evt.data.block.payload, payload, payload_len);
+    }
+
+    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
 }

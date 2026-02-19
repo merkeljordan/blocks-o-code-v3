@@ -12,7 +12,7 @@ extern void i2c_safe_scan(void);
 extern esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
 extern esp_err_t i2c_matrix_clear(uint8_t address);
 extern esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness);
-extern esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
+extern esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id);
 extern esp_err_t i2c_execute(uint8_t address);
 
 static const char *TAG = "DEMO";
@@ -59,17 +59,17 @@ void demo_task(void *arg) {
                             ESP_LOGI(TAG, "Device 0x%02X: LED_FLASH demo", addr);
                             
                             ESP_LOGI(TAG, "Device 0x%02X: FLASH RED", addr);
-                            i2c_set_led(addr, 255, 0, 0);
+                            i2c_set_led_color_id(addr, 0); // red
                             i2c_execute(addr);
                             vTaskDelay(pdMS_TO_TICKS(400));
                             
                             ESP_LOGI(TAG, "Device 0x%02X: FLASH GREEN", addr);
-                            i2c_set_led(addr, 0, 255, 0);
+                            i2c_set_led_color_id(addr, 1); // green
                             i2c_execute(addr);
                             vTaskDelay(pdMS_TO_TICKS(400));
                             
                             ESP_LOGI(TAG, "Device 0x%02X: FLASH BLUE", addr);
-                            i2c_set_led(addr, 0, 0, 255);
+                            i2c_set_led_color_id(addr, 2); // blue
                             i2c_execute(addr);
                             vTaskDelay(pdMS_TO_TICKS(400));
                         } else {

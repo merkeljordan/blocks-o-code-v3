@@ -7,15 +7,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "i2c_protocol.h"
-
-// Forward declaration from command_handler.c
-extern void handle_command(uint8_t *buffer, int len);
-extern size_t get_data_payload(uint8_t *out, size_t max_len);
+#include "command_handler.h"
 
 static const char *TAG = "I2C_COMM";
 
 // TODO: Change per board
-#define MY_ADDRESS      0x08
+#define MY_ADDRESS      0x32
 #define MY_BLOCK_TYPE   BLOCK_TYPE_LED_FLASH
 
 // ============================================================================
@@ -68,6 +65,19 @@ esp_err_t i2c_slave_init(void) {
 // ============================================================================
 // I²C RECEIVE TASK - Handles commands and register reads
 // ============================================================================
+/*
+ * i2c_task packet routing model:
+ *
+ * A) Register read path:
+ *    - Brain writes 1 byte < 0x10 (register index).
+ *    - Child immediately returns 1-byte value.
+ *    - REG_STATUS is dynamic and comes from command_handler_get_status().
+ *
+ * B) Command path:
+ *    - Multi-byte packet where byte[0] is CMD_*.
+ *    - Forwarded to handle_command() for parsing/execution enqueue.
+ *    - CMD_GET_DATA triggers an immediate payload response from get_data_payload().
+ */
 void i2c_task(void *arg) {
     uint8_t buffer[128];
 
@@ -77,14 +87,18 @@ void i2c_task(void *arg) {
         if (len > 0) {
             ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
 
-            // Single byte < 0x10 = register read request
+            // Register reads let Brain poll identity, status, and firmware metadata.
             if (len == 1 && buffer[0] < 0x10) {
                 uint8_t reg = buffer[0];
                 uint8_t response = registers[reg];
+                // STATUS is live runtime state, so fetch it from command handler.
+                if (reg == REG_STATUS) {
+                    response = command_handler_get_status();
+                }
                 i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
                 ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
             } else {
-                // Command
+                // Command packets are parsed by child-side command handler.
                 handle_command(buffer, len);
 
                 if (buffer[0] == CMD_GET_DATA) {

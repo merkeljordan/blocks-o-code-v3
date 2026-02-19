@@ -102,6 +102,36 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
     return ret;
 }
 
+// ============================================================================
+// I2C GET DATA PAYLOAD
+// ============================================================================
+esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
+    if (!out || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t cmd = CMD_GET_DATA;
+    esp_err_t ret = i2c_master_write_to_device(
+        I2C_PORT_NUM,
+        addr,
+        &cmd,
+        1,
+        pdMS_TO_TICKS(50)
+    );
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(2));
+    return i2c_master_read_from_device(
+        I2C_PORT_NUM,
+        addr,
+        out,
+        len,
+        pdMS_TO_TICKS(50)
+    );
+}
+
 
 // ============================================================================
 // MATRIX FILL

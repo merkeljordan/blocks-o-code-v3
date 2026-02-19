@@ -334,8 +334,20 @@ static void tcp_client_task(void *pvParameters)
                         brain_executor_stop();
                         const char *ack = "ACK:STOP\n";
                         send(sock, ack, strlen(ack), 0);
+                    bool handled = brain_event_handle_message(line);
+                    if (handled) {
+                        if (strcasecmp(line, "START") == 0) {
+                            const char *ack = "ACK:START\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else if (strcasecmp(line, "STOP") == 0) {
+                            const char *ack = "ACK:STOP\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            const char *ack = "ACK:EVENT\n";
+                            send(sock, ack, strlen(ack), 0);
+                        }
                     } else {
-                        ESP_LOGW(TAG, "Unknown command: '%s'", line);
+                        ESP_LOGW(TAG, "Unknown or rejected command: '%s'", line);
                         const char *nak = "NAK:UNKNOWN\n";
                         send(sock, nak, strlen(nak), 0);
                     }
@@ -395,4 +407,6 @@ void start_network_client(void)
 
     /* Start TCP client task */
     xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
+    /* Start TCP client task on Core 0 to keep Core 1 available for GUI. */
+    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
 }

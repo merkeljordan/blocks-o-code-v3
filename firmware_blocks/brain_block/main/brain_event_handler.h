@@ -1,4 +1,6 @@
 // Brain block event handler and execution-gate state.
+// Brain block event handler:
+// Routes app text commands and child block events into Brain-side actions.
 
 #pragma once
 
@@ -71,6 +73,17 @@ void brain_executor_tick(void);
 
 void brain_event_handle_message(const char *message);
 void brain_event_handle_block_event(uint8_t block_addr,
+
+// App/host text command entry point (e.g., "START", "STOP", "SET_LED 0x08 7").
+// Returns true if queued/handled, false if unknown or queue failure.
+bool brain_event_handle_message(const char *message);
+
+// Child block event entry point.
+// Returns true if queued/handled, false otherwise.
+bool brain_event_handle_block_event(uint8_t block_addr,
                                     uint8_t event_id,
                                     const uint8_t *payload,
                                     size_t payload_len);
+
+// Known block-originated event IDs.
+#define BRAIN_BLOCK_EVENT_SELECTION_SUBMIT  0x01
