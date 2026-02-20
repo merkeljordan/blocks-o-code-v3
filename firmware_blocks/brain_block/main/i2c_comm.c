@@ -177,7 +177,7 @@ static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd) {
 // ============================================================================
 // SET LED COLOR ID (LED_FLASH block)
 // ============================================================================
-esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
+esp_err_t i2c_set_led(uint8_t address, uint8_t color_id) {
     uint8_t data[2] = {CMD_SET_LED, color_id};
 
     i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
