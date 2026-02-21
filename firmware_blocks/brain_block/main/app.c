@@ -391,8 +391,8 @@ void start_network_client(void)
     wifi_init_sta();
 
     /* Start executor tick task */
-    xTaskCreate(executor_task, "executor_task", 4096, NULL, 5, NULL);
+    xTaskCreatePinnedToCore(executor_task, "executor_task", 4096, NULL, 5, NULL, 0);
 
     /* Start TCP client task */
-    xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
+    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
 }

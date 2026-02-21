@@ -15,7 +15,7 @@ extern size_t get_data_payload(uint8_t *out, size_t max_len);
 static const char *TAG = "I2C_COMM";
 
 // TODO: Change per board
-#define MY_ADDRESS      0x08
+#define MY_ADDRESS      0x11
 #define MY_BLOCK_TYPE   BLOCK_TYPE_LED_FLASH
 
 // ============================================================================

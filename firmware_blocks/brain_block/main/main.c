@@ -26,6 +26,8 @@ static void registry_scan_task(void *arg) {
 // ============================================================================
 void app_main(void) {
     ESP_LOGI(TAG, "=== BRAIN BLOCK ===");
+    esp_log_level_set("XPT2046", ESP_LOG_WARN);
+
     
     // Initialize I²C Master
     ESP_ERROR_CHECK(i2c_master_init());
@@ -46,7 +48,8 @@ void app_main(void) {
     demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
     
     // Create registry scan task (scans every 1 second)
-    xTaskCreate(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL);
+    xTaskCreatePinnedToCore(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL, 0);
+
 
     // Create network client task
     start_network_client();

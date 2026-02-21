@@ -56,9 +56,14 @@ void app_main(void) {
     // This launches an internal GUI task and returns immediately.
     tft_ui_start();
 
-    // Create tasks
-    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
+   // Create tasks on core 0 (I2C/execution core)
+BaseType_t ok_i2c = xTaskCreatePinnedToCore(i2c_task, "i2c", 4096, NULL, 5, NULL, 0);
+BaseType_t ok_status = xTaskCreatePinnedToCore(led_status_task, "led_status", 2048, NULL, 3, NULL, 0);
+
+if (ok_i2c != pdPASS || ok_status != pdPASS) {
+    ESP_LOGE(TAG, "Failed to create one or more tasks");
+    return;
+}
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }
