@@ -44,7 +44,6 @@ Enhancement:
 
 #include "brain_block.h" // exposes i2c helpers and device registry
 #include "block_config_manager.h"
-#include "brain_event_handler.h"
 #include "cJSON.h"
 #include "tft_ui.h"
 
@@ -63,20 +62,10 @@ Enhancement:
 #define TCP_RX_BUF_SIZE       512
 #define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
-#define EXECUTOR_TICK_INTERVAL_MS 20
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
-
-static void executor_task(void *pvParameters)
-{
-    (void)pvParameters;
-    while (1) {
-        brain_executor_tick();
-        vTaskDelay(pdMS_TO_TICKS(EXECUTOR_TICK_INTERVAL_MS));
-    }
-}
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
@@ -187,11 +176,9 @@ static void tcp_client_task(void *pvParameters)
         }
 
         ESP_LOGI(TAG, "Successfully connected to server");
-        brain_event_handler_reset_validation();
 
         // Perform initial scan and send configuration
         block_config_manager_scan();
-        brain_event_handler_refresh_config_event_map(block_config_manager_get_event_map());
         char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
         if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
             size_t json_len = strlen(json_buffer);
@@ -216,7 +203,6 @@ static void tcp_client_task(void *pvParameters)
             TickType_t current_time = xTaskGetTickCount();
             if ((current_time - last_scan_time) >= pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS)) {
                 block_config_manager_scan();
-                brain_event_handler_refresh_config_event_map(block_config_manager_get_event_map());
                 last_scan_time = current_time;
 
                 // Send configuration if it changed or if this is the first scan after connection
@@ -268,33 +254,6 @@ static void tcp_client_task(void *pvParameters)
                             cJSON_Delete(json);
                             vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
                             continue;
-                        } else if (strcmp(type, "config_validation") == 0) {
-                            cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");
-                            if (is_valid_item != NULL && cJSON_IsBool(is_valid_item)) {
-                                cJSON *error_count_item = cJSON_GetObjectItem(json, "error_count");
-                                cJSON *timestamp_item = cJSON_GetObjectItem(json, "timestamp");
-                                uint32_t error_count = 0;
-                                uint64_t timestamp_ms = (uint64_t)(esp_timer_get_time() / 1000);
-
-                                if (error_count_item != NULL && cJSON_IsNumber(error_count_item) &&
-                                    error_count_item->valuedouble >= 0) {
-                                    error_count = (uint32_t)error_count_item->valuedouble;
-                                }
-
-                                if (timestamp_item != NULL && cJSON_IsNumber(timestamp_item) &&
-                                    timestamp_item->valuedouble >= 0) {
-                                    timestamp_ms = (uint64_t)timestamp_item->valuedouble;
-                                }
-
-                                brain_event_handler_set_config_validation(
-                                    cJSON_IsTrue(is_valid_item),
-                                    error_count,
-                                    timestamp_ms);
-                                cJSON_Delete(json);
-                                vTaskDelay(pdMS_TO_TICKS(100));
-                                continue;
-                            }
-                            ESP_LOGW(TAG, "config_validation missing valid is_valid field");
                         }
                     }
                     cJSON_Delete(json);
@@ -307,31 +266,21 @@ static void tcp_client_task(void *pvParameters)
                     ESP_LOGI(TAG, "Command received: '%s'", line);
 
                     if (strcasecmp(line, "START") == 0) {
-                        if (brain_event_handler_can_start_execution()) {
-                            ESP_LOGI(TAG, "Handling START: validation passed, starting executor");
-                            esp_err_t start_ret = brain_executor_start();
-                            if (start_ret == ESP_OK) {
-                                const char *ack = "ACK:START\n";
-                                send(sock, ack, strlen(ack), 0);
-                            } else {
-                                ESP_LOGW(TAG, "Executor start rejected: %s", esp_err_to_name(start_ret));
-                                const char *nak = "NAK:INVALID_STATE\n";
-                                send(sock, nak, strlen(nak), 0);
-                            }
-                        } else {
-                            const brain_validation_state_t *validation_state =
-                                brain_event_handler_get_validation_state();
-                            ESP_LOGW(TAG,
-                                     "Blocking START: valid=%s received=%s errors=%lu",
-                                     validation_state->app_config_valid ? "true" : "false",
-                                     validation_state->has_received_validation ? "true" : "false",
-                                     (unsigned long)validation_state->last_error_count);
-                            const char *nak = "NAK:INVALID_CONFIG\n";
-                            send(sock, nak, strlen(nak), 0);
-                        }
+                        ESP_LOGI(TAG, "Handling START: instructing Child 1");
+                        // Send command to demo task via queue
+                        demo_cmd_t cmd = CMD_START;
+                        xQueueSend(demo_cmd_queue, &cmd, 0);
+
+
+                        // Acknowledge to server/app
+                        const char *ack = "ACK:START\n";
+                        send(sock, ack, strlen(ack), 0);
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: stopping executor");
-                        brain_executor_stop();
+                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
+                        demo_cmd_t cmd = CMD_STOP;
+                        xQueueSend(demo_cmd_queue, &cmd, 0);
+
+
                         const char *ack = "ACK:STOP\n";
                         send(sock, ack, strlen(ack), 0);
                     } else {
@@ -364,8 +313,6 @@ static void tcp_client_task(void *pvParameters)
             close(sock);
             sock = -1;
         }
-        brain_executor_stop();
-        brain_event_handler_reset_validation();
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
         vTaskDelay(pdMS_TO_TICKS(TCP_RETRY_MS));
@@ -386,13 +333,9 @@ void start_network_client(void)
 
     // Initialize block configuration manager
     block_config_manager_init();
-    brain_event_handler_init();
 
     wifi_init_sta();
 
-    /* Start executor tick task */
-    xTaskCreatePinnedToCore(executor_task, "executor_task", 4096, NULL, 5, NULL, 0);
-
     /* Start TCP client task */
-    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
+    xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
 }
