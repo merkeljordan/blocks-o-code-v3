@@ -7,7 +7,7 @@
 
 #include "main/music_sequence_types.h"
 
-// Simple audio driver for the music sequence block (ESP32 uses I2S + internal DAC).
+// Simple audio driver for the music sequence block (ESP32 LEDC PWM on GPIO25).
 esp_err_t speaker_init(void);
 void speaker_deinit(void);
 void speaker_set_volume(uint8_t volume_percent);

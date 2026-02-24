@@ -27,6 +27,12 @@
 #define LCD_BACKLIGHT 32
 #define LV_TICK_PERIOD_MS 1
 
+extern const lv_img_dsc_t music_sequence_bg;
+
+#ifndef LV_IMG_ZOOM_NONE
+#define LV_IMG_ZOOM_NONE 256
+#endif
+
 #define UI_TASK_STACK_SIZE        6144
 #define PREVIEW_TASK_STACK_SIZE   4096
 #define UI_TASK_PRIORITY          5
@@ -37,6 +43,8 @@
 
 #define PREVIEW_GAP_MS_DEFAULT    35U
 #define COMPOSE_STEP_MS_DEFAULT   250U
+#define UI_BG_USE_COVER           0
+#define UI_BG_OVERLAY_OPA         110
 
 #if CONFIG_FREERTOS_UNICORE
 #define MUSIC_UI_CORE_ID          0
@@ -186,7 +194,7 @@ static void config_defaults_locked(void)
     }
 
     copy_text_safe(s_status_text, sizeof(s_status_text),
-                   "Use arrows to pick a song. Preview, then Select.");
+                   "Pick a song, tap Preview, then tap Select.");
 }
 
 static void push_action_event(music_ui_action_type_t type)
@@ -215,7 +223,7 @@ static void cycle_preset_locked(int delta)
 {
     size_t count = preset_count();
     if (count == 0) {
-        set_status_locked("No presets found.");
+        set_status_locked("No songs found yet.");
         return;
     }
 
@@ -231,7 +239,7 @@ static void cycle_preset_locked(int delta)
     if (preset) {
         s_config.selected_preset_id = preset->preset_id;
         s_config.config_valid = false;  // require re-select to commit new preset
-        set_status_locked("Preset changed. Tap Preview or Select.");
+        set_status_locked("New song picked! Tap Preview or Select.");
     }
 }
 
@@ -243,9 +251,9 @@ static void set_mode_locked(music_ui_mode_t mode)
     s_config.mode = mode;
     s_config.config_valid = false;  // mode change requires re-save/re-select
     if (mode == MUSIC_UI_MODE_PRESET) {
-        set_status_locked("Preset Mode: choose a song with arrows.");
+        set_status_locked("Song Mode: use arrows to browse songs.");
     } else {
-        set_status_locked("Compose Mode: edit notes, then Save.");
+        set_status_locked("Create Mode: build a tune, then Save.");
     }
 }
 
@@ -266,7 +274,7 @@ static void adjust_compose_cursor_locked(int delta)
         cur = (cur == 0U) ? (uint8_t)(count - 1U) : (uint8_t)(cur - 1U);
     }
     s_config.compose_cursor_index = cur;
-    set_status_locked("Compose Mode: choose a slot, then change the note.");
+    set_status_locked("Pick a box, then change the note.");
 }
 
 static void adjust_compose_note_locked(int delta)
@@ -291,7 +299,7 @@ static void adjust_compose_note_locked(int delta)
 
     s_config.compose_notes[idx] = (note_id_t)cur;
     s_config.config_valid = false;  // compose changed, must save
-    set_status_locked("Compose changed. Tap Preview or Select/Save.");
+    set_status_locked("Tune updated! Tap Preview or Save.");
 }
 
 static void adjust_tempo_locked(int delta_pct)
@@ -303,7 +311,7 @@ static void adjust_tempo_locked(int delta_pct)
         tempo = 200;
     }
     s_config.tempo_pct = (uint8_t)tempo;
-    set_status_locked("Tempo updated.");
+    set_status_locked("Tempo changed!");
 }
 
 static void queue_preview_request(preview_job_type_t type)
@@ -319,14 +327,14 @@ static void queue_preview_request(preview_job_type_t type)
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
         job.config_snapshot = s_config;
         if (s_playback_state.is_playing) {
-            set_status_locked("Block is executing. Preview is disabled right now.");
+            set_status_locked("Busy right now. Preview is paused.");
             xSemaphoreGive(s_state_mutex);
             return;
         }
         if (type == PREVIEW_JOB_PRESET) {
-            set_status_locked("Previewing preset...");
+            set_status_locked("Playing song preview...");
         } else {
-            set_status_locked("Previewing custom sequence...");
+            set_status_locked("Playing your tune...");
         }
         xSemaphoreGive(s_state_mutex);
     } else {
@@ -347,7 +355,7 @@ static void build_preset_hint_text(const music_preset_t *preset, char *out, size
     }
 
     size_t n = (preset->step_count < 8U) ? preset->step_count : 8U;
-    int written = snprintf(out, out_len, "♪ ");
+    int written = snprintf(out, out_len, LV_SYMBOL_AUDIO " ");
     if (written < 0) {
         out[0] = '\0';
         return;
@@ -375,7 +383,7 @@ static void build_compose_hint_text(const music_seq_config_t *cfg, char *out, si
     }
 
     size_t used = 0;
-    int written = snprintf(out, out_len, "♪ ");
+    int written = snprintf(out, out_len, LV_SYMBOL_AUDIO " ");
     if (written < 0) {
         out[0] = '\0';
         return;
@@ -419,17 +427,87 @@ static lv_obj_t *create_text_button(lv_obj_t *parent,
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, h);
     lv_obj_set_event_cb(btn, cb);
-    lv_obj_set_style_local_radius(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 10);
+    lv_obj_set_style_local_radius(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 14);
     lv_obj_set_style_local_border_width(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, 2);
-    lv_obj_set_style_local_border_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    lv_obj_set_style_local_border_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x0F172A));
     lv_obj_set_style_local_bg_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, bg);
     lv_obj_set_style_local_bg_opa(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    lv_obj_set_style_local_bg_opa(btn, LV_BTN_PART_MAIN, LV_STATE_PRESSED, LV_OPA_80);
+    lv_obj_set_style_local_border_color(btn, LV_BTN_PART_MAIN, LV_STATE_PRESSED, lv_color_hex(0x111827));
 
     lv_obj_t *label = lv_label_create(btn, NULL);
     lv_label_set_text(label, text);
+    lv_obj_set_width(label, (w > 10) ? (w - 10) : w);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_CROP);
+    lv_label_set_align(label, LV_LABEL_ALIGN_CENTER);
     lv_obj_align(label, NULL, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_local_text_color(btn, LV_BTN_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
     return btn;
+}
+
+static void apply_label_backplate(lv_obj_t *label, uint8_t part, lv_opa_t bg_opa)
+{
+    if (label == NULL) {
+        return;
+    }
+
+    lv_obj_set_style_local_bg_color(label, part, LV_STATE_DEFAULT, lv_color_hex(0x0B1220));
+    lv_obj_set_style_local_bg_opa(label, part, LV_STATE_DEFAULT, bg_opa);
+    lv_obj_set_style_local_border_width(label, part, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_border_color(label, part, LV_STATE_DEFAULT, lv_color_hex(0x1E3A5F));
+    lv_obj_set_style_local_border_opa(label, part, LV_STATE_DEFAULT, LV_OPA_70);
+    lv_obj_set_style_local_radius(label, part, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_pad_left(label, part, LV_STATE_DEFAULT, 3);
+    lv_obj_set_style_local_pad_right(label, part, LV_STATE_DEFAULT, 3);
+    lv_obj_set_style_local_pad_top(label, part, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_pad_bottom(label, part, LV_STATE_DEFAULT, 1);
+}
+
+static uint16_t calc_image_zoom_for_rect(const lv_img_dsc_t *img,
+                                         lv_coord_t target_w,
+                                         lv_coord_t target_h,
+                                         bool cover)
+{
+    if (img == NULL || img->header.w == 0U || img->header.h == 0U || target_w <= 0 || target_h <= 0) {
+        return LV_IMG_ZOOM_NONE;
+    }
+
+    uint32_t zx = ((uint32_t)target_w * (uint32_t)LV_IMG_ZOOM_NONE) / (uint32_t)img->header.w;
+    uint32_t zy = ((uint32_t)target_h * (uint32_t)LV_IMG_ZOOM_NONE) / (uint32_t)img->header.h;
+    uint32_t zoom = cover ? ((zx > zy) ? zx : zy) : ((zx < zy) ? zx : zy);
+
+    if (zoom == 0U) {
+        zoom = 1U;
+    }
+    if (zoom > 0xFFFFU) {
+        zoom = 0xFFFFU;
+    }
+    return (uint16_t)zoom;
+}
+
+static void create_background_art(lv_obj_t *scr)
+{
+    if (scr == NULL) {
+        return;
+    }
+
+    lv_coord_t w = lv_obj_get_width(scr);
+    lv_coord_t h = lv_obj_get_height(scr);
+
+    lv_obj_t *bg_img = lv_img_create(scr, NULL);
+    lv_img_set_src(bg_img, &music_sequence_bg);
+    lv_img_set_zoom(bg_img, calc_image_zoom_for_rect(&music_sequence_bg, w, h, UI_BG_USE_COVER != 0));
+    lv_obj_align(bg_img, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_click(bg_img, false);
+
+    lv_obj_t *overlay = lv_obj_create(scr, NULL);
+    lv_obj_set_pos(overlay, 0, 0);
+    lv_obj_set_size(overlay, w, h);
+    lv_obj_set_click(overlay, false);
+    lv_obj_set_style_local_radius(overlay, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_border_width(overlay, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, 0);
+    lv_obj_set_style_local_bg_color(overlay, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x0B1220));
+    lv_obj_set_style_local_bg_opa(overlay, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, UI_BG_OVERLAY_OPA);
 }
 
 static void preset_left_btn_cb(lv_obj_t *obj, lv_event_t event);
@@ -449,50 +527,71 @@ static lv_obj_t *create_music_screen(void)
     lv_obj_t *scr = lv_obj_create(NULL, NULL);
     lv_obj_set_style_local_bg_color(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x12203A));
     lv_obj_set_style_local_bg_opa(scr, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
+    create_background_art(scr);
 
     lv_obj_t *title_label = lv_label_create(scr, NULL);
-    lv_label_set_text(title_label, "Music Sequence");
+    lv_label_set_text(title_label, LV_SYMBOL_AUDIO " Music Maker");
     lv_obj_set_style_local_text_color(title_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE68A));
+    apply_label_backplate(title_label, LV_LABEL_PART_MAIN, LV_OPA_40);
     lv_obj_align(title_label, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 8);
 
-    lv_obj_t *mode_btn = create_text_button(scr, "Preset", 150, 4, 80, 30, mode_btn_cb, lv_color_hex(0x9AE6B4));
+    lv_obj_t *mode_btn = create_text_button(scr, LV_SYMBOL_AUDIO " Songs", 136, 4, 94, 30, mode_btn_cb, lv_color_hex(0x9AE6B4));
     s_mode_btn_label = lv_obj_get_child(mode_btn, NULL);
 
     lv_obj_t *subtitle = lv_label_create(scr, NULL);
-    lv_label_set_text(subtitle, "Core1: UI   Core0: I2C + Execute");
+    lv_obj_set_width(subtitle, 220);
+    lv_label_set_long_mode(subtitle, LV_LABEL_LONG_CROP);
+    lv_label_set_text(subtitle, "Pick a song or build your own tune");
+    lv_obj_set_style_local_text_font(subtitle, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_14);
     lv_obj_set_style_local_text_color(subtitle, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xBBD0FF));
+    apply_label_backplate(subtitle, LV_LABEL_PART_MAIN, LV_OPA_30);
     lv_obj_align(subtitle, NULL, LV_ALIGN_IN_TOP_LEFT, 10, 30);
 
     // Preset panel
     s_preset_panel = lv_cont_create(scr, NULL);
     lv_obj_set_pos(s_preset_panel, 8, 54);
     lv_obj_set_size(s_preset_panel, 224, 92);
+    lv_cont_set_layout(s_preset_panel, LV_LAYOUT_OFF);
     lv_obj_set_style_local_bg_color(s_preset_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x243B63));
     lv_obj_set_style_local_bg_opa(s_preset_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
     lv_obj_set_style_local_border_width(s_preset_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 2);
     lv_obj_set_style_local_border_color(s_preset_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x88A8FF));
     lv_obj_set_style_local_radius(s_preset_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 10);
 
-    create_text_button(s_preset_panel, "<", 6, 8, 34, 34, preset_left_btn_cb, lv_color_hex(0xA5D8FF));
-    create_text_button(s_preset_panel, ">", 184, 8, 34, 34, preset_right_btn_cb, lv_color_hex(0xA5D8FF));
+    create_text_button(s_preset_panel, LV_SYMBOL_LEFT, 6, 8, 34, 34, preset_left_btn_cb, lv_color_hex(0xA5D8FF));
+    create_text_button(s_preset_panel, LV_SYMBOL_RIGHT, 184, 8, 34, 34, preset_right_btn_cb, lv_color_hex(0xA5D8FF));
 
     s_preset_name_label = lv_label_create(s_preset_panel, NULL);
+    lv_obj_set_width(s_preset_name_label, 136);
+    lv_label_set_long_mode(s_preset_name_label, LV_LABEL_LONG_CROP);
+    lv_label_set_align(s_preset_name_label, LV_LABEL_ALIGN_CENTER);
     lv_label_set_text(s_preset_name_label, "Twinkle");
     lv_obj_set_style_local_text_color(s_preset_name_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    apply_label_backplate(s_preset_name_label, LV_LABEL_PART_MAIN, LV_OPA_30);
     lv_obj_align(s_preset_name_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 14);
 
     s_preset_hint_label = lv_label_create(s_preset_panel, NULL);
-    lv_obj_set_width(s_preset_hint_label, 204);
-    lv_label_set_long_mode(s_preset_hint_label, LV_LABEL_LONG_BREAK);
+    lv_obj_set_width(s_preset_hint_label, 216);
+    lv_obj_set_height(s_preset_hint_label, 22);
+    lv_label_set_long_mode(s_preset_hint_label, LV_LABEL_LONG_SROLL_CIRC);
     lv_label_set_align(s_preset_hint_label, LV_LABEL_ALIGN_CENTER);
-    lv_label_set_text(s_preset_hint_label, "♪ C4 C4 G4 G4 A4 A4 G4");
+    lv_label_set_text(s_preset_hint_label, LV_SYMBOL_AUDIO " C4 C4 G4 G4 A4 A4 G4");
     lv_obj_set_style_local_text_color(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xE0E7FF));
+    lv_obj_set_style_local_bg_color(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x111827));
+    lv_obj_set_style_local_bg_opa(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_20);
+    lv_obj_set_style_local_radius(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_border_width(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_border_color(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x1E3A5F));
+    lv_obj_set_style_local_border_opa(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_60);
+    lv_obj_set_style_local_pad_left(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 3);
+    lv_obj_set_style_local_pad_right(s_preset_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 3);
     lv_obj_align(s_preset_hint_label, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, -8);
 
     // Compose panel
     s_compose_panel = lv_cont_create(scr, NULL);
-    lv_obj_set_pos(s_compose_panel, 8, 150);
+    lv_obj_set_pos(s_compose_panel, 8, 54);
     lv_obj_set_size(s_compose_panel, 224, 94);
+    lv_cont_set_layout(s_compose_panel, LV_LAYOUT_OFF);
     lv_obj_set_style_local_bg_color(s_compose_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x2D254D));
     lv_obj_set_style_local_bg_opa(s_compose_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_COVER);
     lv_obj_set_style_local_border_width(s_compose_panel, LV_CONT_PART_MAIN, LV_STATE_DEFAULT, 2);
@@ -502,11 +601,13 @@ static lv_obj_t *create_music_screen(void)
     s_slot_label = lv_label_create(s_compose_panel, NULL);
     lv_label_set_text(s_slot_label, "Slot 1/8");
     lv_obj_set_style_local_text_color(s_slot_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
+    apply_label_backplate(s_slot_label, LV_LABEL_PART_MAIN, LV_OPA_30);
     lv_obj_align(s_slot_label, NULL, LV_ALIGN_IN_TOP_LEFT, 8, 8);
 
     s_note_label = lv_label_create(s_compose_panel, NULL);
     lv_label_set_text(s_note_label, "C4");
     lv_obj_set_style_local_text_color(s_note_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE68A));
+    apply_label_backplate(s_note_label, LV_LABEL_PART_MAIN, LV_OPA_30);
     lv_obj_align(s_note_label, NULL, LV_ALIGN_IN_TOP_RIGHT, -10, 8);
 
     create_text_button(s_compose_panel, "< Slot", 8, 30, 64, 28, slot_left_btn_cb, lv_color_hex(0xF5C2E7));
@@ -515,36 +616,56 @@ static lv_obj_t *create_music_screen(void)
     create_text_button(s_compose_panel, "Note +", 152, 62, 64, 28, note_up_btn_cb, lv_color_hex(0xA6E3A1));
 
     s_compose_hint_label = lv_label_create(s_compose_panel, NULL);
-    lv_obj_set_width(s_compose_hint_label, 140);
-    lv_label_set_long_mode(s_compose_hint_label, LV_LABEL_LONG_BREAK);
-    lv_label_set_text(s_compose_hint_label, "♪ [C4] D4 E4 G4 REST REST REST REST");
+    lv_obj_set_width(s_compose_hint_label, 144);
+    lv_obj_set_height(s_compose_hint_label, 22);
+    lv_label_set_long_mode(s_compose_hint_label, LV_LABEL_LONG_SROLL_CIRC);
+    lv_label_set_align(s_compose_hint_label, LV_LABEL_ALIGN_LEFT);
+    lv_label_set_text(s_compose_hint_label, LV_SYMBOL_AUDIO " [C4] D4 E4 G4 REST REST REST REST");
     lv_obj_set_style_local_text_color(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xF5E0DC));
+    lv_obj_set_style_local_bg_color(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x111827));
+    lv_obj_set_style_local_bg_opa(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_20);
+    lv_obj_set_style_local_radius(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 6);
+    lv_obj_set_style_local_border_width(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 1);
+    lv_obj_set_style_local_border_color(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0x1E3A5F));
+    lv_obj_set_style_local_border_opa(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_OPA_60);
+    lv_obj_set_style_local_pad_left(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 3);
+    lv_obj_set_style_local_pad_right(s_compose_hint_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, 3);
     lv_obj_align(s_compose_hint_label, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 8, -2);
 
     // Shared controls (preview/select/tempo) near bottom
-    create_text_button(scr, "Preview", 8, 248, 72, 32, preview_btn_cb, lv_color_hex(0x93C5FD));
-    create_text_button(scr, "Select/Save", 84, 248, 92, 32, commit_btn_cb, lv_color_hex(0x86EFAC));
-    create_text_button(scr, "-", 180, 248, 24, 32, tempo_minus_btn_cb, lv_color_hex(0xFCA5A5));
-    create_text_button(scr, "+", 208, 248, 24, 32, tempo_plus_btn_cb, lv_color_hex(0xFDE68A));
+    create_text_button(scr, LV_SYMBOL_PLAY " Preview", 8, 154, 108, 38, preview_btn_cb, lv_color_hex(0x93C5FD));
+    create_text_button(scr, LV_SYMBOL_OK " Select", 124, 154, 108, 38, commit_btn_cb, lv_color_hex(0x86EFAC));
+    create_text_button(scr, LV_SYMBOL_MINUS, 8, 198, 44, 32, tempo_minus_btn_cb, lv_color_hex(0xFCA5A5));
+    create_text_button(scr, LV_SYMBOL_PLUS, 188, 198, 44, 32, tempo_plus_btn_cb, lv_color_hex(0xFDE68A));
 
     s_tempo_label = lv_label_create(scr, NULL);
+    lv_obj_set_width(s_tempo_label, 324);
+    lv_label_set_long_mode(s_tempo_label, LV_LABEL_LONG_CROP);
+    lv_label_set_align(s_tempo_label, LV_LABEL_ALIGN_CENTER);
     lv_label_set_text(s_tempo_label, "Tempo 100%");
     lv_obj_set_style_local_text_color(s_tempo_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xE2E8F0));
-    lv_obj_align(s_tempo_label, NULL, LV_ALIGN_IN_LEFT_MID, 8, 68);
+    apply_label_backplate(s_tempo_label, LV_LABEL_PART_MAIN, LV_OPA_30);
+    lv_obj_align(s_tempo_label, NULL, LV_ALIGN_IN_TOP_MID, 0, 206);
 
     s_exec_label = lv_label_create(scr, NULL);
-    lv_obj_set_width(s_exec_label, 224);
-    lv_label_set_long_mode(s_exec_label, LV_LABEL_LONG_BREAK);
-    lv_label_set_text(s_exec_label, "Exec: Idle");
+    lv_obj_set_width(s_exec_label, 232);
+    lv_obj_set_height(s_exec_label, 18);
+    lv_label_set_long_mode(s_exec_label, LV_LABEL_LONG_SROLL_CIRC);
+    lv_label_set_align(s_exec_label, LV_LABEL_ALIGN_LEFT);
+    lv_label_set_text(s_exec_label, LV_SYMBOL_AUDIO " Ready to play");
     lv_obj_set_style_local_text_color(s_exec_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xBFDBFE));
-    lv_obj_align(s_exec_label, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 8, -34);
+    apply_label_backplate(s_exec_label, LV_LABEL_PART_MAIN, LV_OPA_30);
+    lv_obj_align(s_exec_label, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 4, -34);
 
     s_status_label = lv_label_create(scr, NULL);
-    lv_obj_set_width(s_status_label, 224);
-    lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_BREAK);
-    lv_label_set_text(s_status_label, "Use arrows to pick a song.");
+    lv_obj_set_width(s_status_label, 232);
+    lv_obj_set_height(s_status_label, 18);
+    lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_SROLL_CIRC);
+    lv_label_set_align(s_status_label, LV_LABEL_ALIGN_LEFT);
+    lv_label_set_text(s_status_label, "Tap arrows to pick a song.");
     lv_obj_set_style_local_text_color(s_status_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xFDE68A));
-    lv_obj_align(s_status_label, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 8, -10);
+    apply_label_backplate(s_status_label, LV_LABEL_PART_MAIN, LV_OPA_30);
+    lv_obj_align(s_status_label, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 4, -10);
 
     return scr;
 }
@@ -575,7 +696,9 @@ static void gui_refresh_from_state(void)
     // Mode button label + panel visibility
     if (s_mode_btn_label) {
         lv_label_set_text(s_mode_btn_label,
-                          (cfg.mode == MUSIC_UI_MODE_PRESET) ? "Preset" : "Compose");
+                          (cfg.mode == MUSIC_UI_MODE_PRESET)
+                              ? LV_SYMBOL_AUDIO " Songs"
+                              : LV_SYMBOL_EDIT " Create");
     }
     if (s_preset_panel) {
         lv_obj_set_hidden(s_preset_panel, cfg.mode != MUSIC_UI_MODE_PRESET);
@@ -638,11 +761,11 @@ static void gui_refresh_from_state(void)
         if (playback.is_playing) {
             const music_preset_t *p = speaker_get_preset_by_id(playback.active_preset_id);
             snprintf(exec_text, sizeof(exec_text),
-                     "Exec: Playing %s step %u",
+                     LV_SYMBOL_PLAY " %s  Step %u",
                      p ? p->name : "Sequence",
                      (unsigned)(playback.step_index + 1U));
         } else {
-            snprintf(exec_text, sizeof(exec_text), "Exec: Idle (pin I2C/exec tasks to core %d)", MUSIC_EXEC_CORE_ID);
+            snprintf(exec_text, sizeof(exec_text), LV_SYMBOL_AUDIO " Ready to play");
         }
         lv_label_set_text(s_exec_label, exec_text);
     }
