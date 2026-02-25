@@ -4,8 +4,11 @@
 #include "brain_event_handler.h"
 
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_timer.h"
 #include "esp_log.h"
+#include "brain_block.h"
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
@@ -13,8 +16,42 @@ static block_event_map_t s_event_map;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
 
+#define MUSIC_EXEC_BUSY_TIMEOUT_MS   200U
+#define MUSIC_EXEC_LATENCY_TARGET_MS 50U
+
 static uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
+}
+
+static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_t *out_elapsed_ms, uint8_t *out_status)
+{
+    uint64_t start = now_ms();
+    uint8_t status = 0;
+    esp_err_t last_err = ESP_FAIL;
+
+    while ((now_ms() - start) <= timeout_ms) {
+        last_err = i2c_read_reg(addr, REG_STATUS, &status, 1);
+        if (last_err == ESP_OK) {
+            if ((status & STATUS_BUSY) != 0U) {
+                if (out_elapsed_ms != NULL) {
+                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                }
+                if (out_status != NULL) {
+                    *out_status = status;
+                }
+                return ESP_OK;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    if (out_elapsed_ms != NULL) {
+        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+    }
+    if (out_status != NULL) {
+        *out_status = status;
+    }
+    return last_err;
 }
 
 static void set_default_validation_state(void) {
@@ -68,8 +105,32 @@ static int find_then_index(uint8_t start_index, uint8_t end_index) {
     return -1;
 }
 
+static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_addr) {
+    if (out_addr == NULL) {
+        return false;
+    }
+
+    const block_config_state_t *config = block_config_manager_get_state();
+    if (config == NULL) {
+        return false;
+    }
+
+    for (int i = 0; i < config->block_count; i++) {
+        const block_config_entry_t *entry = &config->blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+        if (entry->block_type != type) {
+            continue;
+        }
+        *out_addr = entry->i2c_address;
+        return true;
+    }
+
+    return false;
+}
+
 static void dispatch_output_action(block_type_t type) {
-    // Placeholder: this is where the I2C broadcast to compatible blocks is called.
     switch (type) {
         case BLOCK_TYPE_LED_FLASH:
             ESP_LOGI(TAG, "ACTION led_flash color_id=%u", s_executor_params.color_id);
@@ -77,9 +138,44 @@ static void dispatch_output_action(block_type_t type) {
         case BLOCK_TYPE_NOTE:
             ESP_LOGI(TAG, "ACTION note note_id=%u", s_executor_params.note_id);
             break;
-        case BLOCK_TYPE_MUSIC_SEQ:
-            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u", s_executor_params.music_sequence_id);
+        case BLOCK_TYPE_MUSIC_SEQ: {
+            uint8_t addr = 0;
+            if (!find_first_block_address_by_type(BLOCK_TYPE_MUSIC_SEQ, &addr)) {
+                ESP_LOGW(TAG, "ACTION music_sequence skipped: no MUSIC_SEQ block detected");
+                break;
+            }
+
+            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u -> addr=0x%02X",
+                     s_executor_params.music_sequence_id, addr);
+
+            uint64_t dispatch_start_ms = now_ms();
+            esp_err_t err = i2c_execute(addr);
+            if (err != ESP_OK) {
+                ESP_LOGW(TAG, "i2c_execute(0x%02X) failed: %s", addr, esp_err_to_name(err));
+                break;
+            }
+
+            uint32_t busy_wait_ms = 0;
+            uint8_t status = 0;
+            esp_err_t busy_err = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &busy_wait_ms, &status);
+            uint32_t total_latency_ms = (uint32_t)(now_ms() - dispatch_start_ms);
+            if (busy_err == ESP_OK) {
+                ESP_LOGI(TAG,
+                         "MUSIC_SEQ latency dispatch->BUSY = %u ms (target <= %u ms) [PASS=%s, status=0x%02X]",
+                         total_latency_ms,
+                         MUSIC_EXEC_LATENCY_TARGET_MS,
+                         (total_latency_ms <= MUSIC_EXEC_LATENCY_TARGET_MS) ? "yes" : "no",
+                         status);
+            } else {
+                ESP_LOGW(TAG,
+                         "MUSIC_SEQ latency probe failed (dispatch ok, no BUSY within %u ms): wait=%u ms last_status=0x%02X err=%s",
+                         MUSIC_EXEC_BUSY_TIMEOUT_MS,
+                         busy_wait_ms,
+                         status,
+                         esp_err_to_name(busy_err));
+            }
             break;
+        }
         default:
             break;
     }
@@ -145,7 +241,7 @@ void brain_event_handler_refresh_config_event_map(const block_event_map_t *event
         ESP_LOGW(TAG, "Config changed during execution; stopping executor");
         brain_executor_stop();
     }
-    ESP_LOGI(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
+    ESP_LOGD(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
 }
 
 const block_event_map_t *brain_event_handler_get_config_event_map(void) {

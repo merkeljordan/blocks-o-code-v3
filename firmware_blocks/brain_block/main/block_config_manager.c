@@ -104,7 +104,7 @@ static void block_config_manager_build_event_map(void) {
                             s_event_map.loop_end_count == 0 &&
                             s_event_map.sequence_count == 0);
 
-    ESP_LOGI(TAG,
+    ESP_LOGD(TAG,
              "Event map: if(start=%u,end=%u) loop(start=%u,end=%u) seq=%u",
              s_event_map.if_start_count,
              s_event_map.if_end_count,
@@ -140,21 +140,12 @@ const char* block_type_to_json_string(block_type_t type) {
     }
 }
 
-static void read_whoami_data(uint8_t address, block_config_entry_t *entry) {
-    uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-    esp_err_t ret;
-
-    // Read REG_WHOAMI (required)
-    ret = i2c_read_reg(address, REG_WHOAMI, &whoami, 1);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to read WHOAMI from 0x%02X: %s", address, esp_err_to_name(ret));
-        entry->block_type = BLOCK_TYPE_UNKNOWN;
-        entry->present = false;
+static void read_optional_block_metadata(uint8_t address, block_config_entry_t *entry) {
+    if (entry == NULL || !entry->present || entry->block_type == BLOCK_TYPE_UNKNOWN) {
         return;
     }
 
-    entry->block_type = (block_type_t)whoami;
-    entry->present = true;
+    esp_err_t ret;
 
     // Try to read firmware version (optional)
     uint8_t fw_major = 0;
@@ -254,15 +245,22 @@ esp_err_t block_config_manager_scan(void) {
         config_entry->fw_minor = 0;
         config_entry->caps = 0;
 
-        // Read full WHOAMI data
-        read_whoami_data(entry->address, config_entry);
+        // Reuse the WHOAMI result from device_registry_scan() so each scan cycle
+        // performs a single WHOAMI read. This avoids "registry says MUSIC_SEQ but
+        // config manager says unknown" conflicts caused by a second WHOAMI read.
+        config_entry->present = entry->present;
+        config_entry->block_type = entry->type;
+
+        // Optional metadata reads (FW/CAPS) are still fetched here and do not
+        // affect block presence/type classification.
+        read_optional_block_metadata(entry->address, config_entry);
 
         if (!config_entry->present) {
             s_config_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X failed WHOAMI read", entry->address);
+            ESP_LOGW(TAG, "Block at 0x%02X failed registry presence check", entry->address);
         } else if (config_entry->block_type == BLOCK_TYPE_UNKNOWN) {
             s_config_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X returned unknown type", entry->address);
+            ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
         }
 
         s_config_state.block_count++;
@@ -483,7 +481,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     free(json_string);
     cJSON_Delete(root);
 
-    ESP_LOGI(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
+    ESP_LOGD(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
 
     return ESP_OK;
 }

@@ -44,15 +44,16 @@ Enhancement:
 
 #include "brain_block.h" // exposes i2c helpers and device registry
 #include "block_config_manager.h"
+#include "brain_event_handler.h"
 #include "cJSON.h"
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "Destiny_2.4GHz" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "Poetry1129!"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "192.168.1.66" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -125,6 +126,18 @@ static void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+}
+
+static bool brain_executor_scan_pause_active(void)
+{
+    const brain_executor_context_t *ctx = brain_executor_get_context();
+    if (ctx == NULL) {
+        return false;
+    }
+
+    return (ctx->state == EXECUTOR_RUNNING ||
+            ctx->state == EXECUTOR_WAIT_DELAY ||
+            ctx->state == EXECUTOR_WAIT_INPUT);
 }
 
 static void tcp_client_task(void *pvParameters)
@@ -202,6 +215,14 @@ static void tcp_client_task(void *pvParameters)
             // --- Periodic block configuration scan ---
             TickType_t current_time = xTaskGetTickCount();
             if ((current_time - last_scan_time) >= pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS)) {
+                if (brain_executor_scan_pause_active()) {
+                    // Keep cadence stable without hammering scans while executor is
+                    // polling child status/performing actions.
+                    last_scan_time = current_time;
+                    ESP_LOGD(TAG, "Skipping block scan while executor is active");
+                    goto recv_messages;
+                }
+
                 block_config_manager_scan();
                 last_scan_time = current_time;
 
@@ -225,6 +246,7 @@ static void tcp_client_task(void *pvParameters)
                 }
             }
 
+recv_messages:
             // --- Receive messages ---
             int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
             if (len > 0) {
@@ -253,6 +275,38 @@ static void tcp_client_task(void *pvParameters)
                             cJSON_Delete(ack_json);
                             cJSON_Delete(json);
                             vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
+                            continue;
+                        } else if (strcmp(type, "config_validation") == 0) {
+                            cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");
+                            cJSON *error_count_item = cJSON_GetObjectItem(json, "error_count");
+                            cJSON *timestamp_item = cJSON_GetObjectItem(json, "timestamp");
+
+                            if (is_valid_item != NULL && cJSON_IsBool(is_valid_item)) {
+                                bool is_valid = cJSON_IsTrue(is_valid_item);
+                                uint32_t error_count = 0;
+                                uint64_t timestamp_ms = (uint64_t)(esp_timer_get_time() / 1000);
+
+                                if (error_count_item != NULL && cJSON_IsNumber(error_count_item)) {
+                                    error_count = (uint32_t)cJSON_GetNumberValue(error_count_item);
+                                }
+                                if (timestamp_item != NULL && cJSON_IsNumber(timestamp_item)) {
+                                    double ts = cJSON_GetNumberValue(timestamp_item);
+                                    if (ts >= 0.0) {
+                                        timestamp_ms = (uint64_t)ts;
+                                    }
+                                }
+
+                                brain_event_handler_set_config_validation(is_valid, error_count, timestamp_ms);
+                                ESP_LOGI(TAG, "Applied config_validation from app: valid=%s errors=%lu ts=%llu",
+                                         is_valid ? "true" : "false",
+                                         (unsigned long)error_count,
+                                         (unsigned long long)timestamp_ms);
+                            } else {
+                                ESP_LOGW(TAG, "config_validation missing/invalid 'is_valid'");
+                            }
+
+                            cJSON_Delete(json);
+                            vTaskDelay(pdMS_TO_TICKS(20));
                             continue;
                         }
                     }
