@@ -108,6 +108,20 @@ const block_config_state_t* block_config_manager_get_state(void);
 const block_event_map_t* block_config_manager_get_event_map(void);
 
 /**
+ * @brief Copy current configuration state atomically into caller-provided storage
+ * @param out_state Destination buffer
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_state is NULL
+ */
+esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state);
+
+/**
+ * @brief Copy current event map atomically into caller-provided storage
+ * @param out_event_map Destination buffer
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_event_map is NULL
+ */
+esp_err_t block_config_manager_get_event_map_snapshot(block_event_map_t *out_event_map);
+
+/**
  * @brief Convert block_type_t to string identifier for JSON
  * @param type Block type enum value
  * @return String identifier (e.g., "if_block", "brain_block")

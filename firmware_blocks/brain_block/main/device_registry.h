@@ -48,6 +48,13 @@ esp_err_t device_registry_scan(void);
 const device_registry_t* device_registry_get(void);
 
 /**
+ * @brief Copy the current registry atomically into caller-provided storage
+ * @param out_registry Destination buffer
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_registry is NULL
+ */
+esp_err_t device_registry_get_snapshot(device_registry_t *out_registry);
+
+/**
  * @brief Print the registry to the log
  */
 void device_registry_print(void);

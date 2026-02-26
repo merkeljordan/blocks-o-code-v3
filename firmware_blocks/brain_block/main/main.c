@@ -10,6 +10,9 @@
 static const char *TAG = "BRAIN";
 QueueHandle_t demo_cmd_queue = NULL;
 
+// Keep this off in normal runtime to avoid duplicate bus scans.
+#define ENABLE_DEBUG_REGISTRY_SCAN_TASK 0
+
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
 // ============================================================================
@@ -47,8 +50,10 @@ void app_main(void) {
     // Keep queue allocation for compatibility with older modules that reference it.
     demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
     
-    // Create registry scan task (scans every 1 second)
+    // Optional debug-only registry logger task.
+#if ENABLE_DEBUG_REGISTRY_SCAN_TASK
     xTaskCreatePinnedToCore(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL, 0);
+#endif
 
 
     // Create network client task
