@@ -36,7 +36,7 @@ This folder contains everything needed to prepare and record the 10–15 minute 
 | Spec | Quantity | Units | Target |
 |------|----------|--------|--------|
 | 1 | LED color select → preview latency | ms | Mean ≤ 50 ms |
-| 2 | Config-change-to-app latency | ms | Mean ≤ 6000 ms |
+| 2 | Config-change-to-app latency | ms | Mean ≤ 2000 ms |
 | 3 | I2C rise time | ns/µs | Within I2C standard-mode spec |
 
 For full details, measurement methods, and rationale, see [engineering-specifications.md](engineering-specifications.md).
