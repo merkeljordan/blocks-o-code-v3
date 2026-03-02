@@ -133,7 +133,8 @@ static void brain_executor_task(void *arg)
 // ============================================================================
 void app_main(void) {
     ESP_LOGI(TAG, "=== BRAIN BLOCK ===");
-    esp_log_level_set("XPT2046", ESP_LOG_WARN);
+    esp_log_level_set("XPT2046", ESP_LOG_DEBUG);
+    esp_log_level_set("xpt2046", ESP_LOG_DEBUG);
 
     
     // Initialize I²C Master

@@ -93,7 +93,7 @@ static const char *TAG = "brain_ui_v9";
 
 /* Touch debug + transform presets
  * Presets let us test different mirror/swap combinations at runtime without reflashing. */
-#define TOUCH_PRESET_DEFAULT_INDEX     1U
+#define TOUCH_PRESET_DEFAULT_INDEX     6U
 #define TOUCH_DEBUG_REFRESH_MS         75U
 /* Software touch normalization helps when edge hits are compressed (common on XPT2046).
  * These are safe defaults; adjust if tester still shows corner drift. */
@@ -265,13 +265,14 @@ static void normalize_touch_point(uint16_t raw_x, uint16_t raw_y, uint16_t *out_
 
 /* LVGL input read callback (touch -> LVGL pointer events)
  * LVGL polls this function regularly from lv_timer_handler().
- * We read the latest touch controller state and translate it into LVGL's format. */
+ * We read the latest touch controller state and translate it into LVGL's format.
+ *
+ * Uses esp_lcd_touch_get_data() (the non-deprecated API) which returns
+ * esp_lcd_touch_point_data_t structs instead of separate x/y/strength arrays. */
 static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
     esp_lcd_touch_handle_t tp = (esp_lcd_touch_handle_t)lv_indev_get_user_data(indev);
-    uint16_t x[1] = {0};
-    uint16_t y[1] = {0};
-    uint16_t strength[1] = {0};
+    esp_lcd_touch_point_data_t point_data[1] = {0};
     uint8_t point_cnt = 0;
 
     data->state = LV_INDEV_STATE_RELEASED;
@@ -303,20 +304,20 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         return;
     }
 
-    bool touched = esp_lcd_touch_get_coordinates(tp, x, y, strength, &point_cnt, 1);
-    s_touch_debug.last_read_err = ESP_OK;
-    s_touch_debug.point_count = touched ? point_cnt : 0;
+    esp_err_t get_err = esp_lcd_touch_get_data(tp, point_data, &point_cnt, 1);
+    s_touch_debug.last_read_err = (get_err != ESP_OK) ? get_err : ESP_OK;
+    s_touch_debug.point_count = point_cnt;
 
-    if (touched && point_cnt > 0) {
-        uint16_t norm_x = x[0];
-        uint16_t norm_y = y[0];
-        normalize_touch_point(x[0], y[0], &norm_x, &norm_y);
+    if (get_err == ESP_OK && point_cnt > 0) {
+        uint16_t norm_x = point_data[0].x;
+        uint16_t norm_y = point_data[0].y;
+        normalize_touch_point(point_data[0].x, point_data[0].y, &norm_x, &norm_y);
 
-        s_touch_debug.raw_x = x[0];
-        s_touch_debug.raw_y = y[0];
+        s_touch_debug.raw_x = point_data[0].x;
+        s_touch_debug.raw_y = point_data[0].y;
         s_touch_debug.x = norm_x;
         s_touch_debug.y = norm_y;
-        s_touch_debug.strength = strength[0];
+        s_touch_debug.strength = point_data[0].strength;
         s_touch_debug.pressed = true;
 
         data->point.x = norm_x;
@@ -326,6 +327,11 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         if (!s_touch_prev_pressed) {
             s_touch_debug.pressed_count++;
             s_touch_prev_pressed = true;
+            ESP_LOGI(TAG, "TOUCH DOWN  raw=(%u,%u) norm=(%u,%u) Z=%u preset=%u",
+                     (unsigned)point_data[0].x, (unsigned)point_data[0].y,
+                     (unsigned)norm_x, (unsigned)norm_y,
+                     (unsigned)point_data[0].strength,
+                     (unsigned)s_touch_debug.transform_preset_index);
         }
     } else {
         s_touch_debug.raw_x = 0;
@@ -335,6 +341,9 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         if (s_touch_prev_pressed) {
             s_touch_debug.released_count++;
             s_touch_prev_pressed = false;
+            ESP_LOGI(TAG, "TOUCH UP    last_norm=(%u,%u) total_presses=%lu",
+                     (unsigned)s_touch_debug.x, (unsigned)s_touch_debug.y,
+                     (unsigned long)s_touch_debug.pressed_count);
         }
     }
 }
@@ -1335,19 +1344,14 @@ void tft_ui_start(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BRAIN_LCD_HOST, &tp_io_config, &tp_io_handle));
 
     esp_lcd_touch_config_t tp_cfg = {
-        /* Recommended first candidate for this board orientation:
-         * x/y max are set in the pre-swap axis frame because esp_lcd_touch
-         * applies mirror first, then swap_xy. */
-        .x_max = BRAIN_LCD_V_RES,
-        .y_max = BRAIN_LCD_H_RES,
+        .x_max = BRAIN_LCD_H_RES,
+        .y_max = BRAIN_LCD_V_RES,
         .rst_gpio_num = -1,
         .int_gpio_num = PIN_NUM_TOUCH_IRQ,
         .flags = {
-            /* These compensate for panel orientation + touch wiring.
-             * If touches feel rotated/inverted, these are the first values to test. */
-            .swap_xy = 1,
-            .mirror_x = 1,
-            .mirror_y = 0,
+            .swap_xy = 0,
+            .mirror_x = 0,
+            .mirror_y = 1,
         },
     };
     esp_lcd_touch_handle_t tp = NULL;
