@@ -11,6 +11,9 @@
 static const char *TAG = "BRAIN";
 QueueHandle_t demo_cmd_queue = NULL;
 
+// Keep this off in normal runtime to avoid duplicate bus scans.
+#define ENABLE_DEBUG_REGISTRY_SCAN_TASK 0
+
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
 // ============================================================================
@@ -59,6 +62,8 @@ static void block_event_poll_task(void *arg) {
 // ============================================================================
 void app_main(void) {
     ESP_LOGI(TAG, "=== BRAIN BLOCK ===");
+    esp_log_level_set("XPT2046", ESP_LOG_WARN);
+
     
     // Initialize I²C Master
     ESP_ERROR_CHECK(i2c_master_init());
@@ -77,16 +82,12 @@ void app_main(void) {
     // Demo task is intentionally disabled while the event executor is active.
     // Keep queue allocation for compatibility with older modules that reference it.
     demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
-    brain_event_handler_init();
-
-    // Non-UI Brain tasks pinned to Core 0 (GUI task is pinned to Core 1 in tft_ui_start()).
-    xTaskCreatePinnedToCore(demo_task, "demo", 4096, NULL, 5, NULL, 0);
     
-    // Registry scan stays on Core 0 with other orchestration tasks.
+    // Optional debug-only registry logger task.
+#if ENABLE_DEBUG_REGISTRY_SCAN_TASK
     xTaskCreatePinnedToCore(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL, 0);
+#endif
 
-    // Poll child event/status lane and forward to brain_event_handler.
-    xTaskCreatePinnedToCore(block_event_poll_task, "evt_poll", 4096, NULL, 5, NULL, 0);
 
     // Create network client task
     start_network_client();

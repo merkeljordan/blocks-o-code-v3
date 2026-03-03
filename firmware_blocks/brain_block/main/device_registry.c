@@ -49,9 +49,15 @@ esp_err_t device_registry_scan(void) {
             continue;
         }
 
-        // Device responded, try to read REG_WHOAMI
+        // Device responded, try to read REG_WHOAMI with retries to smooth transients
         uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-        ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
+        ret = ESP_FAIL;
+        for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
+            ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
+            if (ret != ESP_OK) {
+                vTaskDelay(pdMS_TO_TICKS(10));
+            }
+        }
         
         if (ret == ESP_OK) {
             entry->present = true;

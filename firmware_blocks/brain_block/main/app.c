@@ -33,6 +33,7 @@ Enhancement:
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #include "esp_system.h"
 #include "esp_event.h"
@@ -49,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "WhiteSky-Accolade" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "34bwheaf"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "100.110.161.116" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -63,18 +64,90 @@ Enhancement:
 #define TCP_RX_BUF_SIZE       512
 #define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
-#define EXECUTOR_TICK_INTERVAL_MS 20
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
+static bool s_validation_requested_by_start = false;
 
-static void executor_task(void *pvParameters)
-{
+// Latest block config JSON produced by scan task, sent by TCP task.
+static EventGroupHandle_t s_block_config_event_group;
+#define BLOCK_CONFIG_CHANGED_BIT BIT0
+static SemaphoreHandle_t s_block_config_json_mutex;
+static char s_block_config_json[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+static size_t s_block_config_json_len = 0;
+static bool s_block_config_json_valid = false;
+
+static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *out_len) {
+    if (out == NULL || out_len == NULL || out_size == 0) {
+        return false;
+    }
+    if (s_block_config_json_mutex == NULL) {
+        return false;
+    }
+
+    if (xSemaphoreTake(s_block_config_json_mutex, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return false;
+    }
+
+    bool ok = false;
+    if (s_block_config_json_valid && s_block_config_json_len > 0 && s_block_config_json_len < out_size) {
+        memcpy(out, s_block_config_json, s_block_config_json_len);
+        out[s_block_config_json_len] = '\0';
+        *out_len = s_block_config_json_len;
+        ok = true;
+    }
+
+    xSemaphoreGive(s_block_config_json_mutex);
+    return ok;
+}
+
+static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
+
+    // Force an immediate scan on startup so TCP task can send quickly.
+    TickType_t delay_ticks = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+
     while (1) {
-        brain_executor_tick();
-        vTaskDelay(pdMS_TO_TICKS(EXECUTOR_TICK_INTERVAL_MS));
+        block_config_manager_scan();
+        bool config_changed = block_config_manager_has_changed();
+
+        if (config_changed) {
+            ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
+            brain_event_handler_reset_validation();
+            s_validation_requested_by_start = false;
+        }
+
+        // Update cached JSON if changed or if we don't have a valid cache yet.
+        if (config_changed || !s_block_config_json_valid) {
+            char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+            if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
+                size_t json_len = strlen(json_buffer);
+                // Ensure newline-terminated (desktop parser expects newline)
+                if (json_len < sizeof(json_buffer) - 1) {
+                    json_buffer[json_len] = '\n';
+                    json_buffer[json_len + 1] = '\0';
+                    json_len += 1;
+                }
+
+                if (s_block_config_json_mutex != NULL &&
+                    xSemaphoreTake(s_block_config_json_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+                    if (json_len < sizeof(s_block_config_json)) {
+                        memcpy(s_block_config_json, json_buffer, json_len);
+                        s_block_config_json[json_len] = '\0';
+                        s_block_config_json_len = json_len;
+                        s_block_config_json_valid = true;
+                    }
+                    xSemaphoreGive(s_block_config_json_mutex);
+                }
+
+                if (s_block_config_event_group != NULL) {
+                    xEventGroupSetBits(s_block_config_event_group, BLOCK_CONFIG_CHANGED_BIT);
+                }
+            }
+        }
+
+        vTaskDelay(delay_ticks);
     }
 }
 
@@ -143,6 +216,7 @@ static void tcp_client_task(void *pvParameters)
     char rx_buffer[TCP_RX_BUF_SIZE];
     int sock = -1;
     struct sockaddr_in dest_addr;
+    char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
 
     while (1) {
         /* Wait for Wi‑Fi connection */
@@ -187,47 +261,49 @@ static void tcp_client_task(void *pvParameters)
         }
 
         ESP_LOGI(TAG, "Successfully connected to server");
-        brain_event_handler_reset_validation();
 
-        // Perform initial scan and send configuration
-        block_config_manager_scan();
-        brain_event_handler_refresh_config_event_map(block_config_manager_get_event_map());
-        char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
-        if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
-            size_t json_len = strlen(json_buffer);
-            if (json_len < sizeof(json_buffer) - 1) {
-                json_buffer[json_len] = '\n';
-                json_buffer[json_len + 1] = '\0';
+        // Brief settle delay before first send (helps when connection was flapping)
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        // Send most recent cached configuration immediately on connect.
+        size_t json_len = 0;
+        if (!copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len)) {
+            // Wait briefly for the scan task to populate initial JSON.
+            if (s_block_config_event_group != NULL) {
+                xEventGroupWaitBits(s_block_config_event_group,
+                                    BLOCK_CONFIG_CHANGED_BIT,
+                                    pdTRUE,   // clear on exit
+                                    pdFALSE,
+                                    pdMS_TO_TICKS(1500));
             }
-            int written = send(sock, json_buffer, strlen(json_buffer), 0);
+            (void)copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len);
+        }
+
+        if (json_len > 0) {
+            int written = send(sock, json_buffer, json_len, 0);
             if (written < 0) {
                 ESP_LOGE(TAG, "Error sending initial config: errno %d", errno);
             } else {
                 ESP_LOGI(TAG, "Sent initial block configuration (%d bytes)", written);
             }
+        } else {
+            ESP_LOGW(TAG, "No cached block configuration available yet");
         }
-
-        TickType_t last_scan_time = xTaskGetTickCount();
-        bool initial_sent = true;
 
         /* Main send/receive loop */
         while (1) {
-            // --- Periodic block configuration scan ---
-            TickType_t current_time = xTaskGetTickCount();
-            if ((current_time - last_scan_time) >= pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS)) {
-                block_config_manager_scan();
-                brain_event_handler_refresh_config_event_map(block_config_manager_get_event_map());
-                last_scan_time = current_time;
-
-                // Send configuration if it changed or if this is the first scan after connection
-                if (block_config_manager_has_changed() || !initial_sent) {
-                    if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
-                        size_t json_len = strlen(json_buffer);
-                        if (json_len < sizeof(json_buffer) - 1) {
-                            json_buffer[json_len] = '\n';
-                            json_buffer[json_len + 1] = '\0';
-                        }
-                        int written = send(sock, json_buffer, strlen(json_buffer), 0);
+            // Send updated config when scan task reports a change.
+            if (s_block_config_event_group != NULL) {
+                EventBits_t cfg_bits = xEventGroupWaitBits(s_block_config_event_group,
+                                                          BLOCK_CONFIG_CHANGED_BIT,
+                                                          pdTRUE,    // clear
+                                                          pdFALSE,
+                                                          0);
+                if (cfg_bits & BLOCK_CONFIG_CHANGED_BIT) {
+                    size_t updated_len = 0;
+                    if (copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &updated_len) &&
+                        updated_len > 0) {
+                        int written = send(sock, json_buffer, updated_len, 0);
                         if (written < 0) {
                             ESP_LOGE(TAG, "Error sending block config: errno %d", errno);
                             break; // will reconnect
@@ -235,7 +311,6 @@ static void tcp_client_task(void *pvParameters)
                             ESP_LOGI(TAG, "Sent block configuration (%d bytes)", written);
                         }
                     }
-                    initial_sent = true;
                 }
             }
 
@@ -269,32 +344,33 @@ static void tcp_client_task(void *pvParameters)
                             vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
                             continue;
                         } else if (strcmp(type, "config_validation") == 0) {
-                            cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");
-                            if (is_valid_item != NULL && cJSON_IsBool(is_valid_item)) {
-                                cJSON *error_count_item = cJSON_GetObjectItem(json, "error_count");
-                                cJSON *timestamp_item = cJSON_GetObjectItem(json, "timestamp");
-                                uint32_t error_count = 0;
-                                uint64_t timestamp_ms = (uint64_t)(esp_timer_get_time() / 1000);
-
-                                if (error_count_item != NULL && cJSON_IsNumber(error_count_item) &&
-                                    error_count_item->valuedouble >= 0) {
-                                    error_count = (uint32_t)error_count_item->valuedouble;
-                                }
-
-                                if (timestamp_item != NULL && cJSON_IsNumber(timestamp_item) &&
-                                    timestamp_item->valuedouble >= 0) {
-                                    timestamp_ms = (uint64_t)timestamp_item->valuedouble;
-                                }
-
-                                brain_event_handler_set_config_validation(
-                                    cJSON_IsTrue(is_valid_item),
-                                    error_count,
-                                    timestamp_ms);
+                            if (!s_validation_requested_by_start) {
+                                ESP_LOGI(TAG, "Ignoring unsolicited config_validation");
                                 cJSON_Delete(json);
-                                vTaskDelay(pdMS_TO_TICKS(100));
                                 continue;
                             }
-                            ESP_LOGW(TAG, "config_validation missing valid is_valid field");
+
+                            cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");
+                            cJSON *error_count_item = cJSON_GetObjectItem(json, "error_count");
+                            cJSON *timestamp_item = cJSON_GetObjectItem(json, "timestamp");
+
+                            bool is_valid = cJSON_IsBool(is_valid_item) && cJSON_IsTrue(is_valid_item);
+                            uint32_t error_count = cJSON_IsNumber(error_count_item)
+                                                   ? (uint32_t)cJSON_GetNumberValue(error_count_item)
+                                                   : 0;
+                            uint64_t timestamp_ms = cJSON_IsNumber(timestamp_item)
+                                                    ? (uint64_t)cJSON_GetNumberValue(timestamp_item)
+                                                    : (uint64_t)(esp_timer_get_time() / 1000);
+
+                            brain_event_handler_set_config_validation(is_valid, error_count, timestamp_ms);
+                            s_validation_requested_by_start = false;
+                            ESP_LOGI(TAG, "Applied config_validation: valid=%s errors=%lu ts=%llu",
+                                     is_valid ? "true" : "false",
+                                     (unsigned long)error_count,
+                                     (unsigned long long)timestamp_ms);
+
+                            cJSON_Delete(json);
+                            continue;
                         }
                     }
                     cJSON_Delete(json);
@@ -307,31 +383,35 @@ static void tcp_client_task(void *pvParameters)
                     ESP_LOGI(TAG, "Command received: '%s'", line);
 
                     if (strcasecmp(line, "START") == 0) {
-                        if (brain_event_handler_can_start_execution()) {
-                            ESP_LOGI(TAG, "Handling START: validation passed, starting executor");
-                            esp_err_t start_ret = brain_executor_start();
-                            if (start_ret == ESP_OK) {
-                                const char *ack = "ACK:START\n";
-                                send(sock, ack, strlen(ack), 0);
+                        s_validation_requested_by_start = true;
+                        const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+                        bool can_start = brain_event_handler_can_start_execution();
+
+                        if (!can_start) {
+                            if (validation != NULL && !validation->has_received_validation) {
+                                const char *nak = "NAK:NEED_VALIDATION\n";
+                                ESP_LOGW(TAG, "START blocked: waiting for config_validation");
+                                send(sock, nak, strlen(nak), 0);
                             } else {
-                                ESP_LOGW(TAG, "Executor start rejected: %s", esp_err_to_name(start_ret));
-                                const char *nak = "NAK:INVALID_STATE\n";
+                                const char *nak = "NAK:INVALID_CONFIG\n";
+                                ESP_LOGW(TAG, "START blocked: config validation is invalid");
                                 send(sock, nak, strlen(nak), 0);
                             }
-                        } else {
-                            const brain_validation_state_t *validation_state =
-                                brain_event_handler_get_validation_state();
-                            ESP_LOGW(TAG,
-                                     "Blocking START: valid=%s received=%s errors=%lu",
-                                     validation_state->app_config_valid ? "true" : "false",
-                                     validation_state->has_received_validation ? "true" : "false",
-                                     (unsigned long)validation_state->last_error_count);
-                            const char *nak = "NAK:INVALID_CONFIG\n";
-                            send(sock, nak, strlen(nak), 0);
+                            continue;
                         }
+
+                        ESP_LOGI(TAG, "Handling START: validation passed, instructing Child 1");
+                        demo_cmd_t cmd = CMD_START;
+                        xQueueSend(demo_cmd_queue, &cmd, 0);
+
+                        const char *ack = "ACK:START\n";
+                        send(sock, ack, strlen(ack), 0);
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: stopping executor");
-                        brain_executor_stop();
+                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
+                        demo_cmd_t cmd = CMD_STOP;
+                        xQueueSend(demo_cmd_queue, &cmd, 0);
+
+
                         const char *ack = "ACK:STOP\n";
                         send(sock, ack, strlen(ack), 0);
                     bool handled = brain_event_handle_message(line);
@@ -376,8 +456,6 @@ static void tcp_client_task(void *pvParameters)
             close(sock);
             sock = -1;
         }
-        brain_executor_stop();
-        brain_event_handler_reset_validation();
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
         vTaskDelay(pdMS_TO_TICKS(TCP_RETRY_MS));
@@ -400,10 +478,16 @@ void start_network_client(void)
     block_config_manager_init();
     brain_event_handler_init();
 
-    wifi_init_sta();
+    // Init shared config cache + start scan task (separate from TCP).
+    if (s_block_config_event_group == NULL) {
+        s_block_config_event_group = xEventGroupCreate();
+    }
+    if (s_block_config_json_mutex == NULL) {
+        s_block_config_json_mutex = xSemaphoreCreateMutex();
+    }
+    xTaskCreate(block_config_scan_task, "block_cfg_scan", 4096, NULL, 4, NULL);
 
-    /* Start executor tick task */
-    xTaskCreate(executor_task, "executor_task", 4096, NULL, 5, NULL);
+    wifi_init_sta();
 
     /* Start TCP client task */
     xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);

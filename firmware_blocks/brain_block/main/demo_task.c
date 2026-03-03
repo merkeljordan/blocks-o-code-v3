@@ -36,16 +36,20 @@ void demo_task(void *arg) {
                 ESP_LOGI(TAG, "Demo START received");
                 
                 // Get the device registry to find all connected devices
-                const device_registry_t *registry = device_registry_get();
+                device_registry_t registry_snapshot;
+                if (device_registry_get_snapshot(&registry_snapshot) != ESP_OK) {
+                    ESP_LOGW(TAG, "Could not read registry snapshot");
+                    continue;
+                }
                 
-                if (registry->count == 0) {
+                if (registry_snapshot.count == 0) {
                     ESP_LOGW(TAG, "No devices detected, skipping demo");
                 } else {
-                    ESP_LOGI(TAG, "Found %d device(s), starting demo", registry->count);
+                    ESP_LOGI(TAG, "Found %d device(s), starting demo", registry_snapshot.count);
                     
                     // Iterate through all discovered devices
                     for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
-                        const device_entry_t *entry = &registry->devices[i];
+                        const device_entry_t *entry = &registry_snapshot.devices[i];
                         
                         if (!entry->present) {
                             continue;
@@ -102,10 +106,14 @@ void demo_task(void *arg) {
                 ESP_LOGI(TAG, "Demo STOP received");
                 
                 // Clear all discovered devices
-                const device_registry_t *registry = device_registry_get();
+                device_registry_t registry_snapshot;
+                if (device_registry_get_snapshot(&registry_snapshot) != ESP_OK) {
+                    ESP_LOGW(TAG, "Could not read registry snapshot");
+                    continue;
+                }
                 
                 for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
-                    const device_entry_t *entry = &registry->devices[i];
+                    const device_entry_t *entry = &registry_snapshot.devices[i];
                     if (entry->present) {
                         ESP_LOGI(TAG, "Clearing device 0x%02X", entry->address);
                         i2c_matrix_clear(entry->address);

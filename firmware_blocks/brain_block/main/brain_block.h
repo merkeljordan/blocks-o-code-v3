@@ -19,6 +19,7 @@
 
 /* I2C primitives (implemented in i2c_comm.c) */
 esp_err_t i2c_master_init(void);
+esp_err_t i2c_master_recover_bus(void);
 esp_err_t i2c_ping(uint8_t addr);
 void i2c_safe_scan(void);
 esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b);

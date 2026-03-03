@@ -12,7 +12,7 @@
 static const char *TAG = "I2C_COMM";
 
 // TODO: Change per board
-#define MY_ADDRESS      0x32
+#define MY_ADDRESS      0x11
 #define MY_BLOCK_TYPE   BLOCK_TYPE_LED_FLASH
 
 // ============================================================================

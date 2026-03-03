@@ -90,14 +90,15 @@ static void dispatch_output_action(block_type_t type) {
 }
 
 static bool load_program_from_config(void) {
-    const block_config_state_t *config = block_config_manager_get_state();
-    if (config == NULL || config->block_count == 0) {
+    block_config_state_t config_snapshot;
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
         return false;
     }
 
-    s_executor_ctx.program_len = config->block_count;
-    for (int i = 0; i < config->block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
-        s_executor_ctx.program[i] = config->blocks[i].block_type;
+    s_executor_ctx.program_len = config_snapshot.block_count;
+    for (int i = 0; i < config_snapshot.block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        s_executor_ctx.program[i] = config_snapshot.blocks[i].block_type;
     }
     return true;
 }
