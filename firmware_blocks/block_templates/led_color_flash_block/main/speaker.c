@@ -1,26 +1,36 @@
 #include "speaker.h"
 
 #include "driver/ledc.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char *TAG = "SPEAKER";
 
-// Adjust for your wiring.
 #define SPEAKER_GPIO            25
+#define AMP_ENABLE_GPIO         33   /* Active-high: HIGH = amp on, LOW = amp off */
 
 #define SPEAKER_LEDC_MODE       LEDC_HIGH_SPEED_MODE
 #define SPEAKER_LEDC_TIMER      LEDC_TIMER_0
 #define SPEAKER_LEDC_CHANNEL    LEDC_CHANNEL_0
 #define SPEAKER_LEDC_DUTY_RES   LEDC_TIMER_10_BIT
 
-#define SPEAKER_DEFAULT_VOLUME  100  // percent
+#define SPEAKER_DEFAULT_VOLUME  100
 #define SPEAKER_FADE_STEPS      4
 #define SPEAKER_FADE_STEP_MS    3
 
 static bool s_inited = false;
 static uint8_t s_volume = SPEAKER_DEFAULT_VOLUME;
+
+static void amp_enable(void) {
+    gpio_set_level(AMP_ENABLE_GPIO, 1);
+    vTaskDelay(pdMS_TO_TICKS(5));
+}
+
+static void amp_disable(void) {
+    gpio_set_level(AMP_ENABLE_GPIO, 0);
+}
 
 static uint32_t speaker_get_duty(uint8_t volume_percent) {
     if (volume_percent > 100) {
@@ -32,6 +42,10 @@ static uint32_t speaker_get_duty(uint8_t volume_percent) {
 }
 
 esp_err_t speaker_init(void) {
+    gpio_reset_pin(AMP_ENABLE_GPIO);
+    gpio_set_direction(AMP_ENABLE_GPIO, GPIO_MODE_OUTPUT);
+    amp_disable();
+
     ledc_timer_config_t timer_config = {
         .speed_mode = SPEAKER_LEDC_MODE,
         .timer_num = SPEAKER_LEDC_TIMER,
@@ -62,9 +76,9 @@ esp_err_t speaker_init(void) {
         return err;
     }
 
-
     s_inited = true;
-    ESP_LOGI(TAG, "Speaker initialized on GPIO%d", SPEAKER_GPIO);
+    ESP_LOGI(TAG, "Speaker initialized on GPIO%d, amp enable on GPIO%d",
+             SPEAKER_GPIO, AMP_ENABLE_GPIO);
     return ESP_OK;
 }
 
@@ -73,6 +87,7 @@ void speaker_deinit(void) {
         return;
     }
     ledc_stop(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
+    amp_disable();
     s_inited = false;
 }
 
@@ -97,6 +112,8 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
         return err;
     }
 
+    amp_enable();
+
     uint32_t target_duty = speaker_get_duty(s_volume);
     uint32_t fade_total_ms = SPEAKER_FADE_STEPS * SPEAKER_FADE_STEP_MS * 2;
 
@@ -106,6 +123,7 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
         vTaskDelay(pdMS_TO_TICKS(duration_ms));
         ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
         ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+        amp_disable();
         return ESP_OK;
     }
 
@@ -124,6 +142,8 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
         ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
         vTaskDelay(pdMS_TO_TICKS(SPEAKER_FADE_STEP_MS));
     }
+
+    amp_disable();
     return ESP_OK;
 }
 
