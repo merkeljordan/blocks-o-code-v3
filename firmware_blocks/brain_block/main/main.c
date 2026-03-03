@@ -9,7 +9,6 @@
 
 
 static const char *TAG = "BRAIN";
-QueueHandle_t demo_cmd_queue = NULL;
 
 // Keep this off in normal runtime to avoid duplicate bus scans.
 #define ENABLE_DEBUG_REGISTRY_SCAN_TASK 0
@@ -78,10 +77,6 @@ void app_main(void) {
     tft_ui_start();   // starts LVGL + GUI task (returns after creating tasks)
     ESP_LOGI(TAG, "tft_ui_start() returned");
 
-
-    // Demo task is intentionally disabled while the event executor is active.
-    // Keep queue allocation for compatibility with older modules that reference it.
-    demo_cmd_queue = xQueueCreate(4, sizeof(demo_cmd_t));
     
     // Optional debug-only registry logger task.
 #if ENABLE_DEBUG_REGISTRY_SCAN_TASK

@@ -16,9 +16,8 @@ static const char *TAG = "DEV_REGISTRY";
 
 // Global registry instance
 static device_registry_t s_registry;
-// Track consecutive scan misses for each address so we don't drop
-// previously known-good devices on a single transient failure.
-#define DEVICE_REGISTRY_MAX_MISSES 3
+/* One miss tolerated; second miss = device gone (fast removal detection) */
+#define DEVICE_REGISTRY_MAX_MISSES 1
 static uint8_t s_miss_counts[DEVICE_REGISTRY_MAX_DEVICES] = {0};
 
 void device_registry_init(void) {
@@ -71,7 +70,17 @@ esp_err_t device_registry_scan(void) {
         // Successful ping; reset miss counter for this slot.
         s_miss_counts[i] = 0;
 
-        // Device responded, try to read REG_WHOAMI with retries to smooth transients.
+        // For previously known-good devices, we trust the cached type and skip WHOAMI.
+        if (was_present && prev_type != BLOCK_TYPE_UNKNOWN) {
+            entry->present = true;
+            entry->type = prev_type;
+            found++;
+            ESP_LOGD(TAG, "Device at 0x%02X present (cached type %s)",
+                     addr, block_type_to_string(prev_type));
+            continue;
+        }
+
+        // New or previously unknown device: read REG_WHOAMI once to learn its type.
         uint8_t whoami = BLOCK_TYPE_UNKNOWN;
         ret = ESP_FAIL;
         for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
@@ -80,16 +89,15 @@ esp_err_t device_registry_scan(void) {
                 vTaskDelay(pdMS_TO_TICKS(10));
             }
         }
-        
+
         if (ret == ESP_OK && whoami != BLOCK_TYPE_UNKNOWN) {
             entry->present = true;
             entry->type = (block_type_t)whoami;
             found++;
-            ESP_LOGI(TAG, "Device at 0x%02X: type=0x%02X (%s)",
+            ESP_LOGI(TAG, "Device at 0x%02X: type=0x%02X (%s) (new/updated)",
                      addr, whoami, block_type_to_string(entry->type));
         } else {
-            // Device ACK'd but WHOAMI failed or reported UNKNOWN; treat as transient.
-            ESP_LOGW(TAG, "Device at 0x%02X pinged but WHOAMI failed/unknown (err=%d, whoami=0x%02X); ignoring",
+            ESP_LOGW(TAG, "Device at 0x%02X pinged but WHOAMI failed/unknown (err=%d, whoami=0x%02X); not adding",
                      addr, ret, whoami);
         }
     }

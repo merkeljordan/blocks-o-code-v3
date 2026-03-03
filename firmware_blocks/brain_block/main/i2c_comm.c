@@ -92,7 +92,8 @@ esp_err_t i2c_ping(uint8_t addr) {
     i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    /* Short timeout so missing device (removal) is detected quickly (~25 ms) */
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(25));
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;

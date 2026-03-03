@@ -407,3 +407,11 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     return ESP_OK;
 }
+
+esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
+    if (out_state == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_state, &s_config_state, sizeof(s_config_state));
+    return ESP_OK;
+}

@@ -29,18 +29,6 @@ esp_err_t i2c_oled_text(uint8_t address, const char *msg);
 esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len);
 esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len);
 
-// Command Queue and definitions
-typedef enum {
-    CMD_NONE = 0,
-    CMD_START,
-    CMD_STOP
-} demo_cmd_t;
-
-extern QueueHandle_t demo_cmd_queue;
-
-/* Demo task (implemented in demo_task.c) */
-void demo_task(void *arg);
-
 /* Network client startup (implemented in app.c) */
 void start_network_client(void);
 

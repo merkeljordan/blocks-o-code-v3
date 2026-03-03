@@ -62,7 +62,7 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  1000  // Scan every 1 second
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 
 static const char *TAG = "brain_block";
@@ -105,8 +105,11 @@ static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *ou
 static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
 
-    // Force an immediate scan on startup so TCP task can send quickly.
-    TickType_t delay_ticks = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    // Adaptive interval: scan fast around changes, back off when stable.
+    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
+    const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    TickType_t delay_ticks = fast_delay;
+    int stable_scans = 0;
 
     while (1) {
         block_config_manager_scan();
@@ -116,6 +119,21 @@ static void block_config_scan_task(void *pvParameters) {
             ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
             brain_event_handler_reset_validation();
             s_validation_requested_by_start = false;
+            // Rescan in ~10 ms so removal/add is seen by the app quickly.
+            delay_ticks = fast_delay;
+            stable_scans = 0;
+        } else {
+            // No change: gradually back off up to max_delay to reduce bus traffic.
+            if (delay_ticks < max_delay) {
+                stable_scans++;
+                if (stable_scans >= 4) { // every few stable scans, increase delay a bit
+                    delay_ticks += pdMS_TO_TICKS(500);
+                    if (delay_ticks > max_delay) {
+                        delay_ticks = max_delay;
+                    }
+                    stable_scans = 0;
+                }
+            }
         }
 
         // Update cached JSON if changed or if we don't have a valid cache yet.
@@ -243,12 +261,15 @@ static void tcp_client_task(void *pvParameters)
             continue;
         }
 
-        /* Set connect/send/recv timeouts */
-        struct timeval timeout;
-        timeout.tv_sec = 5;
-        timeout.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        /* Short recv timeout so we wake often and push config updates quickly (~50 ms). */
+        struct timeval rcv_timeout;
+        rcv_timeout.tv_sec = 0;
+        rcv_timeout.tv_usec = 50000;  /* 50 ms */
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &rcv_timeout, sizeof(rcv_timeout));
+        struct timeval snd_timeout;
+        snd_timeout.tv_sec = 5;
+        snd_timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &snd_timeout, sizeof(snd_timeout));
 
         /* Connect to server */
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -445,8 +466,8 @@ static void tcp_client_task(void *pvParameters)
                 }
             }
 
-            // Small delay to prevent tight loop
-            vTaskDelay(pdMS_TO_TICKS(100));
+            /* Short delay when idle; recv timeout already throttles the loop */
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         /* Cleanup socket on disconnect */
@@ -487,8 +508,6 @@ void start_network_client(void)
 
     wifi_init_sta();
 
-    /* Start TCP client task */
-    xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
     /* Start TCP client task on Core 0 to keep Core 1 available for GUI. */
     xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
 }

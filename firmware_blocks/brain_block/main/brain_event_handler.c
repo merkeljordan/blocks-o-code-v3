@@ -1,6 +1,7 @@
 #include "brain_event_handler.h"
 
 #include <string.h>
+#include <strings.h>
 #include "esp_timer.h"
 #include <stdlib.h>
 
@@ -142,30 +143,18 @@ static bool process_message_event(const char *message) {
     }
 
     if (strcasecmp(message, "START") == 0) {
-        if (!demo_cmd_queue) {
-            ESP_LOGW(TAG, "START ignored: demo queue not ready");
+        esp_err_t err = brain_executor_start();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "START rejected: executor cannot start (err=%d)", (int)err);
             return false;
         }
-        demo_cmd_t cmd = CMD_START;
-        if (xQueueSend(demo_cmd_queue, &cmd, 0) != pdTRUE) {
-            ESP_LOGW(TAG, "START dropped: demo queue full");
-            return false;
-        }
-        ESP_LOGI(TAG, "Handled START");
+        ESP_LOGI(TAG, "Handled START: executor started");
         return true;
     }
 
     if (strcasecmp(message, "STOP") == 0) {
-        if (!demo_cmd_queue) {
-            ESP_LOGW(TAG, "STOP ignored: demo queue not ready");
-            return false;
-        }
-        demo_cmd_t cmd = CMD_STOP;
-        if (xQueueSend(demo_cmd_queue, &cmd, 0) != pdTRUE) {
-            ESP_LOGW(TAG, "STOP dropped: demo queue full");
-            return false;
-        }
-        ESP_LOGI(TAG, "Handled STOP");
+        brain_executor_stop();
+        ESP_LOGI(TAG, "Handled STOP: executor stop requested");
         return true;
     }
 
