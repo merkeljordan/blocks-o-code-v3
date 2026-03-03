@@ -260,6 +260,26 @@ void brain_event_handler_init(void) {
     s_executor_params.loop_count = 1;
     s_executor_params.delay_ms = 500;
     ESP_LOGI(TAG, "brain_event_handler_init");
+
+    if (s_event_queue) {
+        ESP_LOGI(TAG, "brain_event_handler already initialized");
+        return;
+    }
+
+    s_event_queue = xQueueCreate(12, sizeof(brain_event_t));
+    if (!s_event_queue) {
+        ESP_LOGE(TAG, "Failed to create brain event queue");
+        return;
+    }
+
+    // Keep Brain event orchestration on Core 0; GUI runs on Core 1.
+    BaseType_t ok = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
+    if (ok != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create brain event task");
+        return;
+    }
+
+    ESP_LOGI(TAG, "brain_event_handler initialized");
 }
 
 void brain_event_handler_reset_validation(void) {
@@ -462,25 +482,6 @@ void brain_executor_tick(void) {
             s_executor_ctx.pc++;
             return;
     }
-    if (s_event_queue) {
-        ESP_LOGI(TAG, "brain_event_handler already initialized");
-        return;
-    }
-
-    s_event_queue = xQueueCreate(12, sizeof(brain_event_t));
-    if (!s_event_queue) {
-        ESP_LOGE(TAG, "Failed to create brain event queue");
-        return;
-    }
-
-    // Keep Brain event orchestration on Core 0; GUI runs on Core 1.
-    BaseType_t ok = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
-    if (ok != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create brain event task");
-        return;
-    }
-
-    ESP_LOGI(TAG, "brain_event_handler initialized");
 }
 
 bool brain_event_handle_message(const char *message) {

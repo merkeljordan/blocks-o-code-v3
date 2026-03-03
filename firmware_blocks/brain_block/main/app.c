@@ -50,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "WhiteSky-Accolade" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "34bwheaf"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "100.110.161.116" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -62,7 +62,7 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  1000  // Scan every 1 second
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 
 static const char *TAG = "brain_block";
@@ -397,39 +397,37 @@ static void tcp_client_task(void *pvParameters)
                                 ESP_LOGW(TAG, "START blocked: config validation is invalid");
                                 send(sock, nak, strlen(nak), 0);
                             }
-                            continue;
+                        } else {
+                            bool handled = brain_event_handle_message(line);
+                            if (handled) {
+                                const char *ack = "ACK:START\n";
+                                send(sock, ack, strlen(ack), 0);
+                            } else {
+                                ESP_LOGW(TAG, "START rejected: event queue not ready/full");
+                                const char *nak = "NAK:INVALID_STATE\n";
+                                send(sock, nak, strlen(nak), 0);
+                            }
                         }
-
-                        ESP_LOGI(TAG, "Handling START: validation passed, instructing Child 1");
-                        demo_cmd_t cmd = CMD_START;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-                        const char *ack = "ACK:START\n";
-                        send(sock, ack, strlen(ack), 0);
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
-                        demo_cmd_t cmd = CMD_STOP;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-
-                        const char *ack = "ACK:STOP\n";
-                        send(sock, ack, strlen(ack), 0);
-                    bool handled = brain_event_handle_message(line);
-                    if (handled) {
-                        if (strcasecmp(line, "START") == 0) {
-                            const char *ack = "ACK:START\n";
-                            send(sock, ack, strlen(ack), 0);
-                        } else if (strcasecmp(line, "STOP") == 0) {
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
                             const char *ack = "ACK:STOP\n";
                             send(sock, ack, strlen(ack), 0);
                         } else {
-                            const char *ack = "ACK:EVENT\n";
-                            send(sock, ack, strlen(ack), 0);
+                            ESP_LOGW(TAG, "STOP rejected: event queue not ready/full");
+                            const char *nak = "NAK:INVALID_STATE\n";
+                            send(sock, nak, strlen(nak), 0);
                         }
                     } else {
-                        ESP_LOGW(TAG, "Unknown or rejected command: '%s'", line);
-                        const char *nak = "NAK:UNKNOWN\n";
-                        send(sock, nak, strlen(nak), 0);
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
+                            const char *ack = "ACK:EVENT\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            ESP_LOGW(TAG, "Unknown or rejected command: '%s'", line);
+                            const char *nak = "NAK:UNKNOWN\n";
+                            send(sock, nak, strlen(nak), 0);
+                        }
                     }
 
                     line = strtok_r(NULL, "\r\n", &saveptr);

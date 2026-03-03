@@ -71,9 +71,6 @@ esp_err_t brain_executor_start(void);
 void brain_executor_stop(void);
 void brain_executor_tick(void);
 
-void brain_event_handle_message(const char *message);
-void brain_event_handle_block_event(uint8_t block_addr,
-
 // App/host text command entry point (e.g., "START", "STOP", "SET_LED 0x08 7").
 // Returns true if queued/handled, false if unknown or queue failure.
 bool brain_event_handle_message(const char *message);

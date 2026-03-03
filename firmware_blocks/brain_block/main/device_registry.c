@@ -2,7 +2,7 @@
  * device_registry.c
  *
  * Implementation of the Brain-side device registry.
- * Scans I2C addresses 0x08–0x15, reads REG_WHOAMI, and stores results.
+ * Scans I2C addresses 0x08–0x0E, reads REG_WHOAMI, and stores results.
  */
 
 #include <string.h>
@@ -16,6 +16,10 @@ static const char *TAG = "DEV_REGISTRY";
 
 // Global registry instance
 static device_registry_t s_registry;
+// Track consecutive scan misses for each address so we don't drop
+// previously known-good devices on a single transient failure.
+#define DEVICE_REGISTRY_MAX_MISSES 3
+static uint8_t s_miss_counts[DEVICE_REGISTRY_MAX_DEVICES] = {0};
 
 void device_registry_init(void) {
     memset(&s_registry, 0, sizeof(s_registry));
@@ -23,6 +27,7 @@ void device_registry_init(void) {
         s_registry.devices[i].address = DEVICE_REGISTRY_ADDR_MIN + i;
         s_registry.devices[i].type = BLOCK_TYPE_UNKNOWN;
         s_registry.devices[i].present = false;
+        s_miss_counts[i] = 0;
     }
     s_registry.count = 0;
     ESP_LOGI(TAG, "Device registry initialized (addr range 0x%02X-0x%02X)",
@@ -37,6 +42,10 @@ esp_err_t device_registry_scan(void) {
     for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
         uint8_t addr = DEVICE_REGISTRY_ADDR_MIN + i;
         device_entry_t *entry = &s_registry.devices[i];
+
+        // Preserve previous state for simple hysteresis across scans.
+        bool was_present = entry->present && (entry->type != BLOCK_TYPE_UNKNOWN);
+        block_type_t prev_type = entry->type;
         
         // Reset entry
         entry->address = addr;
@@ -46,10 +55,23 @@ esp_err_t device_registry_scan(void) {
         // First, ping to check if device exists
         esp_err_t ret = i2c_ping(addr);
         if (ret != ESP_OK) {
+            // If this device was previously known, tolerate a few transient misses
+            if (was_present && s_miss_counts[i] < DEVICE_REGISTRY_MAX_MISSES) {
+                s_miss_counts[i]++;
+                entry->present = true;
+                entry->type = prev_type;
+                found++;
+                ESP_LOGW(TAG, "Transient miss %u/%u at 0x%02X; keeping previous device (%s)",
+                         (unsigned)s_miss_counts[i], (unsigned)DEVICE_REGISTRY_MAX_MISSES,
+                         addr, block_type_to_string(prev_type));
+            }
             continue;
         }
 
-        // Device responded, try to read REG_WHOAMI with retries to smooth transients
+        // Successful ping; reset miss counter for this slot.
+        s_miss_counts[i] = 0;
+
+        // Device responded, try to read REG_WHOAMI with retries to smooth transients.
         uint8_t whoami = BLOCK_TYPE_UNKNOWN;
         ret = ESP_FAIL;
         for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
@@ -59,19 +81,16 @@ esp_err_t device_registry_scan(void) {
             }
         }
         
-        if (ret == ESP_OK) {
+        if (ret == ESP_OK && whoami != BLOCK_TYPE_UNKNOWN) {
             entry->present = true;
             entry->type = (block_type_t)whoami;
             found++;
             ESP_LOGI(TAG, "Device at 0x%02X: type=0x%02X (%s)",
                      addr, whoami, block_type_to_string(entry->type));
         } else {
-            // Device ACK'd but failed REG_WHOAMI read - still mark present
-            entry->present = true;
-            entry->type = BLOCK_TYPE_UNKNOWN;
-            found++;
-            ESP_LOGW(TAG, "Device at 0x%02X: present but WHOAMI failed (err=%d)",
-                     addr, ret);
+            // Device ACK'd but WHOAMI failed or reported UNKNOWN; treat as transient.
+            ESP_LOGW(TAG, "Device at 0x%02X pinged but WHOAMI failed/unknown (err=%d, whoami=0x%02X); ignoring",
+                     addr, ret, whoami);
         }
     }
 

@@ -13,7 +13,12 @@
 static const char *TAG = "I2C_MASTER";
 
 static SemaphoreHandle_t s_i2c_mutex = NULL;
-#define I2C_MUTEX_TIMEOUT_MS 150
+// Allow more time for other I2C users (event poll, config scan, etc.).
+#define I2C_MUTEX_TIMEOUT_MS 500
+
+// Scan window for development boards; must match device_registry.h
+#define DEVICE_REGISTRY_ADDR_MIN    0x08
+#define DEVICE_REGISTRY_ADDR_MAX    0x16
 
 static esp_err_t i2c_lock(void) {
     if (s_i2c_mutex == NULL) {
@@ -100,7 +105,7 @@ void i2c_safe_scan(void) {
     ESP_LOGI(TAG, "=== SAFE I²C SCAN ===");
     int found = 0;
 
-    for (uint8_t addr = 0x08; addr <= 0x0F; addr++) {
+    for (uint8_t addr = DEVICE_REGISTRY_ADDR_MIN; addr <= DEVICE_REGISTRY_ADDR_MAX; addr++) {
         if (i2c_ping(addr) == ESP_OK) {
             ESP_LOGI(TAG, "Detected device at 0x%02X", addr);
             found++;
@@ -228,6 +233,33 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
 }
 
 // ============================================================================
+// SET LED BY COLOR ID (palette index)
+// ============================================================================
+esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t data[2] = {CMD_SET_LED, color_id};
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 2, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+    return ret;
+}
+
+// ============================================================================
 // SET LED (RGB)
 // ============================================================================
 esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
@@ -253,6 +285,50 @@ esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
 
+    return ret;
+}
+
+// ============================================================================
+// GET DATA (event payload from child)
+// ============================================================================
+esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
+    if (out == NULL || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t cmd_byte = CMD_GET_DATA;
+
+    // Send CMD_GET_DATA
+    esp_err_t ret = i2c_master_write_to_device(
+        I2C_PORT_NUM,
+        addr,
+        &cmd_byte,
+        1,
+        pdMS_TO_TICKS(50)
+    );
+    if (ret != ESP_OK) {
+        i2c_unlock();
+        return ret;
+    }
+
+    // Small delay between write and read to let child prepare payload
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // Read response payload
+    ret = i2c_master_read_from_device(
+        I2C_PORT_NUM,
+        addr,
+        out,
+        len,
+        pdMS_TO_TICKS(50)
+    );
+
+    i2c_unlock();
     return ret;
 }
 
