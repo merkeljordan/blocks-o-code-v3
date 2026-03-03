@@ -104,6 +104,20 @@ static const char *TAG = "brain_ui_v9";
 #define TOUCH_SW_CAL_MAX_Y             (BRAIN_LCD_V_RES - 12)
 #define HOME_ACTION_DEBOUNCE_US        150000
 
+/*
+ * Touch coordinate pipeline (important when debugging wrong touch orientation):
+ *
+ * 1) XPT2046 controller produces raw coordinates.
+ * 2) esp_lcd_touch applies transform flags (swap_xy/mirror_x/mirror_y) and axis limits (x_max/y_max).
+ * 3) normalize_touch_point() performs optional software calibration scaling to full 240x320 logical space.
+ * 4) LVGL receives the normalized coordinate via touch_read_cb().
+ *
+ * Notes:
+ * - The `tp_cfg.flags` values in tft_ui_start() are just the initial bootstrap config.
+ * - apply_touch_transform_preset() is called immediately after touch init and becomes the active mapping.
+ * - If touch feels rotated/mirrored, change TOUCH_PRESET_DEFAULT_INDEX or use "Next Touch Map" at runtime.
+ */
+
 typedef struct {
     const char *name;
     uint16_t x_max;
@@ -130,6 +144,12 @@ typedef struct {
 } touch_debug_state_t;
 
 static const touch_transform_preset_t s_touch_presets[] = {
+    /* Preset naming:
+     * - S = swap_xy
+     * - Mx = mirror_x
+     * - My = mirror_y
+     * The Recommended preset is a known-good candidate for common 2.8" ILI9341 + XPT2046 boards.
+     */
     { "P0 Base",        BRAIN_LCD_H_RES, BRAIN_LCD_V_RES, true,  false, true  },
     { "P1 Recommended", BRAIN_LCD_V_RES, BRAIN_LCD_H_RES, true,  true,  false },
     { "P2 S1 Mx0 My1",  BRAIN_LCD_V_RES, BRAIN_LCD_H_RES, true,  false, true  },
@@ -255,6 +275,8 @@ static uint16_t map_touch_axis(uint16_t value, uint16_t in_min, uint16_t in_max,
 static void normalize_touch_point(uint16_t raw_x, uint16_t raw_y, uint16_t *out_x, uint16_t *out_y)
 {
 #if TOUCH_SW_CAL_ENABLE
+    /* Map controller-space coordinates to the exact LVGL display resolution.
+     * This soft calibration is intentionally lightweight: edge clamp + linear scale. */
     *out_x = map_touch_axis(raw_x, TOUCH_SW_CAL_MIN_X, TOUCH_SW_CAL_MAX_X, BRAIN_LCD_H_RES);
     *out_y = map_touch_axis(raw_y, TOUCH_SW_CAL_MIN_Y, TOUCH_SW_CAL_MAX_Y, BRAIN_LCD_V_RES);
 #else
@@ -311,6 +333,8 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
     if (get_err == ESP_OK && point_cnt > 0) {
         uint16_t norm_x = point_data[0].x;
         uint16_t norm_y = point_data[0].y;
+        /* point_data[] here is already transformed by the active preset.
+         * normalize_touch_point() then handles calibration scaling before LVGL sees it. */
         normalize_touch_point(point_data[0].x, point_data[0].y, &norm_x, &norm_y);
 
         s_touch_debug.raw_x = point_data[0].x;
@@ -428,7 +452,8 @@ static void apply_touch_transform_preset(uint8_t preset_index)
     s_touch_debug.transform_preset_index = preset_index;
 
     /* esp_lcd_touch exposes the touch handle struct publicly, so we can update x/y limits in-place.
-     * mirror/swap use the helper setters to keep driver state consistent. */
+     * x_max/y_max define the post-transform coordinate frame and should match orientation for each preset.
+     * mirror/swap use helper setters to keep internal driver state consistent. */
     s_touch_handle->config.x_max = p->x_max;
     s_touch_handle->config.y_max = p->y_max;
 
@@ -646,6 +671,8 @@ static void open_touch_tester_screen(void)
 
 static void create_home_touch_debug_overlay(lv_obj_t *home_screen_root)
 {
+    /* This overlay is useful during touch bring-up, but intentionally not attached in create_home_screen()
+     * to keep the normal home UI clean after mapping is validated. */
     s_touch_overlay_panel = lv_obj_create(home_screen_root);
     lv_obj_set_size(s_touch_overlay_panel, 176, 112);
     lv_obj_align(s_touch_overlay_panel, LV_ALIGN_TOP_LEFT, 4, 46);
@@ -1357,6 +1384,8 @@ void tft_ui_start(void)
     esp_lcd_touch_handle_t tp = NULL;
     ESP_ERROR_CHECK(esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &tp));
     s_touch_handle = tp;
+    /* Runtime preset is the authoritative mapping.
+     * Keep TOUCH_PRESET_DEFAULT_INDEX aligned with your specific panel/touch stack-up. */
     apply_touch_transform_preset(TOUCH_PRESET_DEFAULT_INDEX);
 
     /* Register LVGL input device (pointer) and connect it to our touch callback. */
