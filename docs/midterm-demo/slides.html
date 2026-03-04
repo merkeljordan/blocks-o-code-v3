@@ -30,6 +30,7 @@ body {
   width: 100vw; height: 100vh;
   overflow: hidden;
   user-select: none;
+  font-size: 26px;
 }
 
 /* ── Slide container ─────────────────────────────────────── */
@@ -92,7 +93,7 @@ body {
 .tag-close   { background: linear-gradient(135deg,rgba(0,221,106,.3),rgba(0,229,255,.15)); color: var(--green);  border: 1px solid rgba(0,221,106,.4); }
 
 .slide-title {
-  font-size: 34px; font-weight: 800; line-height: 1.15;
+  font-size: 46px; font-weight: 800; line-height: 1.15;
   background: linear-gradient(90deg, #f0f2ff 0%, #c8d0ff 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -128,13 +129,13 @@ body {
 .card[style*="border-color:var(--border)"]::before { background: linear-gradient(90deg, var(--muted), var(--dim)); }
 
 .card-title {
-  font-size: 13px; font-weight: 800; letter-spacing: .1em;
+  font-size: 17px; font-weight: 800; letter-spacing: .1em;
   text-transform: uppercase; margin-bottom: 14px;
 }
 
 ul.checklist { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 ul.checklist li {
-  font-size: 15px; color: #cdd4ff; padding-left: 26px; position: relative; line-height: 1.5;
+  font-size: 20px; color: #cdd4ff; padding-left: 26px; position: relative; line-height: 1.7;
 }
 ul.checklist li::before {
   content: '◆'; position: absolute; left: 0; font-size: 9px; top: 4px;
@@ -144,11 +145,11 @@ ul.checklist li::before {
 }
 
 table.spec-table {
-  width: 100%; border-collapse: collapse; font-size: 14px;
+  width: 100%; border-collapse: collapse; font-size: 18px;
 }
 table.spec-table th {
   background: rgba(139,157,232,.08); color: var(--muted);
-  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
   padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border);
 }
 table.spec-table td {
@@ -157,7 +158,7 @@ table.spec-table td {
 }
 table.spec-table tr:last-child td { border-bottom: none; }
 table.spec-table tr:hover td { background: rgba(139,157,232,.05); }
-table.spec-table td.num { font-variant-numeric: tabular-nums; font-family: 'Consolas', monospace; font-size: 13px; }
+table.spec-table td.num { font-variant-numeric: tabular-nums; font-family: 'Consolas', monospace; font-size: 16px; }
 table.spec-table td.accent-pink   { color: var(--pink);   font-weight: 700; }
 table.spec-table td.accent-blue   { color: var(--cyan);   font-weight: 700; }
 table.spec-table td.accent-orange { color: var(--yellow); font-weight: 700; }
@@ -165,7 +166,7 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
 
 .pill {
   display: inline-block; padding: 5px 13px; border-radius: 20px;
-  font-size: 12.5px; font-weight: 700; line-height: 1.4;
+  font-size: 14px; font-weight: 700; line-height: 1.5;
 }
 .pill-pink   { background: rgba(255,31,122,.22);  color: #ff80b0; border: 1px solid rgba(255,31,122,.4); }
 .pill-blue   { background: rgba(0,170,255,.20);   color: var(--cyan);   border: 1px solid rgba(0,229,255,.4); }
@@ -173,7 +174,16 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
 .pill-green  { background: rgba(0,221,106,.18);   color: var(--green);  border: 1px solid rgba(0,221,106,.4); }
 .pill-orange { background: rgba(255,122,0,.20);   color: var(--yellow); border: 1px solid rgba(255,214,0,.4); }
 
-.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 13px; color: var(--muted); }
+.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; color: var(--muted); }
+
+/* ── Slide 9 progressive flow ─────────────────────────────── */
+#slide-9 .flow-step {
+  opacity: 0;
+  transition: opacity .35s ease-out;
+}
+#slide-9 .flow-step.visible {
+  opacity: 1;
+}
 
 /* ── Navigation ──────────────────────────────────────────── */
 #nav {
@@ -226,11 +236,11 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
   pointer-events: none;
 }
 .title-eyebrow {
-  font-size: 12px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase;
+  font-size: 16px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase;
   color: var(--cyan); margin-bottom: 20px; opacity: .85;
 }
 .title-main {
-  font-size: 72px; font-weight: 900; line-height: 1.0; margin-bottom: 10px;
+  font-size: 90px; font-weight: 900; line-height: 1.0; margin-bottom: 12px;
   background: linear-gradient(100deg, #ffffff 0%, #e0e8ff 40%, #c8b0ff 80%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -241,7 +251,7 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
   background-clip: text;
 }
 .title-tagline {
-  font-size: 20px; color: #b0bcff; max-width: 620px; line-height: 1.55; margin-bottom: 44px;
+  font-size: 26px; color: #b0bcff; max-width: 760px; line-height: 1.6; margin-bottom: 48px;
 }
 .title-divider {
   width: 80px; height: 4px; border-radius: 2px; margin-bottom: 44px;
@@ -252,9 +262,9 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
   padding: 14px 20px; border-radius: 12px;
   background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
 }
-.team-member .role { font-size: 10px; color: var(--cyan); text-transform: uppercase; letter-spacing: .12em; margin-bottom: 5px; font-weight: 700; }
-.team-member .name { font-size: 16px; font-weight: 700; color: var(--text); }
-.course-tag { margin-top: 36px; font-size: 13px; color: var(--dim); }
+.team-member .role { font-size: 13px; color: var(--cyan); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 6px; font-weight: 700; }
+.team-member .name { font-size: 22px; font-weight: 700; color: var(--text); }
+.course-tag { margin-top: 36px; font-size: 16px; color: var(--dim); }
 
 /* ── Slide 2: Problem ────────────────────────────────────── */
 .problem-vs {
@@ -294,6 +304,25 @@ h3.good { color: #80ffb0; }
 /* ── Arch SVG (slide 5) ───────────────────────────────────── */
 .arch-svg-wrap { width: 100%; flex: 1; min-height: 0; }
 .arch-svg-wrap svg { width: 100%; height: 100%; }
+
+/* ── Slide 4 layout tuning (15 blocks) ────────────────────── */
+#slide-4 .card {
+  font-size: 18px;
+}
+#slide-4 .card .card-title {
+  font-size: 18px;
+}
+#slide-4 .card ul.checklist li {
+  font-size: 18px;
+  line-height: 1.6;
+}
+#slide-4 .card p {
+  font-size: 18px;
+  line-height: 1.6;
+}
+#slide-4 .pill {
+  font-size: 15px;
+}
 </style>
 </head>
 <body>
@@ -480,14 +509,13 @@ h3.good { color: #80ffb0; }
     <!-- Block type cards -->
     <div class="row" style="align-items:stretch">
       <!-- Brain -->
-      <div class="card" style="flex:0 0 190px;border-color:var(--orange);">
+      <div class="card" style="flex:0 0 230px;border-color:var(--orange);">
         <div class="card-title" style="color:var(--orange)">🧠 Brain (×1)</div>
         <ul class="checklist">
           <li>I2C Master</li>
           <li>Wi-Fi + TCP client</li>
           <li>Runs program executor</li>
         </ul>
-        <div style="margin-top:12px"><span class="pill pill-orange">Addr 0x00</span></div>
       </div>
       <!-- Control Flow -->
       <div class="card" style="flex:1;border-color:var(--blue);">
@@ -500,13 +528,13 @@ h3.good { color: #80ffb0; }
           <span class="pill pill-blue">End Loop</span>
           <span class="pill pill-blue">Delay</span>
         </div>
-        <p style="font-size:13.5px;color:#b0bcff;line-height:1.5">Define program structure. TFT shows block type. No program output produced — they tell the Brain how to route execution.</p>
+        <p style="font-size:20px;color:#b0bcff;line-height:1.5">Define program structure. TFT shows block type. No program output produced — they tell the Brain how to route execution.</p>
       </div>
       <!-- Input -->
-      <div class="card" style="flex:0 0 175px;border-color:var(--green);">
+      <div class="card" style="flex:0 0 230px;border-color:var(--green);">
         <div class="card-title" style="color:var(--green)">👆 Input (×1)</div>
         <div style="margin-bottom:10px"><span class="pill pill-green">Button Press</span></div>
-        <p style="font-size:13.5px;color:#b0bcff;line-height:1.5">Waits for a physical press to enable conditional statements execution. Enables interactive programs.</p>
+        <p style="font-size:16px;color:#b0bcff;line-height:1.5">Waits for a physical press to enable conditional statements execution. Enables interactive programs.</p>
       </div>
       <!-- Output -->
       <div class="card" style="flex:1;border-color:var(--pink);">
@@ -516,13 +544,13 @@ h3.good { color: #80ffb0; }
           <span class="pill pill-pink">Note</span>
           <span class="pill pill-pink">Music Sequence</span>
         </div>
-        <p style="font-size:13.5px;color:#b0bcff;line-height:1.5">User picks setting via TFT touch display. LED matrix + addressable LEDs + speaker preview it immediately.</p>
+        <p style="font-size:20px;color:#b0bcff;line-height:1.5">User picks setting via TFT touch display. LED matrix + addressable LEDs + speaker preview it immediately.</p>
       </div>
     </div>
 
     <!-- I2C footnote -->
     <div style="margin-top:14px">
-      <p style="font-size:13px;color:var(--dim)">All child blocks share a single I2C bus &nbsp;·&nbsp; Addresses <span class="mono">0x00 – 0x0E</span> &nbsp;·&nbsp; 100 kHz standard mode &nbsp;·&nbsp; SDA = GPIO21, SCL = GPIO22</p>
+      <p style="font-size:13px;color:var(--dim)">All child blocks share a single I2C bus &nbsp;·&nbsp; Addresses <span class="mono">0x08 – 0x17</span> &nbsp;·&nbsp; 100 kHz standard mode &nbsp;·&nbsp; SDA = GPIO21, SCL = GPIO22</p>
     </div>
   </div>
 </div>
@@ -594,7 +622,7 @@ h3.good { color: #80ffb0; }
       <line x1="260" y1="220" x2="342" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)"/>
       <line x1="342" y1="228" x2="260" y2="228" stroke="#8b9de8" stroke-width="1" marker-end="url(#arr-rev)" stroke-dasharray="4 3" opacity=".6"/>
       <text x="301" y="207" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">I2C BUS</text>
-      <text x="301" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">100 kHz · 0x00–0x0E</text>
+      <text x="301" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">100 kHz · 0x08–0x16</text>
 
       <!-- ── Brain Block ── -->
       <rect x="345" y="30" width="390" height="380" rx="14" fill="#0d0d22" stroke="url(#gOrange)" stroke-width="2"/>
@@ -640,7 +668,7 @@ h3.good { color: #80ffb0; }
       <!-- FreeRTOS badge -->
       <rect x="362" y="330" width="352" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1"/>
       <text x="538" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">ESP-IDF v5.5.1 · FreeRTOS · cJSON</text>
-      <text x="538" y="374" text-anchor="middle" fill="#4a5490" font-size="10">tcp_client_task · demo_task · led_status_task · lvgl_task</text>
+      <text x="538" y="374" text-anchor="middle" fill="#4a5490" font-size="10">block_cfg_scan · tcp_client_task · brain_executor · lvgl_task</text>
 
       <!-- ── TCP arrow ── -->
       <line x1="735" y1="220" x2="820" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)"/>
@@ -671,7 +699,7 @@ h3.good { color: #80ffb0; }
       <!-- Platform badge -->
       <rect x="838" y="330" width="227" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1"/>
       <text x="951" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">Flutter · Dart · Material 3</text>
-      <text x="951" y="374" text-anchor="middle" fill="#4a5490" font-size="10">Win · macOS · Linux · Android · iOS</text>
+      <text x="951" y="374" text-anchor="middle" fill="#4a5490" font-size="10">Windows · macOS · Linux </text>
     </svg>
   </div>
 </div>
@@ -688,12 +716,12 @@ h3.good { color: #80ffb0; }
     <div class="row">
       <div class="col">
         <div class="card" style="border-color:var(--orange)">
-          <div class="card-title" style="color:var(--orange)">Firmware Loop (every 3 s)</div>
+          <div class="card-title" style="color:var(--orange)">Adaptive Scan + Event Handler</div>
           <ul class="checklist">
-            <li>I2C scan addresses <span class="mono">0x00 – 0xE</span></li>
-            <li>Read <span class="mono">REG_WHOAMI</span> from each block → type, firmware, capabilities</li>
-            <li>Config Manager compares to previous state → detect added/removed blocks</li>
-            <li>If changed → serialize to JSON via cJSON → send over TCP</li>
+            <li>Dedicated <span class="mono">block_cfg_scan</span> task walks I2C addresses <span class="mono">0x08 – 0x16</span> with fast re-scan after adds/removals</li>
+            <li>Config Manager compares to previous state, smoothing unstable <span class="mono">REG_WHOAMI</span> results with last-known-good type</li>
+            <li>On change → JSON config cached under a mutex and <span class="mono">BLOCK_CONFIG_CHANGED</span> event bit set</li>
+            <li><span class="mono">tcp_client_task</span> wakes on that event and streams the latest JSON to the app</li>
           </ul>
         </div>
         <div class="card" style="border-color:var(--cyan)">
@@ -811,7 +839,7 @@ h3.good { color: #80ffb0; }
                 <span style="background:rgba(244,67,54,.18);color:#f44336" class="pill">← missing Then &amp; End If</span>
               </div>
             </div>
-            <div style="background:#1a0d00;border:1px solid rgba(255,214,0,.35);border-radius:8px;padding:12px 16px">
+            <div style="background:#001a0d;border:1px solid rgba(0,221,106,.4);border-radius:8px;padding:12px 16px">
               <div style="font-size:11px;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:.09em">✅ VALID — If executed correctly</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <span class="pill pill-orange">Brain</span>
@@ -838,15 +866,15 @@ h3.good { color: #80ffb0; }
     <h2 class="slide-title">Demo Scenario — <span>"Build a Light + Sound Program"</span></h2>
   </div>
   <div class="content">
-    <div class="row" style="gap:24px">
+    <div class="row" style="gap:32px;align-items:stretch">
       <!-- Steps -->
-      <div class="col" style="flex:1.2">
+      <div class="col" style="flex:1">
         <div class="card">
           <div class="card-title" style="color:var(--pink)">What We'll Show</div>
           <div style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(233,30,99,.15);border:1px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pink)">1</div>
-              <div><strong style="color:var(--text)">Connect blocks magnetically</strong><br><span style="font-size:13px;color:#9fa8da">Brain → Loop → LED Color Flash → Note → End Loop</span></div>
+              <div><strong style="color:var(--text)">Connect blocks magnetically</strong><br><span style="font-size:13px;color:#9fa8da">Brain → LED Color Flash → Note</span></div>
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(33,150,243,.15);border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--blue)">2</div>
@@ -858,7 +886,7 @@ h3.good { color: #80ffb0; }
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(233,30,99,.15);border:1px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pink)">4</div>
-              <div><strong style="color:var(--text)">LEDs flash red, Note plays</strong><br><span style="font-size:13px;color:#9fa8da">Loop repeats, TFT display tracks progress</span></div>
+              <div><strong style="color:var(--text)">LEDs flash red, Note plays</strong><br><span style="font-size:13px;color:#9fa8da">Brain sends two I2C executes in sequence — LED flash, then Note</span></div>
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(244,67,54,.15);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--red)">5</div>
@@ -868,19 +896,15 @@ h3.good { color: #80ffb0; }
         </div>
       </div>
       <!-- Block sequence visual -->
-      <div class="col" style="flex:0 0 320px">
-        <div class="card" style="border-color:var(--border)">
+      <div class="col" style="flex:1">
+        <div class="card" style="border-color:var(--border);height:100%;display:flex;flex-direction:column">
           <div class="card-title" style="color:var(--muted)">Block Sequence</div>
-          <div style="display:flex;flex-direction:column;gap:7px;align-items:stretch">
-            <div style="padding:10px 16px;background:linear-gradient(90deg,rgba(255,122,0,.15),rgba(255,214,0,.08));border-radius:9px;border-left:4px solid var(--orange);font-size:14px;font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
-            <div style="text-align:center;font-size:10px;color:var(--dim);font-weight:600">↓ I2C 0x09</div>
-            <div style="padding:10px 16px;background:linear-gradient(90deg,rgba(0,170,255,.15),rgba(0,229,255,.08));border-radius:9px;border-left:4px solid var(--blue);font-size:14px;font-weight:700;color:var(--cyan)">↻ Loop</div>
-            <div style="text-align:center;font-size:10px;color:var(--dim);font-weight:600">↓ I2C 0x0A</div>
-            <div style="padding:10px 16px;background:linear-gradient(90deg,rgba(255,31,122,.15),rgba(192,68,255,.08));border-radius:9px;border-left:4px solid var(--pink);font-size:14px;font-weight:700;color:#ff80b0">💡 LED Color Flash → RED</div>
-            <div style="text-align:center;font-size:10px;color:var(--dim);font-weight:600">↓ I2C 0x0B</div>
-            <div style="padding:10px 16px;background:linear-gradient(90deg,rgba(192,68,255,.15),rgba(255,31,122,.08));border-radius:9px;border-left:4px solid var(--purple);font-size:14px;font-weight:700;color:#d580ff">🎵 Note → A4</div>
-            <div style="text-align:center;font-size:10px;color:var(--dim);font-weight:600">↓ I2C 0x0C</div>
-            <div style="padding:10px 16px;background:linear-gradient(90deg,rgba(0,170,255,.15),rgba(0,229,255,.08));border-radius:9px;border-left:4px solid var(--blue);font-size:14px;font-weight:700;color:var(--cyan)">⏹ End Loop</div>
+          <div style="display:flex;flex-direction:column;gap:14px;align-items:stretch;font-size:22px">
+            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
+            <div style="text-align:center;font-size:14px;color:var(--dim);font-weight:600">↓ I2C 0x09</div>
+            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(255,31,122,.18),rgba(192,68,255,.10));border-radius:9px;border-left:5px solid var(--pink);font-weight:700;color:#ff80b0">💡 LED Color Flash → RED</div>
+            <div style="text-align:center;font-size:14px;color:var(--dim);font-weight:600">↓ I2C 0x0A</div>
+            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(192,68,255,.18),rgba(255,31,122,.10));border-radius:9px;border-left:5px solid var(--purple);font-weight:700;color:#d580ff">🎵 Note → A4</div>
           </div>
         </div>
       </div>
@@ -926,56 +950,68 @@ h3.good { color: #80ffb0; }
       <line x1="965" y1="52" x2="965" y2="410" stroke="#1e1e45" stroke-width="1" stroke-dasharray="4 3"/>
 
       <!-- 1: User snaps blocks -->
-      <line x1="105" y1="80" x2="315" y2="80" stroke="#b0bcff" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="210" y="74" text-anchor="middle" fill="#b0bcff" font-size="11">Snap blocks together</text>
+      <g class="flow-step" data-step="1">
+        <line x1="105" y1="80" x2="315" y2="80" stroke="#b0bcff" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="210" y="74" text-anchor="middle" fill="#b0bcff" font-size="11">Snap blocks together</text>
+      </g>
 
       <!-- 2: Brain scans I2C -->
-      <line x1="320" y1="100" x2="525" y2="100" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)" stroke-dasharray="5 3"/>
-      <text x="423" y="94" text-anchor="middle" fill="#FFD600" font-size="10">I2C scan + REG_WHOAMI</text>
+      <g class="flow-step" data-step="2">
+        <line x1="320" y1="100" x2="525" y2="100" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)" stroke-dasharray="5 3"/>
+        <text x="423" y="94" text-anchor="middle" fill="#FFD600" font-size="10">I2C scan + REG_WHOAMI</text>
+      </g>
 
       <!-- 3: Brain → App -->
-      <line x1="320" y1="132" x2="960" y2="132" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="640" y="126" text-anchor="middle" fill="#FFD600" font-size="11">TCP send block_config JSON</text>
+      <g class="flow-step" data-step="3">
+        <line x1="320" y1="132" x2="960" y2="132" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="640" y="126" text-anchor="middle" fill="#FFD600" font-size="11">TCP send block_config JSON</text>
+      </g>
 
       <!-- 4: App valid badge -->
-      <rect x="893" y="146" width="144" height="28" rx="6" fill="#001a0a" stroke="rgba(0,221,106,.5)" stroke-width="1.5"/>
-      <text x="965" y="165" text-anchor="middle" fill="#00DD6A" font-size="11" font-weight="700">✓ Sequence valid</text>
+      <g class="flow-step" data-step="4">
+        <rect x="893" y="146" width="144" height="28" rx="6" fill="#001a0a" stroke="rgba(0,221,106,.5)" stroke-width="1.5"/>
+        <text x="965" y="165" text-anchor="middle" fill="#00DD6A" font-size="11" font-weight="700">✓ Sequence valid</text>
+      </g>
 
       <!-- 5: App → Brain -->
-      <line x1="960" y1="190" x2="325" y2="190" stroke="#00AAFF" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="640" y="184" text-anchor="middle" fill="#00E5FF" font-size="11">TCP: is_valid = true</text>
+      <g class="flow-step" data-step="5">
+        <line x1="960" y1="190" x2="325" y2="190" stroke="#00AAFF" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="640" y="184" text-anchor="middle" fill="#00E5FF" font-size="11">TCP: is_valid = true</text>
+      </g>
 
       <!-- 6: User presses execute -->
-      <line x1="105" y1="216" x2="315" y2="216" stroke="#b0bcff" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="210" y="210" text-anchor="middle" fill="#b0bcff" font-size="11">Press Execute (TFT)</text>
-
-      <!-- Loop bracket -->
-      <rect x="306" y="232" width="22" height="150" rx="0" fill="none" stroke="rgba(0,170,255,.35)" stroke-width="1.5" stroke-dasharray="3 3"/>
-      <text x="296" y="310" text-anchor="middle" fill="#00AAFF" font-size="9" font-weight="700" transform="rotate(-90 296 310)">LOOP</text>
+      <g class="flow-step" data-step="6">
+        <line x1="105" y1="216" x2="315" y2="216" stroke="#b0bcff" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="210" y="210" text-anchor="middle" fill="#b0bcff" font-size="11">Press Execute (TFT)</text>
+      </g>
 
       <!-- 7: Brain → LED -->
-      <line x1="320" y1="252" x2="525" y2="252" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="423" y="246" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (flash red)</text>
+      <g class="flow-step" data-step="7">
+        <line x1="320" y1="252" x2="525" y2="252" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="423" y="246" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (flash red)</text>
+        <rect x="497" y="264" width="66" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
+        <text x="530" y="281" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">LEDs flash</text>
+      </g>
 
-      <!-- 8: LED animates -->
-      <rect x="497" y="264" width="66" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
-      <text x="530" y="281" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">LEDs flash</text>
+      <!-- 8: Brain → Note -->
+      <g class="flow-step" data-step="8">
+        <line x1="320" y1="308" x2="725" y2="308" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="523" y="302" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (play A4)</text>
+        <rect x="703" y="318" width="54" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
+        <text x="730" y="335" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">♪ plays</text>
+      </g>
 
-      <!-- 9: Brain → Note -->
-      <line x1="320" y1="308" x2="725" y2="308" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
-      <text x="523" y="302" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (play A4)</text>
+      <!-- 9: Brain sends telemetry -->
+      <g class="flow-step" data-step="9">
+        <line x1="320" y1="370" x2="960" y2="370" stroke="#FFD600" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="4 3" opacity=".55"/>
+        <text x="640" y="364" text-anchor="middle" fill="#FFD600" font-size="10" opacity=".65">TCP: execution state update</text>
+      </g>
 
-      <!-- 10: Note plays -->
-      <rect x="703" y="318" width="54" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
-      <text x="730" y="335" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">♪ plays</text>
-
-      <!-- 11: Brain sends telemetry -->
-      <line x1="320" y1="370" x2="960" y2="370" stroke="#FFD600" stroke-width="1" marker-end="url(#a2)" stroke-dasharray="4 3" opacity=".55"/>
-      <text x="640" y="364" text-anchor="middle" fill="#FFD600" font-size="10" opacity=".65">TCP: execution state update</text>
-
-      <!-- 12: App updates -->
-      <rect x="893" y="382" width="144" height="24" rx="6" fill="#0a0a22" stroke="rgba(0,170,255,.4)" stroke-width="1.5"/>
-      <text x="965" y="398" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">UI updates</text>
+      <!-- 10: App updates -->
+      <g class="flow-step" data-step="10">
+        <rect x="893" y="382" width="144" height="24" rx="6" fill="#0a0a22" stroke="rgba(0,170,255,.4)" stroke-width="1.5"/>
+        <text x="965" y="398" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">UI updates</text>
+      </g>
     </svg>
   </div>
 </div>
@@ -988,21 +1024,21 @@ h3.good { color: #80ffb0; }
     <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
     <h2 class="slide-title">Functionality <span>Recap</span></h2>
   </div>
-  <div class="content">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1">
-      <div class="card" style="border-color:var(--pink)">
-        <div class="card-title" style="color:var(--pink)">✓ Demonstrated</div>
+  <div class="content" style="justify-content:center">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div class="card" style="border-color:var(--pink);font-size:20px">
+        <div class="card-title" style="color:var(--pink);font-size:18px">✓ Demonstrated</div>
         <ul class="checklist">
           <li>Magnetic connection and automatic I2C discovery</li>
-          <li>Real-time config update in app (within ~2 scan intervals)</li>
+          <li>Real-time config update in app</li>
           <li>Grammar validation of valid sequences</li>
           <li>Grammar validation of invalid sequences (error flagging)</li>
           <li>Program execution: LEDs, audio, display progress</li>
           <li>Add/remove blocks hot-plug — app updates live</li>
         </ul>
       </div>
-      <div class="card" style="border-color:var(--blue)">
-        <div class="card-title" style="color:var(--blue)">Key Behaviors</div>
+      <div class="card" style="border-color:var(--blue);font-size:20px">
+        <div class="card-title" style="color:var(--blue);font-size:18px">Key Behaviors</div>
         <ul class="checklist">
           <li><strong style="color:var(--text)">Physical = Code</strong> — the block arrangement is the program</li>
           <li><strong style="color:var(--text)">No restart needed</strong> — hot-plug detection via periodic I2C scan</li>
@@ -1153,7 +1189,7 @@ h3.good { color: #80ffb0; }
           <ul class="checklist" style="gap:8px">
             <li><strong>Quantity:</strong> Physical block add/remove → app UI reflects new topology</li>
             <li><strong>Units:</strong> milliseconds (ms)</li>
-            <li><strong>Target:</strong> Mean ≤ 2000 ms (~2 scan intervals)</li>
+            <li><strong>Target:</strong> Mean ≤ 2000 ms (≤ 1 s typical with fast scan window)</li>
             <li><strong>Measurement:</strong> Stopwatch or app-side receive timestamp — from moment of connection/disconnection to block list change in UI</li>
             <li><strong>Test condition:</strong> Stable Wi-Fi, same block count per run, 10 trials</li>
           </ul>
@@ -1295,8 +1331,8 @@ h3.good { color: #80ffb0; }
         <div class="card" style="border-color:var(--green)">
           <div class="card-title" style="color:var(--green)">What We Built</div>
           <ul class="checklist">
-            <li>15 physical blocks snapping together magnetically over a single I2C bus</li>
-            <li>ESP32 Brain detects block topology within ~2 scan intervals</li>
+            <li>3 physical blocks snapping together magnetically over a single I2C bus</li>
+            <li>ESP32 Brain detects block topology</li>
             <li>JSON over Wi-Fi/TCP to Flutter companion app in real time</li>
             <li>Grammar validator enforcing 4 program-structure rules</li>
             <li>Full execution: LEDs, audio, touch display feedback</li>
@@ -1308,10 +1344,11 @@ h3.good { color: #80ffb0; }
         <div class="card" style="border-color:var(--purple)">
           <div class="card-title" style="color:var(--purple)">What's Next</div>
           <ul class="checklist">
-            <li>PCB bring-up — custom board replacing dev-kit wiring</li>
-            <li>Complete execution engine for all block types (Note, Delay, Disco, If/Loop)</li>
-            <li>Mechanical enclosure — magnetic connectors, shared power rail</li>
-            <li>[Add your top 2–3 remaining items here]</li>
+            <li>Final PCB Assembly (boards are ordered)</li>
+            <li>Complete execution engine for all block types (Music Sequence, Delay, If/Loop)</li>
+            <li>Finalized Mechanical enclosure</li>
+            <li>Updated App UI and Features</li>
+            <li>TFT Display UI for each block type</li>
           </ul>
         </div>
       </div>
@@ -1321,7 +1358,7 @@ h3.good { color: #80ffb0; }
         <strong>The core thesis, delivered:</strong> a physical arrangement of blocks <em>is</em> a program —
         validated, executed, and felt in the hands.
       </p>
-      <p style="font-size:14px;color:var(--dim)">We'd welcome feedback on: signal integrity margin &nbsp;·&nbsp; execution robustness &nbsp;·&nbsp; UX for young learners</p>
+      <p style="font-size:14px;color:var(--dim)">We welcome any feedback!</p>
     </div>
     <p style="text-align:center;margin-top:20px;font-size:15px;color:var(--muted);font-weight:600">Thanks for watching.</p>
   </div>
@@ -1341,6 +1378,35 @@ h3.good { color: #80ffb0; }
 const TOTAL = 15;
 let current = 1;
 
+// Slide 9 flow state
+let slide9Step = 0;
+const SLIDE9_MAX_STEP = 10;
+
+function updateSlide9Steps() {
+  const slide = document.getElementById('slide-9');
+  if (!slide) return;
+  const steps = slide.querySelectorAll('.flow-step');
+  steps.forEach(el => {
+    const step = parseInt(el.getAttribute('data-step') || '0', 10);
+    if (!step) return;
+    el.classList.toggle('visible', step <= slide9Step);
+  });
+}
+
+function resetSlide9() {
+  slide9Step = 0;
+  updateSlide9Steps();
+}
+
+function revealNextOnSlide9() {
+  if (slide9Step < SLIDE9_MAX_STEP) {
+    slide9Step += 1;
+    updateSlide9Steps();
+    return true; // consumed navigation
+  }
+  return false; // no more steps, advance slide instead
+}
+
 function show(n) {
   n = Math.max(1, Math.min(TOTAL, n));
   document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
@@ -1348,14 +1414,38 @@ function show(n) {
   document.getElementById('slide-counter').textContent = n + ' / ' + TOTAL;
   document.getElementById('progress-fill').style.width = (n / TOTAL * 100) + '%';
   current = n;
+
+  if (current === 9) {
+    // Start slide 9 with the first step visible
+    slide9Step = 1;
+    updateSlide9Steps();
+  } else {
+    resetSlide9();
+  }
 }
 
-document.getElementById('btn-prev').addEventListener('click', () => show(current - 1));
-document.getElementById('btn-next').addEventListener('click', () => show(current + 1));
+function goNext() {
+  if (current === 9) {
+    if (revealNextOnSlide9()) return;
+  }
+  show(current + 1);
+}
+
+function goPrev() {
+  if (current === 9 && slide9Step > 1) {
+    slide9Step = Math.max(1, slide9Step - 1);
+    updateSlide9Steps();
+    return;
+  }
+  show(current - 1);
+}
+
+document.getElementById('btn-prev').addEventListener('click', goPrev);
+document.getElementById('btn-next').addEventListener('click', goNext);
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(current + 1); }
-  if (e.key === 'ArrowLeft'  || e.key === 'PageUp')  { e.preventDefault(); show(current - 1); }
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); goNext(); }
+  if (e.key === 'ArrowLeft'  || e.key === 'PageUp')  { e.preventDefault(); goPrev(); }
   if (e.key === 'Home') show(1);
   if (e.key === 'End')  show(TOTAL);
 });
