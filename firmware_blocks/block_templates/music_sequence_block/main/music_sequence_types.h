@@ -8,7 +8,7 @@
 #define MUSIC_COMPOSE_MAX_STEPS 8
 
 // -----------------------------------------------------------------------------
-// Notes (v1: enough range for simple kid songs like Twinkle/Jingle)
+// Notes (kept for sine-wave tone generation / beeps)
 // -----------------------------------------------------------------------------
 typedef enum {
     NOTE_REST = 0,
@@ -54,79 +54,59 @@ static const char *const note_labels[NOTE_COUNT] = {
 };
 
 // -----------------------------------------------------------------------------
-// Song steps + presets (firmware playback)
+// Song steps (kept for sine-wave tone sequences)
 // -----------------------------------------------------------------------------
 typedef struct {
     note_id_t note;
-    uint16_t duration_ms;   // how long to sound the note
-    uint16_t gap_ms;        // silence after the note (0 if none)
+    uint16_t duration_ms;
+    uint16_t gap_ms;
 } music_step_t;
 
-typedef enum {
-    MUSIC_PRESET_TWINKLE = 0,
-    MUSIC_PRESET_JINGLE_BELLS = 1,
-    MUSIC_PRESET_CUSTOM_1 = 0x80,
-} music_preset_id_t;
-
+// -----------------------------------------------------------------------------
+// Song catalog entry (MP3-backed songs)
+// -----------------------------------------------------------------------------
 typedef struct {
-    uint8_t preset_id;                 // music_preset_id_t stored as byte
-    const char *name;                  // "Twinkle"
-    const music_step_t *steps;         // points to static song array
-    uint8_t step_count;
-    uint8_t default_tempo_pct;         // 100 = normal tempo
-} music_preset_t;
+    uint8_t     song_id;
+    const char *name;
+} song_info_t;
 
 // -----------------------------------------------------------------------------
-// TFT/UI config (local block state)
+// TFT/UI config (simplified — just song selection)
 // -----------------------------------------------------------------------------
-typedef enum {
-    MUSIC_UI_MODE_PRESET = 0,
-    MUSIC_UI_MODE_COMPOSE = 1,
-} music_ui_mode_t;
-
 typedef struct {
-    music_ui_mode_t mode;
-
-    // Preset mode
-    uint8_t selected_preset_id;        // music_preset_id_t
-
-    // Compose mode (v1 = fixed note duration for all slots)
-    uint8_t compose_step_count;        // 0..MUSIC_COMPOSE_MAX_STEPS
-    uint8_t compose_cursor_index;      // highlighted slot on TFT
-    note_id_t compose_notes[MUSIC_COMPOSE_MAX_STEPS];
-    uint16_t compose_step_duration_ms; // e.g. 250 ms per note
-
-    // Shared options
-    uint8_t tempo_pct;                 // 50..200
-    uint8_t loop_count;                // 0=no loop, 1..N, 0xFF=infinite
-    bool config_valid;
+    uint8_t selected_song_index;
+    bool    config_valid;
 } music_seq_config_t;
 
 // -----------------------------------------------------------------------------
-// Runtime playback state (non-blocking state machine)
+// Runtime playback state
 // -----------------------------------------------------------------------------
 typedef struct {
-    bool is_playing;
-    bool is_preview;
-    uint8_t active_preset_id;
-    uint8_t step_index;
-    bool note_on_phase;                // true=playing note, false=gap/rest
-    int64_t next_transition_us;        // target time (esp_timer_get_time units)
+    bool    is_playing;
+    uint8_t active_song_index;
 } music_playback_state_t;
 
 // -----------------------------------------------------------------------------
-// I2C payloads (use byte fields for wire-format compatibility)
+// I2C payload (wire format)
 // -----------------------------------------------------------------------------
 typedef struct {
-    uint8_t sequence_id;               // preset/custom ID (FRAMEWORK.md v1)
+    uint8_t song_id;
 } music_seq_payload_v1_t;
 
+// Legacy identifiers kept for I2C protocol compatibility
+typedef enum {
+    MUSIC_PRESET_TWINKLE     = 0,
+    MUSIC_PRESET_JINGLE_BELLS = 1,
+    MUSIC_PRESET_CUSTOM_1    = 0x80,
+} music_preset_id_t;
+
+// Legacy preset struct (kept so speaker.h compiles; not used by new UI)
 typedef struct {
-    uint8_t mode;                      // music_ui_mode_t as byte
-    uint8_t sequence_id;               // preset/custom ID
-    uint8_t step_count;                // compose steps used
-    uint8_t tempo_pct;
-    uint8_t notes[MUSIC_COMPOSE_MAX_STEPS]; // note_id_t values as bytes
-} music_seq_payload_v2_t;
+    uint8_t preset_id;
+    const char *name;
+    const music_step_t *steps;
+    uint8_t step_count;
+    uint8_t default_tempo_pct;
+} music_preset_t;
 
 #endif // MUSIC_SEQUENCE_TYPES_H

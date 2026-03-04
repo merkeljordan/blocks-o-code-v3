@@ -4,7 +4,9 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "i2c_protocol.h"
-#include "speaker.h"
+#include "audio_speaker.h"
+
+extern void initArduino(void);
 
 // Forward declarations from other modules
 extern esp_err_t led_matrix_init(void);
@@ -23,10 +25,11 @@ void app_main(void) {
     ESP_LOGI(TAG, "    BLOCK TEMPLATE BOOT");
     ESP_LOGI(TAG, "========================================");
 
-    // Initialize speaker early for boot/error beeps
+    initArduino();
+
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     // Initialize LED Matrix
