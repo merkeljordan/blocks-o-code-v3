@@ -7,5 +7,5 @@ idf_component_register(
         "speaker.c"
         "tft_ui.c"
     INCLUDE_DIRS "." "../.." "../../../include"
-    REQUIRES driver led_strip lvgl lvgl_esp32_drivers esp_timer
+    REQUIRES driver led_strip lvgl esp_lcd esp_lcd_ili9341 esp_lcd_touch_xpt2046 esp_timer
 )

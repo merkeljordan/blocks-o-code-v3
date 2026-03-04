@@ -45,9 +45,8 @@
  static const char *TAG = "LED_MATRIX";
  
  /* ── Hardware constants ────────────────────────────────────────────────── */
- #define LED_GPIO             15       /* WS2812 data pin                  */
- #define LED_MATRIX_SIZE      30       /* Number of LEDs on the strip      */
- #define PREVIEW_PULSE_MS     100      /* Duration of a preview flash (ms) */
+#define LED_GPIO             13       /* WS2812 data pin                  */
+#define LED_MATRIX_SIZE      30       /* Number of LEDs on the strip      */
  
  /* ── Module state ──────────────────────────────────────────────────────── */
  static led_strip_handle_t led_strip = NULL;
@@ -159,27 +158,31 @@
  /* Pattern 1 -- Color Wipe
   * Fills pixels one-by-one from start to end, holds briefly, then wipes
   * them off in reverse.  Inspired by WS2812FX FX_MODE_COLOR_WIPE. */
- static void fx_color_wipe(uint8_t r, uint8_t g, uint8_t b) {
-     clear_and_show();
-     for (uint16_t i = 0; i < LED_MATRIX_SIZE; i++) {
-         set_pixel_scaled(i, r, g, b);
-         show();
-         vTaskDelay(pdMS_TO_TICKS(18));
-     }
-     vTaskDelay(pdMS_TO_TICKS(250));
-     for (int i = LED_MATRIX_SIZE - 1; i >= 0; i--) {
-         set_pixel_scaled((uint16_t)i, 0, 0, 0);
-         show();
-         vTaskDelay(pdMS_TO_TICKS(12));
-     }
-     clear_and_show();
- }
+static void fx_color_wipe(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
+    clear_and_show();
+    uint8_t step = (passes < 2) ? 2 : 1;
+    uint8_t hold = (passes < 2) ? 100 : 250;
+    for (uint16_t i = 0; i < LED_MATRIX_SIZE; i += step) {
+        for (uint16_t j = i; j < i + step && j < LED_MATRIX_SIZE; j++)
+            set_pixel_scaled(j, r, g, b);
+        show();
+        vTaskDelay(pdMS_TO_TICKS(18));
+    }
+    vTaskDelay(pdMS_TO_TICKS(hold));
+    for (int i = LED_MATRIX_SIZE - 1; i >= 0; i -= step) {
+        for (int j = i; j > i - step && j >= 0; j--)
+            set_pixel_scaled((uint16_t)j, 0, 0, 0);
+        show();
+        vTaskDelay(pdMS_TO_TICKS(12));
+    }
+    clear_and_show();
+}
  
  /* Pattern 2 -- Theater Chase
   * Every 3rd pixel lights up, then shifts by one -- the classic
   * "marquee" effect.  Inspired by WS2812FX FX_MODE_THEATER_CHASE. */
- static void fx_theater_chase(uint8_t r, uint8_t g, uint8_t b) {
-     for (uint8_t cycle = 0; cycle < 10; cycle++) {
+static void fx_theater_chase(uint8_t r, uint8_t g, uint8_t b, uint8_t cycles) {
+    for (uint8_t cycle = 0; cycle < cycles; cycle++) {
          for (uint8_t phase = 0; phase < 3; phase++) {
              if (led_strip) led_strip_clear(led_strip);
              for (uint16_t i = phase; i < LED_MATRIX_SIZE; i += 3) {
@@ -195,8 +198,8 @@
  /* Pattern 3 -- Larson Scanner (Cylon / KITT)
   * A bright dot bounces back and forth with an exponentially fading tail.
   * Inspired by WS2812FX FX_MODE_LARSON_SCANNER. */
- static void fx_larson_scanner(uint8_t r, uint8_t g, uint8_t b) {
-     for (uint8_t bounce = 0; bounce < 4; bounce++) {
+static void fx_larson_scanner(uint8_t r, uint8_t g, uint8_t b, uint8_t bounces) {
+    for (uint8_t bounce = 0; bounce < bounces; bounce++) {
          /* Sweep left → right */
          for (int pos = 0; pos < LED_MATRIX_SIZE; pos++) {
              if (led_strip) led_strip_clear(led_strip);
@@ -235,13 +238,12 @@
   * The whole strip smoothly fades up then down using a gamma-corrected
   * lookup table for a natural-looking pulse.
   * Inspired by WS2812FX FX_MODE_BREATH. */
- static void fx_breathe(uint8_t r, uint8_t g, uint8_t b) {
-     /* 32-step gamma LUT approximating a sine half-wave. */
-     static const uint8_t GAMMA_LUT[32] = {
-         0, 1, 2, 4, 7, 11, 17, 24, 32, 42, 53, 66, 80, 96, 113, 131,
-         150, 162, 176, 190, 205, 218, 228, 237, 244, 248, 252, 254, 255, 255, 254, 252
-     };
-     for (uint8_t pass = 0; pass < 3; pass++) {
+static void fx_breathe(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
+    static const uint8_t GAMMA_LUT[32] = {
+        0, 1, 2, 4, 7, 11, 17, 24, 32, 42, 53, 66, 80, 96, 113, 131,
+        150, 162, 176, 190, 205, 218, 228, 237, 244, 248, 252, 254, 255, 255, 254, 252
+    };
+    for (uint8_t pass = 0; pass < passes; pass++) {
          for (uint8_t i = 0; i < 32; i++) {
              uint8_t s = GAMMA_LUT[i];
              fill_scaled(scale8(r, s), scale8(g, s), scale8(b, s));
@@ -263,8 +265,8 @@
   * rotates the wheel to create a flowing rainbow.  Ignores the
   * per-pattern colour -- it uses the full spectrum.
   * Inspired by WS2812FX FX_MODE_RAINBOW_CYCLE. */
- static void fx_rainbow_cycle(void) {
-     for (uint16_t frame = 0; frame < 256; frame += 3) {
+static void fx_rainbow_cycle(uint16_t max_frames) {
+    for (uint16_t frame = 0; frame < max_frames; frame += 3) {
          for (uint16_t i = 0; i < LED_MATRIX_SIZE; i++) {
              uint8_t hue = (uint8_t)(((i * 256) / LED_MATRIX_SIZE + frame) & 0xFF);
              uint8_t r, g, b;
@@ -280,10 +282,10 @@
  /* Pattern 6 -- Sparkle
   * Dim background with random full-brightness pixels popping on/off.
   * Inspired by WS2812FX FX_MODE_SPARKLE. */
- static void fx_sparkle(uint8_t r, uint8_t g, uint8_t b) {
-     uint8_t dim_r = r / 6, dim_g = g / 6, dim_b = b / 6;
- 
-     for (uint8_t frame = 0; frame < 40; frame++) {
+static void fx_sparkle(uint8_t r, uint8_t g, uint8_t b, uint8_t frames) {
+    uint8_t dim_r = r / 6, dim_g = g / 6, dim_b = b / 6;
+
+    for (uint8_t frame = 0; frame < frames; frame++) {
          fill_scaled(dim_r, dim_g, dim_b);
          uint16_t spark = fast_random8() % LED_MATRIX_SIZE;
          set_pixel_scaled(spark, r, g, b);
@@ -300,12 +302,11 @@
  /* Pattern 7 -- Running Lights
   * A sinusoidal intensity wave scrolls along the strip.
   * Inspired by WS2812FX FX_MODE_RUNNING_LIGHTS. */
- static void fx_running_lights(uint8_t r, uint8_t g, uint8_t b) {
-     /* 16-step half-sine LUT (0 to ~246). */
-     static const uint8_t SIN_LUT[16] = {
-         0, 24, 49, 74, 98, 120, 142, 162, 180, 196, 210, 222, 231, 238, 243, 246
-     };
-     for (uint16_t step = 0; step < 80; step++) {
+static void fx_running_lights(uint8_t r, uint8_t g, uint8_t b, uint16_t steps) {
+    static const uint8_t SIN_LUT[16] = {
+        0, 24, 49, 74, 98, 120, 142, 162, 180, 196, 210, 222, 231, 238, 243, 246
+    };
+    for (uint16_t step = 0; step < steps; step++) {
          for (uint16_t i = 0; i < LED_MATRIX_SIZE; i++) {
              uint8_t idx = (uint8_t)((i + step) % 16);
              uint8_t s = (idx < 16) ? SIN_LUT[idx] : SIN_LUT[15 - (idx - 16)];
@@ -321,8 +322,8 @@
   * Each pixel gets a random intensity offset every frame, creating a
   * warm flickering campfire look.
   * Inspired by WS2812FX FX_MODE_FIRE_FLICKER. */
- static void fx_fire_flicker(uint8_t r, uint8_t g, uint8_t b) {
-     for (uint8_t frame = 0; frame < 60; frame++) {
+static void fx_fire_flicker(uint8_t r, uint8_t g, uint8_t b, uint8_t frames) {
+    for (uint8_t frame = 0; frame < frames; frame++) {
          for (uint16_t i = 0; i < LED_MATRIX_SIZE; i++) {
              uint8_t flicker = fast_random8() % 100;
              uint8_t fr = (uint8_t)((uint16_t)r * (155 + flicker) / 255);
@@ -339,12 +340,11 @@
  /* Pattern 9 -- Comet
   * A bright head pixel streaks across the strip with an exponentially
   * fading tail behind it.  Inspired by WS2812FX FX_MODE_COMET. */
- static void fx_comet(uint8_t r, uint8_t g, uint8_t b) {
-     const uint8_t TAIL_LEN = 8;
-     /* Exponential fade: head=255, then rapidly dimming tail pixels. */
-     static const uint8_t TAIL_FADE[8] = {255, 180, 120, 70, 35, 15, 5, 1};
- 
-     for (uint8_t pass = 0; pass < 3; pass++) {
+static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
+    const uint8_t TAIL_LEN = 8;
+    static const uint8_t TAIL_FADE[8] = {255, 180, 120, 70, 35, 15, 5, 1};
+
+    for (uint8_t pass = 0; pass < passes; pass++) {
          for (int head = -TAIL_LEN; head < LED_MATRIX_SIZE + TAIL_LEN; head++) {
              if (led_strip) led_strip_clear(led_strip);
              for (uint8_t t = 0; t < TAIL_LEN; t++) {
@@ -455,27 +455,33 @@
  
  /* ── Preview & Execute ─────────────────────────────────────────────────
   *
-  *  preview  = quick colour pulse (PREVIEW_PULSE_MS) so the user sees
-  *             which colour they picked; triggered by numpad tap or
-  *             CMD_SET_LED from the brain.
-  *
-  *  execute  = full WS2812FX-style animation; triggered by SUBMIT on
-  *             the TFT or CMD_EXECUTE from the brain.                  */
+ *  preview  = half-length animation so the user sees the pattern they
+ *             picked; triggered by numpad tap or CMD_SET_LED from
+ *             the brain.
+ *
+ *  execute  = full WS2812FX-style animation; triggered by SUBMIT on
+ *             the TFT or CMD_EXECUTE from the brain.                  */
  
- void led_flash_play_preview(uint8_t color_id) {
-     uint8_t id = color_id % 10U;
-     rgb_t c = PATTERN_COLORS[id];
- 
-     if (id == 0) {
-         clear_and_show();
-         return;
-     }
- 
-     fill_scaled(c.r, c.g, c.b);
-     show();
-     vTaskDelay(pdMS_TO_TICKS(PREVIEW_PULSE_MS));
-     clear_and_show();
- }
+void led_flash_play_preview(uint8_t color_id) {
+    uint8_t id = color_id % 10U;
+    rgb_t c = PATTERN_COLORS[id];
+
+    ESP_LOGI(TAG, "Preview pattern %u: %s", id, PATTERN_NAMES[id]);
+
+    switch (id) {
+        case 0: clear_and_show();                          break;
+        case 1: fx_color_wipe(c.r, c.g, c.b, 1);         break;
+        case 2: fx_theater_chase(c.r, c.g, c.b, 5);       break;
+        case 3: fx_larson_scanner(c.r, c.g, c.b, 2);      break;
+        case 4: fx_breathe(c.r, c.g, c.b, 1);             break;
+        case 5: fx_rainbow_cycle(128);                     break;
+        case 6: fx_sparkle(c.r, c.g, c.b, 20);            break;
+        case 7: fx_running_lights(c.r, c.g, c.b, 40);     break;
+        case 8: fx_fire_flicker(c.r, c.g, c.b, 30);       break;
+        case 9: fx_comet(c.r, c.g, c.b, 1);               break;
+        default: clear_and_show();                         break;
+    }
+}
  
  void led_flash_play_execute(uint8_t color_id) {
      uint8_t id = color_id % 10U;
@@ -483,18 +489,18 @@
  
      ESP_LOGI(TAG, "Execute pattern %u: %s", id, PATTERN_NAMES[id]);
  
-     switch (id) {
-         case 0: clear_and_show();                     break;
-         case 1: fx_color_wipe(c.r, c.g, c.b);        break;
-         case 2: fx_theater_chase(c.r, c.g, c.b);      break;
-         case 3: fx_larson_scanner(c.r, c.g, c.b);     break;
-         case 4: fx_breathe(c.r, c.g, c.b);            break;
-         case 5: fx_rainbow_cycle();                    break;
-         case 6: fx_sparkle(c.r, c.g, c.b);            break;
-         case 7: fx_running_lights(c.r, c.g, c.b);     break;
-         case 8: fx_fire_flicker(c.r, c.g, c.b);       break;
-         case 9: fx_comet(c.r, c.g, c.b);              break;
-         default: clear_and_show();                     break;
-     }
+    switch (id) {
+        case 0: clear_and_show();                          break;
+        case 1: fx_color_wipe(c.r, c.g, c.b, 2);         break;
+        case 2: fx_theater_chase(c.r, c.g, c.b, 10);      break;
+        case 3: fx_larson_scanner(c.r, c.g, c.b, 4);      break;
+        case 4: fx_breathe(c.r, c.g, c.b, 3);             break;
+        case 5: fx_rainbow_cycle(256);                     break;
+        case 6: fx_sparkle(c.r, c.g, c.b, 40);            break;
+        case 7: fx_running_lights(c.r, c.g, c.b, 80);     break;
+        case 8: fx_fire_flicker(c.r, c.g, c.b, 60);       break;
+        case 9: fx_comet(c.r, c.g, c.b, 3);               break;
+        default: clear_and_show();                         break;
+    }
  }
  
