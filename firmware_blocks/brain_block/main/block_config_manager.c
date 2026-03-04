@@ -19,6 +19,7 @@ static const char *TAG = "BLOCK_CONFIG";
 // Global configuration state
 static block_config_state_t s_config_state;
 static block_config_state_t s_previous_state;
+static block_event_map_t s_event_map;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
@@ -26,6 +27,7 @@ static bool s_previous_state_valid = false;
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
+    memset(&s_event_map, 0, sizeof(s_event_map));
     s_previous_state_valid = false;
     s_config_state.has_changed = true; // Force initial send
     ESP_LOGI(TAG, "Block configuration manager initialized");
@@ -116,6 +118,111 @@ static bool compare_configurations(const block_config_state_t *prev, const block
     }
 
     return false;
+}
+
+static bool is_input_block_type(block_type_t type) {
+    return (type == BLOCK_TYPE_BUTTON);
+}
+
+static bool is_output_or_delay_block_type(block_type_t type) {
+    return (type == BLOCK_TYPE_LED_FLASH ||
+            type == BLOCK_TYPE_NOTE ||
+            type == BLOCK_TYPE_MUSIC_SEQ ||
+            type == BLOCK_TYPE_DISCO ||
+            type == BLOCK_TYPE_DELAY);
+}
+
+static void recompute_event_map_from_config(void) {
+    memset(&s_event_map, 0, sizeof(s_event_map));
+    s_event_map.generated_at_ms = s_config_state.last_scan_timestamp;
+    s_event_map.is_empty = (s_config_state.block_count == 0);
+
+    int open_if_stack[BLOCK_CONFIG_MAX_BLOCKS];
+    int open_loop_stack[BLOCK_CONFIG_MAX_BLOCKS];
+    int if_top = -1;
+    int loop_top = -1;
+
+    for (int i = 0; i < s_config_state.block_count && i < BLOCK_CONFIG_MAX_BLOCKS; i++) {
+        block_type_t type = s_config_state.blocks[i].block_type;
+
+        if (type == BLOCK_TYPE_IF) {
+            s_event_map.if_start_count++;
+            if (s_event_map.sequence_count < BLOCK_CONFIG_MAX_BLOCKS) {
+                int seq_idx = s_event_map.sequence_count++;
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                memset(seq, 0, sizeof(*seq));
+                seq->sequence_type = BLOCK_SEQUENCE_IF;
+                seq->start_index = (uint8_t)i;
+                seq->end_index = (uint8_t)i;
+                if (if_top < (BLOCK_CONFIG_MAX_BLOCKS - 1)) {
+                    open_if_stack[++if_top] = seq_idx;
+                }
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_LOOP) {
+            s_event_map.loop_start_count++;
+            if (s_event_map.sequence_count < BLOCK_CONFIG_MAX_BLOCKS) {
+                int seq_idx = s_event_map.sequence_count++;
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                memset(seq, 0, sizeof(*seq));
+                seq->sequence_type = BLOCK_SEQUENCE_LOOP;
+                seq->start_index = (uint8_t)i;
+                seq->end_index = (uint8_t)i;
+                if (loop_top < (BLOCK_CONFIG_MAX_BLOCKS - 1)) {
+                    open_loop_stack[++loop_top] = seq_idx;
+                }
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_END_IF) {
+            s_event_map.if_end_count++;
+            if (if_top >= 0) {
+                int seq_idx = open_if_stack[if_top--];
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                seq->end_index = (uint8_t)i;
+                seq->has_end_boundary = true;
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_END_LOOP) {
+            s_event_map.loop_end_count++;
+            if (loop_top >= 0) {
+                int seq_idx = open_loop_stack[loop_top--];
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                seq->end_index = (uint8_t)i;
+                seq->has_end_boundary = true;
+            }
+            continue;
+        }
+
+        for (int j = 0; j <= if_top; j++) {
+            int seq_idx = open_if_stack[j];
+            if (is_input_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_input = true;
+                s_event_map.sequences[seq_idx].input_count++;
+            }
+            if (is_output_or_delay_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_output_or_delay = true;
+                s_event_map.sequences[seq_idx].output_or_delay_count++;
+            }
+        }
+
+        for (int j = 0; j <= loop_top; j++) {
+            int seq_idx = open_loop_stack[j];
+            if (is_input_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_input = true;
+                s_event_map.sequences[seq_idx].input_count++;
+            }
+            if (is_output_or_delay_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_output_or_delay = true;
+                s_event_map.sequences[seq_idx].output_or_delay_count++;
+            }
+        }
+    }
 }
 
 esp_err_t block_config_manager_scan(void) {
@@ -210,6 +317,7 @@ esp_err_t block_config_manager_scan(void) {
 
     // Update timestamp
     s_config_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
+    recompute_event_map_from_config();
 
     ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
              s_config_state.block_count, s_config_state.error_count,
@@ -228,6 +336,10 @@ uint8_t block_config_manager_get_error_count(void) {
 
 const block_config_state_t* block_config_manager_get_state(void) {
     return &s_config_state;
+}
+
+const block_event_map_t* block_config_manager_get_event_map(void) {
+    return &s_event_map;
 }
 
 static void add_capabilities_array(cJSON *whoami_obj, uint8_t caps) {
@@ -404,5 +516,13 @@ esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_stat
         return ESP_ERR_INVALID_ARG;
     }
     memcpy(out_state, &s_config_state, sizeof(s_config_state));
+    return ESP_OK;
+}
+
+esp_err_t block_config_manager_get_event_map_snapshot(block_event_map_t *out_event_map) {
+    if (out_event_map == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_event_map, &s_event_map, sizeof(s_event_map));
     return ESP_OK;
 }

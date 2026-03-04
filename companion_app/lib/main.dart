@@ -248,6 +248,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _reconnectionAttempts = 0;
       _lastHeartbeatTime = DateTime.now();
     });
+
+    // Proactively publish latest validation state on each connect/reconnect.
+    _publishValidationForCurrentConfig(trigger: 'reconnect');
     
     // Start heartbeat mechanism
     _startHeartbeat();
@@ -327,6 +330,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
+          _publishValidationForCurrentConfig(trigger: 'block_config_update');
         } else {
           setState(() {
             connectionStatus = 'Failed to parse block configuration';
@@ -393,51 +397,70 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _sendConfigValidationEvent({
+  bool _sendConfigValidationEvent({
     required bool isValid,
     required int errorCount,
+    required String trigger,
   }) {
     final client = _clientSocket;
     if (client == null || !isConnected) {
-      return;
+      debugPrint('[ValidationTx] skip trigger=$trigger connected=$isConnected client=${client != null}');
+      return false;
     }
 
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
     final validationEvent = jsonEncode({
       'type': 'config_validation',
       'is_valid': isValid,
       'error_count': errorCount,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'timestamp': timestamp,
     });
 
     try {
       client.write('$validationEvent\n');
-    } catch (_) {
+      debugPrint('[ValidationTx] sent trigger=$trigger is_valid=$isValid error_count=$errorCount ts=$timestamp connected=$isConnected');
+      return true;
+    } catch (e) {
+      debugPrint('[ValidationTx] failed trigger=$trigger error=$e');
       // Reconnection path handles retries.
+      return false;
     }
   }
 
-  void _handleValidationRequestFromBrain(String requestMessage) {
+  void _publishValidationForCurrentConfig({required String trigger}) {
     final config = _currentConfiguration;
-    if (config == null) {
-      setState(() {
-        connectionStatus = 'Brain requested validation, but no config is loaded yet';
-      });
-      return;
+
+    bool isValid = false;
+    int errorCount = 1;
+    List<RuleViolation>? violations;
+
+    if (config != null) {
+      violations = _configValidator.validate(config);
+      errorCount = violations.where((v) => v.severity == Severity.error).length;
+      isValid = errorCount == 0;
     }
 
-    final violations = _configValidator.validate(config);
-    final errorCount =
-        violations.where((v) => v.severity == Severity.error).length;
-    final isValid = errorCount == 0;
-
-    _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
+    final bool sent = _sendConfigValidationEvent(
+      isValid: isValid,
+      errorCount: errorCount,
+      trigger: trigger,
+    );
 
     setState(() {
-      _configViolations = violations;
-      connectionStatus =
-          'Validation sent on brain request (${isValid ? "valid" : "invalid"}, errors: $errorCount)';
-      _lastHeartbeatTime = DateTime.now();
+      if (violations != null) {
+        _configViolations = violations!;
+      }
+      connectionStatus = sent
+          ? 'Validation sent (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)'
+          : 'Validation skipped/failed (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)';
+      if (sent) {
+        _lastHeartbeatTime = DateTime.now();
+      }
     });
+  }
+
+  void _handleValidationRequestFromBrain(String _) {
+    _publishValidationForCurrentConfig(trigger: 'brain_request');
   }
 
   // Heartbeat mechanism

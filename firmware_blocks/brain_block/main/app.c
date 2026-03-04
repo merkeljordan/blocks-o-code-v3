@@ -50,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "Destiny_2.4GHz" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "Poetry1129!"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "iPhone" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "192.168.1.66" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "172.20.10.5" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -347,7 +347,6 @@ static void tcp_client_task(void *pvParameters)
                 }
             }
 
-recv_messages:
             // --- Receive messages ---
             int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
             if (len > 0) {
@@ -379,9 +378,7 @@ recv_messages:
                             continue;
                         } else if (strcmp(type, "config_validation") == 0) {
                             if (!s_validation_requested_by_start) {
-                                ESP_LOGI(TAG, "Ignoring unsolicited config_validation");
-                                cJSON_Delete(json);
-                                continue;
+                                ESP_LOGI(TAG, "Applying unsolicited config_validation");
                             }
 
                             cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");

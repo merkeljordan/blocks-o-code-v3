@@ -174,7 +174,6 @@ static void dispatch_output_action(block_type_t type) {
             ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u (no-op placeholder)",
                      s_executor_params.music_sequence_id);
             break;
-        }
         default:
             break;
     }
@@ -242,9 +241,22 @@ static bool process_message_event(const char *message) {
     }
 
     if (strcasecmp(message, "START") == 0) {
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGI(TAG,
+                 "START requested: validation_received=%s validation_ok=%s last_errors=%lu executor_state=%d block_count=%u scan_errors=%u queue_depth=%u",
+                 s_validation_state.has_received_validation ? "true" : "false",
+                 s_validation_state.app_config_valid ? "true" : "false",
+                 (unsigned long)s_validation_state.last_error_count,
+                 (int)s_executor_ctx.state,
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0),
+                 (unsigned)((s_event_queue != NULL) ? uxQueueMessagesWaiting(s_event_queue) : 0));
         esp_err_t err = brain_executor_start();
         if (err != ESP_OK) {
-            ESP_LOGW(TAG, "START rejected: executor cannot start (err=%d)", (int)err);
+            ESP_LOGW(TAG,
+                     "START rejected: executor cannot start (err=%d, validation_gate=%s)",
+                     (int)err,
+                     brain_event_handler_can_start_execution() ? "pass" : "fail");
             return false;
         }
         ESP_LOGI(TAG, "Handled START: executor started");
@@ -450,12 +462,23 @@ void brain_executor_set_button_state(bool is_pressed) {
 
 esp_err_t brain_executor_start(void) {
     if (!brain_event_handler_can_start_execution()) {
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGW(TAG,
+                 "brain_executor_start blocked by validation gate: validation_received=%s validation_ok=%s block_count=%u scan_errors=%u",
+                 s_validation_state.has_received_validation ? "true" : "false",
+                 s_validation_state.app_config_valid ? "true" : "false",
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0));
         return ESP_ERR_INVALID_STATE;
     }
 
     brain_executor_reset_context(EXECUTOR_IDLE);
     if (!load_program_from_config()) {
-        ESP_LOGW(TAG, "Cannot start executor: no program blocks");
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGW(TAG,
+                 "Cannot start executor: no program blocks (block_count=%u scan_errors=%u)",
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0));
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -589,7 +612,13 @@ void brain_executor_tick(void) {
 }
 
 bool brain_event_handle_message(const char *message) {
-    if (!s_event_queue || !message) {
+    if (!message) {
+        ESP_LOGW(TAG, "brain_event_handle_message called with NULL message");
+        return false;
+    }
+
+    if (!s_event_queue) {
+        ESP_LOGW(TAG, "brain_event_handle_message queue not initialized (msg=%s)", message);
         return false;
     }
 
@@ -598,7 +627,18 @@ bool brain_event_handle_message(const char *message) {
     strncpy(evt.data.message, message, sizeof(evt.data.message) - 1);
     evt.data.message[sizeof(evt.data.message) - 1] = '\0';
 
-    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
+    BaseType_t sent = xQueueSend(s_event_queue, &evt, 0);
+    if (sent != pdTRUE) {
+        ESP_LOGW(TAG, "Failed to queue message '%s' (queue_depth=%u)",
+                 evt.data.message,
+                 (unsigned)uxQueueMessagesWaiting(s_event_queue));
+        return false;
+    }
+
+    ESP_LOGD(TAG, "Queued message '%s' (queue_depth=%u)",
+             evt.data.message,
+             (unsigned)uxQueueMessagesWaiting(s_event_queue));
+    return true;
 }
 
 bool brain_event_handle_block_event(uint8_t block_addr,

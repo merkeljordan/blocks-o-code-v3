@@ -21,6 +21,7 @@
 #include "esp_lcd_touch_xpt2046.h"
 
 #include "tft_ui.h"
+#include "brain_event_handler.h"
 
 /*
  * Brain Block LVGL v9 display/touch bring-up + basic home screen
@@ -755,6 +756,26 @@ static void home_action_event_cb(lv_event_t *e)
 
     if (strcmp(action_name, "Blocks") == 0) {
         open_blocks_screen();
+        return;
+    }
+
+    if (strcmp(action_name, "Start") == 0) {
+        ESP_LOGI(TAG, "Home action pressed: Start");
+        bool handled = brain_event_handle_message("START");
+        if (s_status_label != NULL) {
+            if (handled) {
+                lv_label_set_text(s_status_label, "START requested");
+            } else {
+                const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+                if (validation != NULL && !validation->has_received_validation) {
+                    lv_label_set_text(s_status_label, "START blocked: waiting for validation");
+                } else if (validation != NULL && !validation->app_config_valid) {
+                    lv_label_set_text(s_status_label, "START blocked: config invalid");
+                } else {
+                    lv_label_set_text(s_status_label, "START rejected: queue/state");
+                }
+            }
+        }
         return;
     }
 
