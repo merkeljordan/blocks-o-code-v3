@@ -50,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "WhiteSky-Accolade" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "34bwheaf"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "100.110.161.116" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -62,7 +62,7 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 
 static const char *TAG = "brain_block";
@@ -105,8 +105,11 @@ static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *ou
 static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
 
-    // Force an immediate scan on startup so TCP task can send quickly.
-    TickType_t delay_ticks = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    // Adaptive interval: scan fast around changes, back off when stable.
+    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
+    const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    TickType_t delay_ticks = fast_delay;
+    int stable_scans = 0;
 
     while (1) {
         block_config_manager_scan();
@@ -116,6 +119,21 @@ static void block_config_scan_task(void *pvParameters) {
             ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
             brain_event_handler_reset_validation();
             s_validation_requested_by_start = false;
+            // Rescan in ~10 ms so removal/add is seen by the app quickly.
+            delay_ticks = fast_delay;
+            stable_scans = 0;
+        } else {
+            // No change: gradually back off up to max_delay to reduce bus traffic.
+            if (delay_ticks < max_delay) {
+                stable_scans++;
+                if (stable_scans >= 4) { // every few stable scans, increase delay a bit
+                    delay_ticks += pdMS_TO_TICKS(500);
+                    if (delay_ticks > max_delay) {
+                        delay_ticks = max_delay;
+                    }
+                    stable_scans = 0;
+                }
+            }
         }
 
         // Update cached JSON if changed or if we don't have a valid cache yet.
@@ -243,12 +261,15 @@ static void tcp_client_task(void *pvParameters)
             continue;
         }
 
-        /* Set connect/send/recv timeouts */
-        struct timeval timeout;
-        timeout.tv_sec = 5;
-        timeout.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        /* Short recv timeout so we wake often and push config updates quickly (~50 ms). */
+        struct timeval rcv_timeout;
+        rcv_timeout.tv_sec = 0;
+        rcv_timeout.tv_usec = 50000;  /* 50 ms */
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &rcv_timeout, sizeof(rcv_timeout));
+        struct timeval snd_timeout;
+        snd_timeout.tv_sec = 5;
+        snd_timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &snd_timeout, sizeof(snd_timeout));
 
         /* Connect to server */
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -397,27 +418,37 @@ static void tcp_client_task(void *pvParameters)
                                 ESP_LOGW(TAG, "START blocked: config validation is invalid");
                                 send(sock, nak, strlen(nak), 0);
                             }
-                            continue;
+                        } else {
+                            bool handled = brain_event_handle_message(line);
+                            if (handled) {
+                                const char *ack = "ACK:START\n";
+                                send(sock, ack, strlen(ack), 0);
+                            } else {
+                                ESP_LOGW(TAG, "START rejected: event queue not ready/full");
+                                const char *nak = "NAK:INVALID_STATE\n";
+                                send(sock, nak, strlen(nak), 0);
+                            }
                         }
-
-                        ESP_LOGI(TAG, "Handling START: validation passed, instructing Child 1");
-                        demo_cmd_t cmd = CMD_START;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-                        const char *ack = "ACK:START\n";
-                        send(sock, ack, strlen(ack), 0);
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
-                        demo_cmd_t cmd = CMD_STOP;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-
-                        const char *ack = "ACK:STOP\n";
-                        send(sock, ack, strlen(ack), 0);
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
+                            const char *ack = "ACK:STOP\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            ESP_LOGW(TAG, "STOP rejected: event queue not ready/full");
+                            const char *nak = "NAK:INVALID_STATE\n";
+                            send(sock, nak, strlen(nak), 0);
+                        }
                     } else {
-                        ESP_LOGW(TAG, "Unknown command: '%s'", line);
-                        const char *nak = "NAK:UNKNOWN\n";
-                        send(sock, nak, strlen(nak), 0);
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
+                            const char *ack = "ACK:EVENT\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            ESP_LOGW(TAG, "Unknown or rejected command: '%s'", line);
+                            const char *nak = "NAK:UNKNOWN\n";
+                            send(sock, nak, strlen(nak), 0);
+                        }
                     }
 
                     line = strtok_r(NULL, "\r\n", &saveptr);
@@ -435,8 +466,8 @@ static void tcp_client_task(void *pvParameters)
                 }
             }
 
-            // Small delay to prevent tight loop
-            vTaskDelay(pdMS_TO_TICKS(100));
+            /* Short delay when idle; recv timeout already throttles the loop */
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         /* Cleanup socket on disconnect */
@@ -477,6 +508,6 @@ void start_network_client(void)
 
     wifi_init_sta();
 
-    /* Start TCP client task */
-    xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
+    /* Start TCP client task on Core 0 to keep Core 1 available for GUI. */
+    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
 }

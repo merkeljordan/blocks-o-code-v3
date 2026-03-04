@@ -12,9 +12,9 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 
-// Address range for child blocks
+// Address range for child blocks (inclusive): 0x08–0x16 (15 addresses)
 #define DEVICE_REGISTRY_ADDR_MIN    0x08
-#define DEVICE_REGISTRY_ADDR_MAX    0x15
+#define DEVICE_REGISTRY_ADDR_MAX    0x16
 #define DEVICE_REGISTRY_MAX_DEVICES (DEVICE_REGISTRY_ADDR_MAX - DEVICE_REGISTRY_ADDR_MIN + 1)
 
 // Device entry in the registry
