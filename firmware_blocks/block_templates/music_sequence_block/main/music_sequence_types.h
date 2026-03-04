@@ -2,14 +2,24 @@
 #ifndef MUSIC_SEQUENCE_TYPES_H
 #define MUSIC_SEQUENCE_TYPES_H
 
-#include <stdint.h>
-#include <stdbool.h>
+/*
+ * Shared data types for the Music Sequence block.
+ *
+ * These types are used by:
+ * - UI (`tft_ui.c`)
+ * - playback logic (`speaker_music.c`)
+ * - command/I2C payload handling (`main.c`)
+ */
 
+#include <stdbool.h>
+#include <stdint.h>
+
+/* Reserved for future compose-mode UI (fixed small footprint for child UX). */
 #define MUSIC_COMPOSE_MAX_STEPS 8
 
-// -----------------------------------------------------------------------------
-// Notes (kept for sine-wave tone generation / beeps)
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* Note IDs and their corresponding frequencies (Hz)                          */
+/* -------------------------------------------------------------------------- */
 typedef enum {
     NOTE_REST = 0,
     NOTE_C4,
@@ -25,6 +35,7 @@ typedef enum {
     NOTE_COUNT
 } note_id_t;
 
+/* Static lookup table used by speaker_play_note(). */
 static const uint16_t note_freq_hz[NOTE_COUNT] = {
     [NOTE_REST] = 0,
     [NOTE_C4]   = 262,
@@ -53,54 +64,49 @@ static const char *const note_labels[NOTE_COUNT] = {
     [NOTE_E5]   = "E5",
 };
 
-// -----------------------------------------------------------------------------
-// Song steps (kept for sine-wave tone sequences)
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* Sequence step and song metadata                                             */
+/* -------------------------------------------------------------------------- */
 typedef struct {
     note_id_t note;
     uint16_t duration_ms;
     uint16_t gap_ms;
 } music_step_t;
 
-// -----------------------------------------------------------------------------
-// Song catalog entry (MP3-backed songs)
-// -----------------------------------------------------------------------------
 typedef struct {
-    uint8_t     song_id;
+    uint8_t song_id;
     const char *name;
 } song_info_t;
 
-// -----------------------------------------------------------------------------
-// TFT/UI config (simplified — just song selection)
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* UI-selected config and runtime playback state                               */
+/* -------------------------------------------------------------------------- */
 typedef struct {
     uint8_t selected_song_index;
-    bool    config_valid;
+    bool config_valid;
 } music_seq_config_t;
 
-// -----------------------------------------------------------------------------
-// Runtime playback state
-// -----------------------------------------------------------------------------
 typedef struct {
-    bool    is_playing;
+    bool is_playing;
     uint8_t active_song_index;
 } music_playback_state_t;
 
-// -----------------------------------------------------------------------------
-// I2C payload (wire format)
-// -----------------------------------------------------------------------------
+/* -------------------------------------------------------------------------- */
+/* Wire payload used by CMD_GET_DATA                                           */
+/* -------------------------------------------------------------------------- */
 typedef struct {
     uint8_t song_id;
 } music_seq_payload_v1_t;
 
-// Legacy identifiers kept for I2C protocol compatibility
+/* -------------------------------------------------------------------------- */
+/* Legacy preset identifiers/types (kept for compatibility)                    */
+/* -------------------------------------------------------------------------- */
 typedef enum {
-    MUSIC_PRESET_TWINKLE     = 0,
+    MUSIC_PRESET_TWINKLE      = 0,
     MUSIC_PRESET_JINGLE_BELLS = 1,
-    MUSIC_PRESET_CUSTOM_1    = 0x80,
+    MUSIC_PRESET_CUSTOM_1     = 0x80,
 } music_preset_id_t;
 
-// Legacy preset struct (kept so speaker.h compiles; not used by new UI)
 typedef struct {
     uint8_t preset_id;
     const char *name;
@@ -109,4 +115,4 @@ typedef struct {
     uint8_t default_tempo_pct;
 } music_preset_t;
 
-#endif // MUSIC_SEQUENCE_TYPES_H
+#endif /* MUSIC_SEQUENCE_TYPES_H */

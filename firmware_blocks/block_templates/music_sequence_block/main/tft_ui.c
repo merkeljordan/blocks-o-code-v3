@@ -80,8 +80,10 @@
 
 #if CONFIG_FREERTOS_UNICORE
 #define MUSIC_UI_CORE_ID           0
+#define MUSIC_AUDIO_CORE_ID        0
 #else
 #define MUSIC_UI_CORE_ID           1
+#define MUSIC_AUDIO_CORE_ID        0
 #endif
 
 /* ── Driver handles ─────────────────────────────────────────────────── */
@@ -120,11 +122,17 @@ static void open_song_screen(void);
 
 static void copy_text_safe(char *dst, size_t dst_len, const char *src)
 {
+    // Called by: many UI state update paths.
+    // Purpose: safe bounded copy into fixed-size status buffers.
     if (dst_len == 0) return;
     if (src == NULL) { dst[0] = '\0'; return; }
     snprintf(dst, dst_len, "%s", src);
 }
 
+/*
+ * Push a compact UI intent to the execution task.
+ * We intentionally send only "what changed" + current song index.
+ */
 static void push_action(music_ui_action_type_t type)
 {
     if (s_action_queue == NULL || type == MUSIC_UI_ACTION_NONE) return;
@@ -137,11 +145,15 @@ static void push_action(music_ui_action_type_t type)
 
 static void anim_obj_y(void *obj, int32_t value)
 {
+    // Called by: LVGL animation engine.
+    // Purpose: tiny helper to animate Y position.
     lv_obj_set_y((lv_obj_t *)obj, (lv_coord_t)value);
 }
 
 static void animate_button_bounce(lv_obj_t *obj, int32_t delta_y)
 {
+    // Called by: button callbacks (prev/next/play/select/start).
+    // Purpose: short visual feedback that a tap was accepted.
     const int32_t y0 = (int32_t)lv_obj_get_y(obj);
     lv_anim_t a;
     lv_anim_init(&a);
@@ -156,6 +168,8 @@ static void animate_button_bounce(lv_obj_t *obj, int32_t delta_y)
 
 static void lvgl_tick_cb(void *arg)
 {
+    // Called by: ESP timer in tft_ui_start().
+    // Purpose: advance LVGL internal millisecond tick.
     (void)arg;
     lv_tick_inc(TFT_TICK_PERIOD_MS);
 }
@@ -164,6 +178,8 @@ static bool lcd_flush_ready_cb(esp_lcd_panel_io_handle_t panel_io,
                                esp_lcd_panel_io_event_data_t *edata,
                                void *user_ctx)
 {
+    // Called by: esp_lcd when SPI color transfer completes.
+    // Purpose: notify LVGL that current flush finished.
     (void)panel_io;
     (void)edata;
     lv_display_t *disp = (lv_display_t *)user_ctx;
@@ -173,6 +189,8 @@ static bool lcd_flush_ready_cb(esp_lcd_panel_io_handle_t panel_io,
 
 static void lcd_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
+    // Called by: LVGL whenever a dirty region must be pushed to display.
+    // Calls: esp_lcd_panel_draw_bitmap().
     esp_lcd_panel_handle_t panel_handle =
         (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
     const int x1 = area->x1;
@@ -185,6 +203,8 @@ static void lcd_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_
 
 static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
+    // Called by: LVGL input polling timer.
+    // Purpose: pull latest touch sample from XPT2046 and map into LVGL data struct.
     esp_lcd_touch_handle_t tp =
         (esp_lcd_touch_handle_t)lv_indev_get_user_data(indev);
     esp_lcd_touch_point_data_t point_data[1] = {0};
@@ -199,6 +219,7 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
     if (esp_lcd_touch_get_data(tp, point_data, &point_cnt, 1) == ESP_OK
         && point_cnt > 0)
     {
+        // Report first touch point as current pointer location.
         data->point.x = point_data[0].x;
         data->point.y = point_data[0].y;
         data->state = LV_INDEV_STATE_PRESSED;
@@ -211,6 +232,8 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 
 static void prev_btn_cb(lv_event_t *e)
 {
+    // Called by: LVGL click event on left-arrow button.
+    // Calls: speaker_get_song_count() + push_action(MUSIC_UI_ACTION_SONG_CHANGED)
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     lv_obj_t *btn = lv_event_get_target_obj(e);
     animate_button_bounce(btn, 5);
@@ -229,6 +252,8 @@ static void prev_btn_cb(lv_event_t *e)
 
 static void next_btn_cb(lv_event_t *e)
 {
+    // Called by: LVGL click event on right-arrow button.
+    // Calls: speaker_get_song_count() + push_action(MUSIC_UI_ACTION_SONG_CHANGED)
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     lv_obj_t *btn = lv_event_get_target_obj(e);
     animate_button_bounce(btn, 5);
@@ -247,10 +272,13 @@ static void next_btn_cb(lv_event_t *e)
 
 static void play_btn_cb(lv_event_t *e)
 {
+    // Called by: LVGL click event on Play button.
+    // Calls: queue write to s_preview_queue (actual audio happens in preview_task()).
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     lv_obj_t *btn = lv_event_get_target_obj(e);
     animate_button_bounce(btn, 5);
 
+    /* Capture selected song index under mutex and schedule playback on worker. */
     uint8_t idx = 0;
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
         if (s_is_playing) {
@@ -262,11 +290,14 @@ static void play_btn_cb(lv_event_t *e)
         copy_text_safe(s_status_text, sizeof(s_status_text), "Playing...");
         xSemaphoreGive(s_state_mutex);
     }
+    /* Keep only the latest preview request; older previews are superseded. */
     (void)xQueueOverwrite(s_preview_queue, &idx);
 }
 
 static void select_btn_cb(lv_event_t *e)
 {
+    // Called by: LVGL click event on Select button.
+    // Calls: push_action(MUSIC_UI_ACTION_SONG_SELECTED) for main execution_task().
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     lv_obj_t *btn = lv_event_get_target_obj(e);
     animate_button_bounce(btn, 5);
@@ -283,6 +314,8 @@ static lv_obj_t *make_btn(lv_obj_t *parent, const char *text,
                            lv_coord_t w, lv_coord_t h,
                            lv_event_cb_t cb, uint32_t bg_hex)
 {
+    // Called by: create_song_screen() and intro screen builders.
+    // Purpose: centralize button style + callback attachment.
     lv_obj_t *btn = lv_button_create(parent);
     lv_obj_set_size(btn, w, h);
     lv_obj_set_style_radius(btn, 16, 0);
@@ -302,6 +335,8 @@ static lv_obj_t *make_btn(lv_obj_t *parent, const char *text,
 
 static lv_obj_t *create_song_screen(void)
 {
+    // Called by: open_song_screen() when song screen is first needed.
+    // Purpose: build full selector UI and keep key widget handles in globals.
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(scr, 0, 0);
@@ -390,6 +425,8 @@ static lv_obj_t *create_song_screen(void)
 
 static void start_btn_event_cb(lv_event_t *e)
 {
+    // Called by: LVGL click event on intro START button.
+    // Calls: open_song_screen()
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
     lv_obj_t *btn = lv_event_get_target_obj(e);
     animate_button_bounce(btn, 8);
@@ -398,6 +435,8 @@ static void start_btn_event_cb(lv_event_t *e)
 
 static lv_obj_t *create_intro_screen(void)
 {
+    // Called by: lvgl_task() on first UI load.
+    // Purpose: build splash screen and START button.
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_border_width(scr, 0, 0);
@@ -444,10 +483,16 @@ static lv_obj_t *create_intro_screen(void)
 
 static void open_song_screen(void)
 {
+    // Called by: start_btn_event_cb().
+    // Calls: create_song_screen() lazily and then animates to it.
     if (s_song_screen == NULL) {
         s_song_screen = create_song_screen();
     }
 
+    /*
+     * Entering song screen resets local selection flow:
+     * kid should preview and then explicitly Select to mark config valid.
+     */
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
         s_song_index = 0;
         s_config_valid = false;
@@ -464,6 +509,8 @@ static void open_song_screen(void)
 
 static void gui_refresh_from_state(void)
 {
+    // Called by: lvgl_task() every iteration.
+    // Purpose: mirror shared state into visible labels.
     if (s_song_screen == NULL) return;
 
     uint8_t idx = 0;
@@ -476,6 +523,7 @@ static void gui_refresh_from_state(void)
         xSemaphoreGive(s_state_mutex);
     }
 
+    /* Song count/name come from speaker_music.c catalog helpers. */
     size_t count = speaker_get_song_count();
 
     if (s_song_name_label) {
@@ -497,10 +545,13 @@ static void gui_refresh_from_state(void)
 
 static void preview_task(void *arg)
 {
+    // Called by: FreeRTOS task spawned in tft_ui_start().
+    // Waits on s_preview_queue and performs blocking speaker_play_song() work.
     (void)arg;
     uint8_t idx;
 
     while (1) {
+        // Block until Play button enqueues a song index.
         if (xQueueReceive(s_preview_queue, &idx, portMAX_DELAY) != pdTRUE) continue;
 
         if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
@@ -508,6 +559,10 @@ static void preview_task(void *arg)
             xSemaphoreGive(s_state_mutex);
         }
 
+        /*
+         * Playback is synchronous in current audio API, so this worker owns the
+         * blocking call to keep LVGL task responsive.
+         */
         esp_err_t err = speaker_play_song(idx);
 
         if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
@@ -528,6 +583,8 @@ static void preview_task(void *arg)
 
 static void lvgl_task(void *arg)
 {
+    // Called by: FreeRTOS task spawned in tft_ui_start().
+    // Runs the LVGL event/render loop.
     (void)arg;
     ESP_LOGI(TAG, "LVGL task started");
 
@@ -537,10 +594,13 @@ static void lvgl_task(void *arg)
     lv_screen_load(s_intro_screen);
 
     while (1) {
+        // 1) Sync labels from shared state.
         gui_refresh_from_state();
+        // 2) Let LVGL process timers/events and suggest next delay.
         uint32_t delay_ms = lv_timer_handler();
         if (delay_ms < 5)       delay_ms = 5;
         else if (delay_ms > 30) delay_ms = 30;
+        // 3) Sleep to avoid maxing CPU.
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
@@ -551,6 +611,8 @@ static void lvgl_task(void *arg)
 
 esp_err_t tft_ui_start(void)
 {
+    // Called by: app_main().
+    // Creates display/touch drivers, shared queues/mutex, then GUI + preview tasks.
     if (s_ui_started) {
         ESP_LOGW(TAG, "TFT UI already started");
         return ESP_OK;
@@ -688,7 +750,7 @@ esp_err_t tft_ui_start(void)
     ESP_ERROR_CHECK(esp_timer_start_periodic(s_lvgl_tick_timer,
                                              TFT_TICK_PERIOD_MS * 1000));
 
-    /* Spawn GUI task and preview task. */
+    /* Spawn GUI task and preview task on separate cores in dual-core builds. */
     BaseType_t ok_gui = xTaskCreatePinnedToCore(lvgl_task, "music_ui_v9",
                                                 TFT_TASK_STACK_SIZE, NULL,
                                                 TFT_TASK_PRIORITY, NULL,
@@ -696,7 +758,7 @@ esp_err_t tft_ui_start(void)
     BaseType_t ok_preview = xTaskCreatePinnedToCore(preview_task, "music_preview",
                                                     PREVIEW_TASK_STACK_SIZE, NULL,
                                                     PREVIEW_TASK_PRIORITY, NULL,
-                                                    MUSIC_UI_CORE_ID);
+                                                    MUSIC_AUDIO_CORE_ID);
 
     if (ok_gui != pdPASS || ok_preview != pdPASS) {
         ESP_LOGE(TAG, "Failed to create UI/preview tasks");
@@ -704,18 +766,20 @@ esp_err_t tft_ui_start(void)
     }
 
     s_ui_started = true;
-    ESP_LOGI(TAG, "LVGL v9 Music Sequence UI started (core=%d)", MUSIC_UI_CORE_ID);
+    ESP_LOGI(TAG, "LVGL/UI core=%d, preview/audio core=%d", MUSIC_UI_CORE_ID, MUSIC_AUDIO_CORE_ID);
     return ESP_OK;
 }
 
 bool tft_ui_take_action(music_ui_action_t *out_action, uint32_t timeout_ms)
 {
+    // Called by: execution_task() in main.c to consume UI decisions.
     if (out_action == NULL || s_action_queue == NULL) return false;
     return xQueueReceive(s_action_queue, out_action, pdMS_TO_TICKS(timeout_ms)) == pdTRUE;
 }
 
 void tft_ui_set_playback_state(const music_playback_state_t *state)
 {
+    // Called by: optional external control paths that want to override playback state.
     if (state == NULL || s_state_mutex == NULL) return;
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
         s_is_playing = state->is_playing;
@@ -725,6 +789,7 @@ void tft_ui_set_playback_state(const music_playback_state_t *state)
 
 void tft_ui_set_status_message(const char *msg)
 {
+    // Called by: optional external control paths that want status text updates.
     if (s_state_mutex == NULL) return;
     if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(20)) == pdTRUE) {
         copy_text_safe(s_status_text, sizeof(s_status_text), msg);

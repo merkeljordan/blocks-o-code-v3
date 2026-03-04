@@ -1,3 +1,10 @@
+/*
+ * Embedded LVGL background asset for the music sequence UI.
+ *
+ * Generated/converted image data:
+ * - Do not hand-edit pixel bytes below.
+ * - Replace by regenerating from the original image asset.
+ */
 #ifdef __has_include
     #if __has_include("lvgl.h")
         #ifndef LV_LVGL_H_INCLUDE_SIMPLE

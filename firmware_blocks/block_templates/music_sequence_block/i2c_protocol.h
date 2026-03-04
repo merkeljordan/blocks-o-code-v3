@@ -2,49 +2,54 @@
 #ifndef I2C_PROTOCOL_H
 #define I2C_PROTOCOL_H
 
-#include <stdint.h>
-#include <stdbool.h>
-#include "driver/i2c.h"  // Add this for I2C_NUM_0
+/*
+ * Shared wire protocol between Brain block (I2C master) and child blocks.
+ *
+ * Notes for Music Sequence integration:
+ * - This header defines command IDs and status bits used by both sides.
+ * - Music Sequence uses BLOCK_TYPE_MUSIC_SEQ and responds to CMD_EXECUTE.
+ * - CMD_GET_DATA should return music_seq_payload_v1_t from music_sequence_types.h.
+ */
 
-// ============================================================================
-// I2C HARDWARE CONFIGURATION
-// ============================================================================
+#include <stdbool.h>
+#include <stdint.h>
+#include "driver/i2c.h"
+
+/* ========================================================================== */
+/* I2C bus configuration                                                       */
+/* ========================================================================== */
 #define I2C_PORT_NUM    I2C_NUM_0
 #define I2C_SDA_PIN     21
 #define I2C_SCL_PIN     22
-#define I2C_FREQ_HZ     100000  // 100 kHz
+#define I2C_FREQ_HZ     100000  /* 100 kHz */
 
-// ============================================================================
-// REGISTER MAP (Brain -> Child reads)
-// ============================================================================
+/* ========================================================================== */
+/* Register map (Brain reads these from child blocks)                          */
+/* ========================================================================== */
+#define REG_WHOAMI      0x00    /* 1 byte: block_type_t */
+#define REG_STATUS      0x01    /* 1 byte: STATUS_* flags */
+#define REG_FW_MAJOR    0x02    /* 1 byte: optional firmware major */
+#define REG_FW_MINOR    0x03    /* 1 byte: optional firmware minor */
+#define REG_CAPS        0x04    /* 1 byte: optional capabilities bitfield */
 
-#define REG_WHOAMI      0x00    // 1 byte: block_type_t
-#define REG_STATUS      0x01    // 1 byte: STATUS_* flags
-#define REG_FW_MAJOR    0x02    // 1 byte (optional, for later)
-#define REG_FW_MINOR    0x03    // 1 byte (optional, for later)
-#define REG_CAPS        0x04    // 1 byte (optional, for later)
-
-// Optional: keep for legacy/one-off features (if you already use it)
+/* Legacy one-off command kept for compatibility with older experiments. */
 #define CMD_OLED_TEXT   0xF1
 
-// ============================================================================
-// COMMAND DEFINITIONS (Brain -> Child)
-// NOTE: Commands are "do something". Registers are "tell me who you are".
-// ============================================================================
-
+/* ========================================================================== */
+/* Commands (Brain -> Child)                                                   */
+/* ========================================================================== */
 typedef enum {
-    CMD_PING            = 0x00,  // Check if device is alive
-    CMD_GET_TYPE        = 0x01,  // (legacy) Request block type
-    CMD_SET_LED         = 0x02,  // Set LED color (RGB)
-    CMD_GET_STATUS      = 0x03,  // Request status
-    CMD_GET_DATA        = 0x04,  // Request sensor/input data
-    CMD_PLAY_NOTE       = 0x05,  // Play musical note
-    CMD_EXECUTE         = 0x06,  // Execute block action
-    CMD_RESET           = 0x07,  // Reset block state
-    CMD_SET_DELAY       = 0x08,  // Set delay time
-    CMD_SET_LOOP        = 0x09,  // Set loop count
+    CMD_PING            = 0x00,
+    CMD_GET_TYPE        = 0x01,
+    CMD_SET_LED         = 0x02,
+    CMD_GET_STATUS      = 0x03,
+    CMD_GET_DATA        = 0x04,
+    CMD_PLAY_NOTE       = 0x05,
+    CMD_EXECUTE         = 0x06,
+    CMD_RESET           = 0x07,
+    CMD_SET_DELAY       = 0x08,
+    CMD_SET_LOOP        = 0x09,
 
-    // LED MATRIX COMMANDS
     CMD_MATRIX_FILL         = 0x10,
     CMD_MATRIX_SET_PIXEL    = 0x11,
     CMD_MATRIX_CLEAR        = 0x12,
@@ -55,15 +60,12 @@ typedef enum {
     CMD_MATRIX_SHOW         = 0x17,
 } i2c_command_t;
 
-// ============================================================================
-// BLOCK TYPES (15 total: 1 Brain + 14 Child)
-// ============================================================================
-
+/* ========================================================================== */
+/* Block types                                                                 */
+/* ========================================================================== */
 typedef enum {
-    // System
     BLOCK_TYPE_BRAIN       = 0x00,
 
-    // Control Flow Blocks
     BLOCK_TYPE_IF          = 0x10,
     BLOCK_TYPE_THEN        = 0x11,
     BLOCK_TYPE_END_IF      = 0x12,
@@ -71,10 +73,8 @@ typedef enum {
     BLOCK_TYPE_END_LOOP    = 0x14,
     BLOCK_TYPE_DELAY       = 0x15,
 
-    // Input Blocks
     BLOCK_TYPE_BUTTON      = 0x20,
 
-    // Output Blocks
     BLOCK_TYPE_NOTE        = 0x30,
     BLOCK_TYPE_MUSIC_SEQ   = 0x31,
     BLOCK_TYPE_LED_FLASH   = 0x32,
@@ -83,10 +83,9 @@ typedef enum {
     BLOCK_TYPE_UNKNOWN     = 0xFF
 } block_type_t;
 
-// ============================================================================
-// LED MATRIX PATTERNS
-// ============================================================================
-
+/* ========================================================================== */
+/* LED matrix patterns                                                         */
+/* ========================================================================== */
 typedef enum {
     PATTERN_HEART       = 0x00,
     PATTERN_SMILE       = 0x01,
@@ -100,20 +99,18 @@ typedef enum {
     PATTERN_STAR        = 0x09,
 } led_pattern_t;
 
-// ============================================================================
-// STATUS FLAGS
-// ============================================================================
-
+/* ========================================================================== */
+/* Common status bits                                                          */
+/* ========================================================================== */
 #define STATUS_READY        0x01
 #define STATUS_BUSY         0x02
 #define STATUS_ERROR        0x04
 #define STATUS_DATA_READY   0x08
 
-// ============================================================================
-// OPTIONAL UTILITY FUNCTIONS (safe to keep in header)
-// ============================================================================
-
-static inline const char* block_type_to_string(block_type_t type) {
+/* ========================================================================== */
+/* Debug helpers                                                               */
+/* ========================================================================== */
+static inline const char *block_type_to_string(block_type_t type) {
     switch (type) {
         case BLOCK_TYPE_BRAIN:      return "BRAIN";
         case BLOCK_TYPE_IF:         return "IF";
@@ -131,7 +128,7 @@ static inline const char* block_type_to_string(block_type_t type) {
     }
 }
 
-static inline const char* command_to_string(i2c_command_t cmd) {
+static inline const char *command_to_string(i2c_command_t cmd) {
     switch (cmd) {
         case CMD_PING:                  return "PING";
         case CMD_GET_TYPE:              return "GET_TYPE";
@@ -155,4 +152,4 @@ static inline const char* command_to_string(i2c_command_t cmd) {
     }
 }
 
-#endif // I2C_PROTOCOL_H
+#endif /* I2C_PROTOCOL_H */

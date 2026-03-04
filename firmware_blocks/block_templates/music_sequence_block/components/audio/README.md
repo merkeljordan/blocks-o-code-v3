@@ -1,38 +1,59 @@
-# Audio Component
+# Audio Component (`components/audio`)
 
-Boot sound + beeps + WAV playback for blocks. Uses atomic14's event-driven I2S DAC on GPIO25.
+Reusable audio component for ESP32 block templates.
 
-## To use in another block
+## Purpose
 
-1. **Copy this folder** (`components/audio/`) into your block's `components/` directory.
+Provides a simple C API for:
 
-2. **Add to your main component's CMakeLists.txt:**
-   ```
-   REQUIRES ... audio
-   ```
+- speaker init/deinit
+- boot sound playback
+- success/error beeps
+- arbitrary WAV playback from embedded memory
+- generated sine-tone playback
 
-3. **Call from your code:**
-   ```c
-   #include "audio_speaker.h"
+## Public API
 
-   speaker_init();
-   speaker_play_boot_sound();   // plays bootupsound.wav
-   speaker_beep_ok();            // success beep
-   speaker_beep_error();         // error beep
-   speaker_play_wav(data, len); // play any 16-bit WAV from flash
-   speaker_play_tone(440, 100); // 440 Hz for 100 ms
-   ```
+Header: `audio_speaker.h`
 
-## Contents
+Main functions:
 
-- `audio/bootupsound.wav` - embedded boot sound (16-bit PCM)
-- `speaker.cpp` / `audio_speaker.h` - high-level C API wrapping DACOutput
-- `DACOutput.cpp/.h` - event-driven I2S DAC output with dedicated FreeRTOS task
-- `WAVFileReader.cpp/.h` - robust chunk-walking WAV parser for embedded buffers
-- `SinWaveGenerator.cpp/.h` - sine wave tone generator
-- `SampleSource.h` - base class for audio sources
+- `speaker_init()`
+- `speaker_play_boot_sound()`
+- `speaker_play_wav(data, len)`
+- `speaker_play_tone(freq_hz, duration_ms)`
+- `speaker_beep_ok()`
+- `speaker_beep_error()`
+
+## Internal Design
+
+- `SampleSource.h`
+  - polymorphic source interface (`sampleRate`, `getFrames`)
+- `DACOutput.cpp/.h`
+  - I2S writer task that continuously asks the active sample source for frames
+- `WAVFileReader.cpp/.h`
+  - in-memory WAV parser + frame provider
+- `SinWaveGenerator.cpp/.h`
+  - generated tone source
+- `speaker.cpp`
+  - C wrapper that switches active source and implements timing helpers
+
+## Data Flow
+
+1. `speaker_init()` starts DACOutput with silence source.
+2. Playback call creates/chooses a source object.
+3. Source pointer is installed via `setSampleSource(...)`.
+4. Writer task streams frames to I2S DAC.
+5. Source is returned to silence after playback.
 
 ## Requirements
 
-- Arduino-ESP32 (`espressif__arduino-esp32`)
-- driver (ESP-IDF)
+- ESP-IDF driver component
+- Arduino compatibility layer (`espressif__arduino-esp32`)
+
+## Integration In Another Block
+
+1. Copy this `components/audio/` folder into target block template.
+2. Add `audio` to `REQUIRES` in target `main/CMakeLists.txt`.
+3. Embed any WAV assets (`EMBED_FILES`) in the component using them.
+4. Include `audio_speaker.h` and call the API from app code.

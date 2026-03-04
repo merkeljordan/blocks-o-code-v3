@@ -6,6 +6,13 @@
 
 class SampleSource;
 
+/*
+ * I2S DAC output bridge.
+ *
+ * I adapted this from example code and kept the same core idea:
+ * a background writer task keeps feeding I2S while higher-level code only
+ * swaps the active SampleSource.
+ */
 class DACOutput
 {
 private:
@@ -14,9 +21,17 @@ private:
     SampleSource *m_sample_generator;
 
 public:
+    /* Called by: speaker_init()
+     * Configures I2S/DAC and spawns the writer task.
+     */
     void start(SampleSource *sample_generator);
+
+    /* Called by: speaker_play_wav(), speaker_play_tone(), speaker_stop()
+     * Swaps active sample source consumed by i2sWriterTask.
+     */
     void setSampleSource(SampleSource *source) { m_sample_generator = source; }
 
+    /* Friend task entrypoint declared in DACOutput.cpp. */
     friend void i2sWriterTask(void *param);
 };
 

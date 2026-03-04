@@ -3,6 +3,7 @@
 
 #include "SampleSource.h"
 
+/* Procedural sine-wave generator I use for short beeps/tones. */
 class SinWaveGenerator : public SampleSource
 {
 private:
@@ -12,9 +13,16 @@ private:
     float m_current_position;
 
 public:
+    /* Called by: speaker_play_tone()
+     * sample_rate controls output timing, frequency sets tone pitch, magnitude sets amplitude.
+     */
     SinWaveGenerator(int sample_rate, int frequency, float magnitude);
-    virtual int sampleRate() { return m_sample_rate; }
-    virtual void getFrames(Frame_t *frames, int number_frames);
+
+    /* Called by: DACOutput::start() to determine stream sample rate. */
+    int sampleRate() override { return m_sample_rate; }
+
+    /* Called by: i2sWriterTask to fill outbound audio frames. */
+    void getFrames(Frame_t *frames, int number_frames) override;
 };
 
 #endif
