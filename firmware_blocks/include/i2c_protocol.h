@@ -12,7 +12,7 @@
 #define I2C_PORT_NUM    I2C_NUM_0
 #define I2C_SDA_PIN     21
 #define I2C_SCL_PIN     22
-#define I2C_FREQ_HZ     100000  // 100 kHz
+#define I2C_FREQ_HZ     100000 // 100 kHz
 
 // ============================================================================
 // REGISTER MAP (Brain -> Child reads)

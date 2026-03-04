@@ -1,13 +1,15 @@
-// Brain block event handler skeleton.
-// Implement message parsing + routing here.
-
 #include "brain_event_handler.h"
 
 #include <string.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include <strings.h>
 #include "esp_timer.h"
+#include <stdlib.h>
+
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
+
 #include "brain_block.h"
 
 static const char *TAG = "brain_evt";
@@ -131,49 +133,46 @@ static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_add
 }
 
 static void dispatch_output_action(block_type_t type) {
+    // TODO: consider richer addressing than "program index == config index" so
+    // that future versions can: (a) target multiple matching output blocks, or
+    // (b) explicitly bind each program step to a specific I2C address.
+    block_config_state_t config_snapshot;
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
+        ESP_LOGW(TAG, "dispatch_output_action: no config available");
+        return;
+    }
+
+    if (s_executor_ctx.pc >= config_snapshot.block_count) {
+        ESP_LOGW(TAG, "dispatch_output_action: pc=%u out of range (count=%u)",
+                 s_executor_ctx.pc, config_snapshot.block_count);
+        return;
+    }
+
+    uint8_t addr = config_snapshot.blocks[s_executor_ctx.pc].i2c_address;
+
     switch (type) {
-        case BLOCK_TYPE_LED_FLASH:
-            ESP_LOGI(TAG, "ACTION led_flash color_id=%u", s_executor_params.color_id);
+        case BLOCK_TYPE_LED_FLASH: {
+            ESP_LOGI(TAG, "ACTION led_flash addr=0x%02X color_id=%u",
+                     addr, s_executor_params.color_id);
+            esp_err_t set_ret = i2c_set_led_color_id(addr, s_executor_params.color_id);
+            esp_err_t exec_ret = i2c_execute(addr);
+            if (set_ret != ESP_OK || exec_ret != ESP_OK) {
+                ESP_LOGW(TAG, "LED_FLASH action failed for 0x%02X (set_ret=%d exec_ret=%d)",
+                         addr, (int)set_ret, (int)exec_ret);
+            }
             break;
+        }
         case BLOCK_TYPE_NOTE:
-            ESP_LOGI(TAG, "ACTION note note_id=%u", s_executor_params.note_id);
+            // TODO: route NOTE actions to one or more BLOCK_TYPE_NOTE child blocks
+            // (e.g., lookup compatible outputs in config snapshot and send I2C play-note command).
+            ESP_LOGI(TAG, "ACTION note note_id=%u (no-op placeholder)", s_executor_params.note_id);
             break;
-        case BLOCK_TYPE_MUSIC_SEQ: {
-            uint8_t addr = 0;
-            if (!find_first_block_address_by_type(BLOCK_TYPE_MUSIC_SEQ, &addr)) {
-                ESP_LOGW(TAG, "ACTION music_sequence skipped: no MUSIC_SEQ block detected");
-                break;
-            }
-
-            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u -> addr=0x%02X",
-                     s_executor_params.music_sequence_id, addr);
-
-            uint64_t dispatch_start_ms = now_ms();
-            esp_err_t err = i2c_execute(addr);
-            if (err != ESP_OK) {
-                ESP_LOGW(TAG, "i2c_execute(0x%02X) failed: %s", addr, esp_err_to_name(err));
-                break;
-            }
-
-            uint32_t busy_wait_ms = 0;
-            uint8_t status = 0;
-            esp_err_t busy_err = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &busy_wait_ms, &status);
-            uint32_t total_latency_ms = (uint32_t)(now_ms() - dispatch_start_ms);
-            if (busy_err == ESP_OK) {
-                ESP_LOGI(TAG,
-                         "MUSIC_SEQ latency dispatch->BUSY = %u ms (target <= %u ms) [PASS=%s, status=0x%02X]",
-                         total_latency_ms,
-                         MUSIC_EXEC_LATENCY_TARGET_MS,
-                         (total_latency_ms <= MUSIC_EXEC_LATENCY_TARGET_MS) ? "yes" : "no",
-                         status);
-            } else {
-                ESP_LOGW(TAG,
-                         "MUSIC_SEQ latency probe failed (dispatch ok, no BUSY within %u ms): wait=%u ms last_status=0x%02X err=%s",
-                         MUSIC_EXEC_BUSY_TIMEOUT_MS,
-                         busy_wait_ms,
-                         status,
-                         esp_err_to_name(busy_err));
-            }
+        case BLOCK_TYPE_MUSIC_SEQ:
+            // TODO: route MUSIC_SEQ actions to music-sequence-capable blocks once
+            // that block type is implemented on the I2C side.
+            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u (no-op placeholder)",
+                     s_executor_params.music_sequence_id);
             break;
         }
         default:
@@ -182,16 +181,168 @@ static void dispatch_output_action(block_type_t type) {
 }
 
 static bool load_program_from_config(void) {
-    const block_config_state_t *config = block_config_manager_get_state();
-    if (config == NULL || config->block_count == 0) {
+    block_config_state_t config_snapshot;
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
         return false;
     }
 
-    s_executor_ctx.program_len = config->block_count;
-    for (int i = 0; i < config->block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
-        s_executor_ctx.program[i] = config->blocks[i].block_type;
+    s_executor_ctx.program_len = config_snapshot.block_count;
+    for (int i = 0; i < config_snapshot.block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        s_executor_ctx.program[i] = config_snapshot.blocks[i].block_type;
     }
     return true;
+}
+
+typedef enum {
+    EVT_SRC_MESSAGE = 0,
+    EVT_SRC_BLOCK   = 1,
+} brain_event_src_t;
+
+typedef struct {
+    brain_event_src_t src;
+    union {
+        char message[96];
+        struct {
+            uint8_t block_addr;
+            uint8_t event_id;
+            uint8_t payload[16];
+            uint8_t payload_len;
+        } block;
+    } data;
+} brain_event_t;
+
+static QueueHandle_t s_event_queue = NULL;
+
+static void brain_executor_task(void *arg) {
+    (void)arg;
+    const TickType_t tick_delay = pdMS_TO_TICKS(20);
+    while (1) {
+        brain_executor_tick();
+        vTaskDelay(tick_delay);
+    }
+}
+
+static bool parse_u8_token(const char *s, uint8_t *out) {
+    if (!s || !out) {
+        return false;
+    }
+    char *end = NULL;
+    long value = strtol(s, &end, 0); // accepts decimal and 0x-prefixed hex
+    if (end == s || *end != '\0' || value < 0 || value > 255) {
+        return false;
+    }
+    *out = (uint8_t)value;
+    return true;
+}
+
+static bool process_message_event(const char *message) {
+    if (!message || message[0] == '\0') {
+        return false;
+    }
+
+    if (strcasecmp(message, "START") == 0) {
+        esp_err_t err = brain_executor_start();
+        if (err != ESP_OK) {
+            ESP_LOGW(TAG, "START rejected: executor cannot start (err=%d)", (int)err);
+            return false;
+        }
+        ESP_LOGI(TAG, "Handled START: executor started");
+        return true;
+    }
+
+    if (strcasecmp(message, "STOP") == 0) {
+        brain_executor_stop();
+        ESP_LOGI(TAG, "Handled STOP: executor stop requested");
+        return true;
+    }
+
+    // Optional direct-control commands for quick testing from app:
+    //   SET_LED <addr> <color_id>
+    //   EXEC <addr>
+    //   RESET <addr>
+    //   BRIGHT <addr> <brightness_0_255>
+    char cmd[16] = {0};
+    char arg1[16] = {0};
+    char arg2[16] = {0};
+    int n = sscanf(message, "%15s %15s %15s", cmd, arg1, arg2);
+
+    if (n >= 2 && strcasecmp(cmd, "EXEC") == 0) {
+        uint8_t addr = 0;
+        if (!parse_u8_token(arg1, &addr)) {
+            return false;
+        }
+        return i2c_execute(addr) == ESP_OK;
+    }
+
+    if (n >= 2 && strcasecmp(cmd, "RESET") == 0) {
+        uint8_t addr = 0;
+        if (!parse_u8_token(arg1, &addr)) {
+            return false;
+        }
+        return i2c_reset(addr) == ESP_OK;
+    }
+
+    if (n >= 3 && strcasecmp(cmd, "SET_LED") == 0) {
+        uint8_t addr = 0;
+        uint8_t color_id = 0;
+        if (!parse_u8_token(arg1, &addr) || !parse_u8_token(arg2, &color_id)) {
+            return false;
+        }
+        return i2c_set_led_color_id(addr, color_id) == ESP_OK;
+    }
+
+    if (n >= 3 && strcasecmp(cmd, "BRIGHT") == 0) {
+        uint8_t addr = 0;
+        uint8_t brightness = 0;
+        if (!parse_u8_token(arg1, &addr) || !parse_u8_token(arg2, &brightness)) {
+            return false;
+        }
+        return i2c_matrix_set_brightness(addr, brightness) == ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "Unhandled message: %s", message);
+    return false;
+}
+
+static bool process_block_event(uint8_t block_addr,
+                                uint8_t event_id,
+                                const uint8_t *payload,
+                                size_t payload_len) {
+    if (event_id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT && payload && payload_len >= 1) {
+        uint8_t selection = payload[0];
+        ESP_LOGI(TAG, "Block 0x%02X selection submit: %u", block_addr, selection);
+        esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
+        esp_err_t exec_ret = i2c_execute(block_addr);
+        return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
+    }
+
+    // TODO: support additional block-originated events (e.g., button-press or
+    // sensor readings) by extending the shared event ID contract in
+    // i2c_protocol.h and translating them here into executor inputs like
+    // brain_executor_set_button_state(...) or future parameter setters.
+
+    ESP_LOGW(TAG, "Unhandled block event: addr=0x%02X id=0x%02X len=%u",
+             block_addr, event_id, (unsigned)payload_len);
+    return false;
+}
+
+static void brain_event_task(void *arg) {
+    (void)arg;
+    brain_event_t evt;
+    while (1) {
+        if (xQueueReceive(s_event_queue, &evt, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+        if (evt.src == EVT_SRC_MESSAGE) {
+            process_message_event(evt.data.message);
+        } else {
+            process_block_event(evt.data.block.block_addr,
+                                evt.data.block.event_id,
+                                evt.data.block.payload,
+                                evt.data.block.payload_len);
+        }
+    }
 }
 
 void brain_event_handler_init(void) {
@@ -202,6 +353,33 @@ void brain_event_handler_init(void) {
     s_executor_params.loop_count = 1;
     s_executor_params.delay_ms = 500;
     ESP_LOGI(TAG, "brain_event_handler_init");
+
+    if (s_event_queue) {
+        ESP_LOGI(TAG, "brain_event_handler already initialized");
+        return;
+    }
+
+    s_event_queue = xQueueCreate(12, sizeof(brain_event_t));
+    if (!s_event_queue) {
+        ESP_LOGE(TAG, "Failed to create brain event queue");
+        return;
+    }
+
+    // Keep Brain event orchestration on Core 0; GUI runs on Core 1.
+    BaseType_t ok_evt = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
+    if (ok_evt != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create brain event task");
+        return;
+    }
+
+    // Tick-based executor task: periodically advances the program counter.
+    BaseType_t ok_exec = xTaskCreatePinnedToCore(brain_executor_task, "brain_exec", 3072, NULL, 5, NULL, 0);
+    if (ok_exec != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create brain executor task");
+        return;
+    }
+
+    ESP_LOGI(TAG, "brain_event_handler initialized");
 }
 
 void brain_event_handler_reset_validation(void) {
@@ -229,6 +407,10 @@ bool brain_event_handler_can_start_execution(void) {
 }
 
 void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map) {
+    // TODO: extend executor_start to consult s_event_map and refuse to run
+    // structurally invalid programs (e.g., unmatched IF/END_IF, LOOP/END_LOOP,
+    // or sequences with inputs but no outputs) instead of only relying on the
+    // app-side validator.
     if (event_map == NULL) {
         memset(&s_event_map, 0, sizeof(s_event_map));
         return;
@@ -406,18 +588,35 @@ void brain_executor_tick(void) {
     }
 }
 
-void brain_event_handle_message(const char *message) {
-    (void)message;
-    // TODO: parse app/host messages and route to handlers
+bool brain_event_handle_message(const char *message) {
+    if (!s_event_queue || !message) {
+        return false;
+    }
+
+    brain_event_t evt = {0};
+    evt.src = EVT_SRC_MESSAGE;
+    strncpy(evt.data.message, message, sizeof(evt.data.message) - 1);
+    evt.data.message[sizeof(evt.data.message) - 1] = '\0';
+
+    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
 }
 
-void brain_event_handle_block_event(uint8_t block_addr,
+bool brain_event_handle_block_event(uint8_t block_addr,
                                     uint8_t event_id,
                                     const uint8_t *payload,
                                     size_t payload_len) {
-    (void)block_addr;
-    (void)event_id;
-    (void)payload;
-    (void)payload_len;
-    // TODO: react to block-side events
+    if (!s_event_queue || payload_len > 16) {
+        return false;
+    }
+
+    brain_event_t evt = {0};
+    evt.src = EVT_SRC_BLOCK;
+    evt.data.block.block_addr = block_addr;
+    evt.data.block.event_id = event_id;
+    evt.data.block.payload_len = (uint8_t)payload_len;
+    if (payload && payload_len > 0) {
+        memcpy(evt.data.block.payload, payload, payload_len);
+    }
+
+    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
 }

@@ -1,4 +1,4 @@
-// Transport layer for I2C communication.
+// Transport Layer for I²C Communication
 
 #include <stdio.h>
 #include <string.h>
@@ -13,7 +13,12 @@
 static const char *TAG = "I2C_MASTER";
 
 static SemaphoreHandle_t s_i2c_mutex = NULL;
-#define I2C_MUTEX_TIMEOUT_MS 150
+// Allow more time for other I2C users (event poll, config scan, etc.).
+#define I2C_MUTEX_TIMEOUT_MS 500
+
+// Scan window for development boards; must match device_registry.h
+#define DEVICE_REGISTRY_ADDR_MIN    0x08
+#define DEVICE_REGISTRY_ADDR_MAX    0x16
 
 static esp_err_t i2c_lock(void) {
     if (s_i2c_mutex == NULL) {
@@ -34,10 +39,10 @@ static void i2c_unlock(void) {
 }
 
 // ============================================================================
-// I2C MASTER INITIALIZATION
+// I²C MASTER INITIALIZATION
 // ============================================================================
 esp_err_t i2c_master_init(void) {
-    ESP_LOGI(TAG, "Init I2C Master: SDA=%d, SCL=%d", I2C_SDA_PIN, I2C_SCL_PIN);
+    ESP_LOGI(TAG, "Init I²C Master: SDA=%d, SCL=%d", I2C_SDA_PIN, I2C_SCL_PIN);
 
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
@@ -69,7 +74,7 @@ esp_err_t i2c_master_init(void) {
 }
 
 // ============================================================================
-// I2C PING
+// I²C PING
 // ============================================================================
 esp_err_t i2c_ping(uint8_t addr) {
     esp_err_t lock_ret = i2c_lock();
@@ -87,20 +92,21 @@ esp_err_t i2c_ping(uint8_t addr) {
     i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    /* Short timeout so missing device (removal) is detected quickly (~25 ms) */
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(25));
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
 }
 
 // ============================================================================
-// I2C SCAN
+// I²C SCAN
 // ============================================================================
 void i2c_safe_scan(void) {
-    ESP_LOGI(TAG, "=== SAFE I2C SCAN ===");
+    ESP_LOGI(TAG, "=== SAFE I²C SCAN ===");
     int found = 0;
 
-    for (uint8_t addr = 0x08; addr <= 0x0F; addr++) {
+    for (uint8_t addr = DEVICE_REGISTRY_ADDR_MIN; addr <= DEVICE_REGISTRY_ADDR_MAX; addr++) {
         if (i2c_ping(addr) == ESP_OK) {
             ESP_LOGI(TAG, "Detected device at 0x%02X", addr);
             found++;
@@ -111,7 +117,7 @@ void i2c_safe_scan(void) {
 }
 
 // ============================================================================
-// I2C REGISTER READ
+// I2C WHOAMI READ REGISTER
 // ============================================================================
 esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
     esp_err_t lock_ret = i2c_lock();
@@ -131,8 +137,10 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
         return ret;
     }
 
+    // Small delay between write and read
     vTaskDelay(pdMS_TO_TICKS(5));
 
+    // Read data from register
     ret = i2c_master_read_from_device(
         I2C_PORT_NUM,
         addr,
@@ -226,6 +234,106 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
 }
 
 // ============================================================================
+// SET LED BY COLOR ID (palette index)
+// ============================================================================
+esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t data[2] = {CMD_SET_LED, color_id};
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 2, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+    return ret;
+}
+
+// ============================================================================
+// SET LED (RGB)
+// ============================================================================
+esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t data[4] = {CMD_SET_LED, r, g, b};
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 4, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+
+    return ret;
+}
+
+// ============================================================================
+// GET DATA (event payload from child)
+// ============================================================================
+esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
+    if (out == NULL || len == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t cmd_byte = CMD_GET_DATA;
+
+    // Send CMD_GET_DATA
+    esp_err_t ret = i2c_master_write_to_device(
+        I2C_PORT_NUM,
+        addr,
+        &cmd_byte,
+        1,
+        pdMS_TO_TICKS(50)
+    );
+    if (ret != ESP_OK) {
+        i2c_unlock();
+        return ret;
+    }
+
+    // Small delay between write and read to let child prepare payload
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    // Read response payload
+    ret = i2c_master_read_from_device(
+        I2C_PORT_NUM,
+        addr,
+        out,
+        len,
+        pdMS_TO_TICKS(50)
+    );
+
+    i2c_unlock();
+    return ret;
+}
+
+// ============================================================================
 // GENERIC COMMAND (no payload)
 // ============================================================================
 static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd_byte) {
@@ -253,39 +361,15 @@ static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd_byte) {
 }
 
 // ============================================================================
-// SET LED COLOR ID (LED_FLASH block)
-// ============================================================================
-esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
-    esp_err_t lock_ret = i2c_lock();
-    if (lock_ret != ESP_OK) {
-        return lock_ret;
-    }
-
-    uint8_t data[2] = {CMD_SET_LED, color_id};
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
-    }
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 2, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    i2c_unlock();
-    return ret;
-}
-
-// ============================================================================
-// EXECUTE / RESET
+// EXECUTE (Trigger configured action)
 // ============================================================================
 esp_err_t i2c_execute(uint8_t address) {
     return i2c_send_cmd(address, CMD_EXECUTE);
 }
 
+// ============================================================================
+// RESET (optional helper)
+// ============================================================================
 esp_err_t i2c_reset(uint8_t address) {
     return i2c_send_cmd(address, CMD_RESET);
 }
@@ -303,14 +387,14 @@ esp_err_t i2c_oled_text(uint8_t address, const char *msg) {
         return lock_ret;
     }
 
-    size_t len = strlen(msg);
+    uint8_t len = strlen(msg);
     if (len > 30) {
         len = 30;
     }
 
     uint8_t data[32];
     data[0] = CMD_OLED_TEXT;
-    data[1] = (uint8_t)len;
+    data[1] = len;
     memcpy(&data[2], msg, len);
 
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();

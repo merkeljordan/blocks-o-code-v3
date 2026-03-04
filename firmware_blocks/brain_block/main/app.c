@@ -33,6 +33,7 @@ Enhancement:
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
+#include "freertos/semphr.h"
 
 #include "esp_system.h"
 #include "esp_event.h"
@@ -61,12 +62,112 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  3000  // Scan every 3 seconds
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
+static bool s_validation_requested_by_start = false;
+
+// Latest block config JSON produced by scan task, sent by TCP task.
+static EventGroupHandle_t s_block_config_event_group;
+#define BLOCK_CONFIG_CHANGED_BIT BIT0
+static SemaphoreHandle_t s_block_config_json_mutex;
+static char s_block_config_json[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+static size_t s_block_config_json_len = 0;
+static bool s_block_config_json_valid = false;
+
+static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *out_len) {
+    if (out == NULL || out_len == NULL || out_size == 0) {
+        return false;
+    }
+    if (s_block_config_json_mutex == NULL) {
+        return false;
+    }
+
+    if (xSemaphoreTake(s_block_config_json_mutex, pdMS_TO_TICKS(200)) != pdTRUE) {
+        return false;
+    }
+
+    bool ok = false;
+    if (s_block_config_json_valid && s_block_config_json_len > 0 && s_block_config_json_len < out_size) {
+        memcpy(out, s_block_config_json, s_block_config_json_len);
+        out[s_block_config_json_len] = '\0';
+        *out_len = s_block_config_json_len;
+        ok = true;
+    }
+
+    xSemaphoreGive(s_block_config_json_mutex);
+    return ok;
+}
+
+static void block_config_scan_task(void *pvParameters) {
+    (void)pvParameters;
+
+    // Adaptive interval: scan fast around changes, back off when stable.
+    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
+    const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    TickType_t delay_ticks = fast_delay;
+    int stable_scans = 0;
+
+    while (1) {
+        block_config_manager_scan();
+        bool config_changed = block_config_manager_has_changed();
+
+        if (config_changed) {
+            ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
+            brain_event_handler_reset_validation();
+            s_validation_requested_by_start = false;
+            // Rescan in ~10 ms so removal/add is seen by the app quickly.
+            delay_ticks = fast_delay;
+            stable_scans = 0;
+        } else {
+            // No change: gradually back off up to max_delay to reduce bus traffic.
+            if (delay_ticks < max_delay) {
+                stable_scans++;
+                if (stable_scans >= 4) { // every few stable scans, increase delay a bit
+                    delay_ticks += pdMS_TO_TICKS(500);
+                    if (delay_ticks > max_delay) {
+                        delay_ticks = max_delay;
+                    }
+                    stable_scans = 0;
+                }
+            }
+        }
+
+        // Update cached JSON if changed or if we don't have a valid cache yet.
+        if (config_changed || !s_block_config_json_valid) {
+            char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+            if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
+                size_t json_len = strlen(json_buffer);
+                // Ensure newline-terminated (desktop parser expects newline)
+                if (json_len < sizeof(json_buffer) - 1) {
+                    json_buffer[json_len] = '\n';
+                    json_buffer[json_len + 1] = '\0';
+                    json_len += 1;
+                }
+
+                if (s_block_config_json_mutex != NULL &&
+                    xSemaphoreTake(s_block_config_json_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+                    if (json_len < sizeof(s_block_config_json)) {
+                        memcpy(s_block_config_json, json_buffer, json_len);
+                        s_block_config_json[json_len] = '\0';
+                        s_block_config_json_len = json_len;
+                        s_block_config_json_valid = true;
+                    }
+                    xSemaphoreGive(s_block_config_json_mutex);
+                }
+
+                if (s_block_config_event_group != NULL) {
+                    xEventGroupSetBits(s_block_config_event_group, BLOCK_CONFIG_CHANGED_BIT);
+                }
+            }
+        }
+
+        vTaskDelay(delay_ticks);
+    }
+}
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
@@ -145,6 +246,7 @@ static void tcp_client_task(void *pvParameters)
     char rx_buffer[TCP_RX_BUF_SIZE];
     int sock = -1;
     struct sockaddr_in dest_addr;
+    char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
 
     while (1) {
         /* Wait for Wi‑Fi connection */
@@ -171,12 +273,15 @@ static void tcp_client_task(void *pvParameters)
             continue;
         }
 
-        /* Set connect/send/recv timeouts */
-        struct timeval timeout;
-        timeout.tv_sec = 5;
-        timeout.tv_usec = 0;
-        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        /* Short recv timeout so we wake often and push config updates quickly (~50 ms). */
+        struct timeval rcv_timeout;
+        rcv_timeout.tv_sec = 0;
+        rcv_timeout.tv_usec = 50000;  /* 50 ms */
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &rcv_timeout, sizeof(rcv_timeout));
+        struct timeval snd_timeout;
+        snd_timeout.tv_sec = 5;
+        snd_timeout.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &snd_timeout, sizeof(snd_timeout));
 
         /* Connect to server */
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -190,51 +295,48 @@ static void tcp_client_task(void *pvParameters)
 
         ESP_LOGI(TAG, "Successfully connected to server");
 
-        // Perform initial scan and send configuration
-        block_config_manager_scan();
-        char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
-        if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
-            size_t json_len = strlen(json_buffer);
-            if (json_len < sizeof(json_buffer) - 1) {
-                json_buffer[json_len] = '\n';
-                json_buffer[json_len + 1] = '\0';
+        // Brief settle delay before first send (helps when connection was flapping)
+        vTaskDelay(pdMS_TO_TICKS(200));
+
+        // Send most recent cached configuration immediately on connect.
+        size_t json_len = 0;
+        if (!copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len)) {
+            // Wait briefly for the scan task to populate initial JSON.
+            if (s_block_config_event_group != NULL) {
+                xEventGroupWaitBits(s_block_config_event_group,
+                                    BLOCK_CONFIG_CHANGED_BIT,
+                                    pdTRUE,   // clear on exit
+                                    pdFALSE,
+                                    pdMS_TO_TICKS(1500));
             }
-            int written = send(sock, json_buffer, strlen(json_buffer), 0);
+            (void)copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len);
+        }
+
+        if (json_len > 0) {
+            int written = send(sock, json_buffer, json_len, 0);
             if (written < 0) {
                 ESP_LOGE(TAG, "Error sending initial config: errno %d", errno);
             } else {
                 ESP_LOGI(TAG, "Sent initial block configuration (%d bytes)", written);
             }
+        } else {
+            ESP_LOGW(TAG, "No cached block configuration available yet");
         }
-
-        TickType_t last_scan_time = xTaskGetTickCount();
-        bool initial_sent = true;
 
         /* Main send/receive loop */
         while (1) {
-            // --- Periodic block configuration scan ---
-            TickType_t current_time = xTaskGetTickCount();
-            if ((current_time - last_scan_time) >= pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS)) {
-                if (brain_executor_scan_pause_active()) {
-                    // Keep cadence stable without hammering scans while executor is
-                    // polling child status/performing actions.
-                    last_scan_time = current_time;
-                    ESP_LOGD(TAG, "Skipping block scan while executor is active");
-                    goto recv_messages;
-                }
-
-                block_config_manager_scan();
-                last_scan_time = current_time;
-
-                // Send configuration if it changed or if this is the first scan after connection
-                if (block_config_manager_has_changed() || !initial_sent) {
-                    if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
-                        size_t json_len = strlen(json_buffer);
-                        if (json_len < sizeof(json_buffer) - 1) {
-                            json_buffer[json_len] = '\n';
-                            json_buffer[json_len + 1] = '\0';
-                        }
-                        int written = send(sock, json_buffer, strlen(json_buffer), 0);
+            // Send updated config when scan task reports a change.
+            if (s_block_config_event_group != NULL) {
+                EventBits_t cfg_bits = xEventGroupWaitBits(s_block_config_event_group,
+                                                          BLOCK_CONFIG_CHANGED_BIT,
+                                                          pdTRUE,    // clear
+                                                          pdFALSE,
+                                                          0);
+                if (cfg_bits & BLOCK_CONFIG_CHANGED_BIT) {
+                    size_t updated_len = 0;
+                    if (copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &updated_len) &&
+                        updated_len > 0) {
+                        int written = send(sock, json_buffer, updated_len, 0);
                         if (written < 0) {
                             ESP_LOGE(TAG, "Error sending block config: errno %d", errno);
                             break; // will reconnect
@@ -242,7 +344,6 @@ static void tcp_client_task(void *pvParameters)
                             ESP_LOGI(TAG, "Sent block configuration (%d bytes)", written);
                         }
                     }
-                    initial_sent = true;
                 }
             }
 
@@ -277,36 +378,32 @@ recv_messages:
                             vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
                             continue;
                         } else if (strcmp(type, "config_validation") == 0) {
+                            if (!s_validation_requested_by_start) {
+                                ESP_LOGI(TAG, "Ignoring unsolicited config_validation");
+                                cJSON_Delete(json);
+                                continue;
+                            }
+
                             cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");
                             cJSON *error_count_item = cJSON_GetObjectItem(json, "error_count");
                             cJSON *timestamp_item = cJSON_GetObjectItem(json, "timestamp");
 
-                            if (is_valid_item != NULL && cJSON_IsBool(is_valid_item)) {
-                                bool is_valid = cJSON_IsTrue(is_valid_item);
-                                uint32_t error_count = 0;
-                                uint64_t timestamp_ms = (uint64_t)(esp_timer_get_time() / 1000);
+                            bool is_valid = cJSON_IsBool(is_valid_item) && cJSON_IsTrue(is_valid_item);
+                            uint32_t error_count = cJSON_IsNumber(error_count_item)
+                                                   ? (uint32_t)cJSON_GetNumberValue(error_count_item)
+                                                   : 0;
+                            uint64_t timestamp_ms = cJSON_IsNumber(timestamp_item)
+                                                    ? (uint64_t)cJSON_GetNumberValue(timestamp_item)
+                                                    : (uint64_t)(esp_timer_get_time() / 1000);
 
-                                if (error_count_item != NULL && cJSON_IsNumber(error_count_item)) {
-                                    error_count = (uint32_t)cJSON_GetNumberValue(error_count_item);
-                                }
-                                if (timestamp_item != NULL && cJSON_IsNumber(timestamp_item)) {
-                                    double ts = cJSON_GetNumberValue(timestamp_item);
-                                    if (ts >= 0.0) {
-                                        timestamp_ms = (uint64_t)ts;
-                                    }
-                                }
-
-                                brain_event_handler_set_config_validation(is_valid, error_count, timestamp_ms);
-                                ESP_LOGI(TAG, "Applied config_validation from app: valid=%s errors=%lu ts=%llu",
-                                         is_valid ? "true" : "false",
-                                         (unsigned long)error_count,
-                                         (unsigned long long)timestamp_ms);
-                            } else {
-                                ESP_LOGW(TAG, "config_validation missing/invalid 'is_valid'");
-                            }
+                            brain_event_handler_set_config_validation(is_valid, error_count, timestamp_ms);
+                            s_validation_requested_by_start = false;
+                            ESP_LOGI(TAG, "Applied config_validation: valid=%s errors=%lu ts=%llu",
+                                     is_valid ? "true" : "false",
+                                     (unsigned long)error_count,
+                                     (unsigned long long)timestamp_ms);
 
                             cJSON_Delete(json);
-                            vTaskDelay(pdMS_TO_TICKS(20));
                             continue;
                         }
                     }
@@ -320,27 +417,51 @@ recv_messages:
                     ESP_LOGI(TAG, "Command received: '%s'", line);
 
                     if (strcasecmp(line, "START") == 0) {
-                        ESP_LOGI(TAG, "Handling START: instructing Child 1");
-                        // Send command to demo task via queue
-                        demo_cmd_t cmd = CMD_START;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
+                        s_validation_requested_by_start = true;
+                        const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+                        bool can_start = brain_event_handler_can_start_execution();
 
-
-                        // Acknowledge to server/app
-                        const char *ack = "ACK:START\n";
-                        send(sock, ack, strlen(ack), 0);
+                        if (!can_start) {
+                            if (validation != NULL && !validation->has_received_validation) {
+                                const char *nak = "NAK:NEED_VALIDATION\n";
+                                ESP_LOGW(TAG, "START blocked: waiting for config_validation");
+                                send(sock, nak, strlen(nak), 0);
+                            } else {
+                                const char *nak = "NAK:INVALID_CONFIG\n";
+                                ESP_LOGW(TAG, "START blocked: config validation is invalid");
+                                send(sock, nak, strlen(nak), 0);
+                            }
+                        } else {
+                            bool handled = brain_event_handle_message(line);
+                            if (handled) {
+                                const char *ack = "ACK:START\n";
+                                send(sock, ack, strlen(ack), 0);
+                            } else {
+                                ESP_LOGW(TAG, "START rejected: event queue not ready/full");
+                                const char *nak = "NAK:INVALID_STATE\n";
+                                send(sock, nak, strlen(nak), 0);
+                            }
+                        }
                     } else if (strcasecmp(line, "STOP") == 0) {
-                        ESP_LOGI(TAG, "Handling STOP: clearing Child 1");
-                        demo_cmd_t cmd = CMD_STOP;
-                        xQueueSend(demo_cmd_queue, &cmd, 0);
-
-
-                        const char *ack = "ACK:STOP\n";
-                        send(sock, ack, strlen(ack), 0);
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
+                            const char *ack = "ACK:STOP\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            ESP_LOGW(TAG, "STOP rejected: event queue not ready/full");
+                            const char *nak = "NAK:INVALID_STATE\n";
+                            send(sock, nak, strlen(nak), 0);
+                        }
                     } else {
-                        ESP_LOGW(TAG, "Unknown command: '%s'", line);
-                        const char *nak = "NAK:UNKNOWN\n";
-                        send(sock, nak, strlen(nak), 0);
+                        bool handled = brain_event_handle_message(line);
+                        if (handled) {
+                            const char *ack = "ACK:EVENT\n";
+                            send(sock, ack, strlen(ack), 0);
+                        } else {
+                            ESP_LOGW(TAG, "Unknown or rejected command: '%s'", line);
+                            const char *nak = "NAK:UNKNOWN\n";
+                            send(sock, nak, strlen(nak), 0);
+                        }
                     }
 
                     line = strtok_r(NULL, "\r\n", &saveptr);
@@ -358,8 +479,8 @@ recv_messages:
                 }
             }
 
-            // Small delay to prevent tight loop
-            vTaskDelay(pdMS_TO_TICKS(100));
+            /* Short delay when idle; recv timeout already throttles the loop */
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
 
         /* Cleanup socket on disconnect */
@@ -387,9 +508,19 @@ void start_network_client(void)
 
     // Initialize block configuration manager
     block_config_manager_init();
+    brain_event_handler_init();
+
+    // Init shared config cache + start scan task (separate from TCP).
+    if (s_block_config_event_group == NULL) {
+        s_block_config_event_group = xEventGroupCreate();
+    }
+    if (s_block_config_json_mutex == NULL) {
+        s_block_config_json_mutex = xSemaphoreCreateMutex();
+    }
+    xTaskCreate(block_config_scan_task, "block_cfg_scan", 4096, NULL, 4, NULL);
 
     wifi_init_sta();
 
-    /* Start TCP client task */
-    xTaskCreate(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL);
+    /* Start TCP client task on Core 0 to keep Core 1 available for GUI. */
+    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
 }

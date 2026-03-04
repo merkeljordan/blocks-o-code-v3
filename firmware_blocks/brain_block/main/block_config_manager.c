@@ -19,104 +19,13 @@ static const char *TAG = "BLOCK_CONFIG";
 // Global configuration state
 static block_config_state_t s_config_state;
 static block_config_state_t s_previous_state;
-static block_event_map_t s_event_map;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
 
-static bool is_input_block_type(block_type_t type) {
-    return type == BLOCK_TYPE_BUTTON;
-}
-
-static bool is_output_or_delay_block_type(block_type_t type) {
-    return type == BLOCK_TYPE_NOTE ||
-           type == BLOCK_TYPE_MUSIC_SEQ ||
-           type == BLOCK_TYPE_LED_FLASH ||
-           type == BLOCK_TYPE_DISCO ||
-           type == BLOCK_TYPE_DELAY;
-}
-
-static void block_config_manager_build_event_map(void) {
-    memset(&s_event_map, 0, sizeof(s_event_map));
-    s_event_map.generated_at_ms = s_config_state.last_scan_timestamp;
-
-    // First pass: count control-flow boundaries observed in current scan.
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        block_type_t type = s_config_state.blocks[i].block_type;
-        if (type == BLOCK_TYPE_IF) {
-            s_event_map.if_start_count++;
-        } else if (type == BLOCK_TYPE_END_IF) {
-            s_event_map.if_end_count++;
-        } else if (type == BLOCK_TYPE_LOOP) {
-            s_event_map.loop_start_count++;
-        } else if (type == BLOCK_TYPE_END_LOOP) {
-            s_event_map.loop_end_count++;
-        }
-    }
-
-    // Second pass: derive sequence metadata for each IF/LOOP start.
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        block_type_t type = s_config_state.blocks[i].block_type;
-        if (type != BLOCK_TYPE_IF && type != BLOCK_TYPE_LOOP) {
-            continue;
-        }
-
-        if (s_event_map.sequence_count >= BLOCK_CONFIG_MAX_BLOCKS) {
-            ESP_LOGW(TAG, "Event map sequence capacity reached");
-            break;
-        }
-
-        block_sequence_metadata_t *seq = &s_event_map.sequences[s_event_map.sequence_count++];
-        memset(seq, 0, sizeof(*seq));
-        seq->sequence_type = (type == BLOCK_TYPE_IF) ? BLOCK_SEQUENCE_IF : BLOCK_SEQUENCE_LOOP;
-        seq->start_index = (uint8_t)i;
-        seq->end_index = (uint8_t)i;
-        seq->has_end_boundary = false;
-
-        for (int j = i + 1; j < s_config_state.block_count; j++) {
-            block_type_t inner_type = s_config_state.blocks[j].block_type;
-
-            if (is_input_block_type(inner_type)) {
-                seq->has_input = true;
-                seq->input_count++;
-            }
-
-            if (is_output_or_delay_block_type(inner_type)) {
-                seq->has_output_or_delay = true;
-                seq->output_or_delay_count++;
-            }
-
-            bool reached_end_if = (seq->sequence_type == BLOCK_SEQUENCE_IF) &&
-                                  (inner_type == BLOCK_TYPE_END_IF);
-            bool reached_end_loop = (seq->sequence_type == BLOCK_SEQUENCE_LOOP) &&
-                                    (inner_type == BLOCK_TYPE_END_LOOP);
-            if (reached_end_if || reached_end_loop) {
-                seq->end_index = (uint8_t)j;
-                seq->has_end_boundary = true;
-                break;
-            }
-        }
-    }
-
-    s_event_map.is_empty = (s_event_map.if_start_count == 0 &&
-                            s_event_map.if_end_count == 0 &&
-                            s_event_map.loop_start_count == 0 &&
-                            s_event_map.loop_end_count == 0 &&
-                            s_event_map.sequence_count == 0);
-
-    ESP_LOGD(TAG,
-             "Event map: if(start=%u,end=%u) loop(start=%u,end=%u) seq=%u",
-             s_event_map.if_start_count,
-             s_event_map.if_end_count,
-             s_event_map.loop_start_count,
-             s_event_map.loop_end_count,
-             s_event_map.sequence_count);
-}
-
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
-    memset(&s_event_map, 0, sizeof(s_event_map));
     s_previous_state_valid = false;
     s_config_state.has_changed = true; // Force initial send
     ESP_LOGI(TAG, "Block configuration manager initialized");
@@ -245,20 +154,29 @@ esp_err_t block_config_manager_scan(void) {
         config_entry->fw_minor = 0;
         config_entry->caps = 0;
 
-        // Reuse the WHOAMI result from device_registry_scan() so each scan cycle
-        // performs a single WHOAMI read. This avoids "registry says MUSIC_SEQ but
-        // config manager says unknown" conflicts caused by a second WHOAMI read.
+        // Use authoritative scan result for type/address from registry, but
+        // fall back to last-known good type if WHOAMI was unstable.
+        block_type_t effective_type = entry->type;
+        if (entry->present &&
+            entry->type == BLOCK_TYPE_UNKNOWN &&
+            s_previous_state_valid) {
+            for (int j = 0; j < s_previous_state.block_count; j++) {
+                const block_config_entry_t *prev = &s_previous_state.blocks[j];
+                if (prev->i2c_address == entry->address &&
+                    prev->block_type != BLOCK_TYPE_UNKNOWN) {
+                    ESP_LOGW(TAG,
+                             "WHOAMI unstable at 0x%02X, keeping previous type 0x%02X",
+                             entry->address, prev->block_type);
+                    effective_type = prev->block_type;
+                    break;
+                }
+            }
+        }
+
+        config_entry->block_type = effective_type;
         config_entry->present = entry->present;
-        config_entry->block_type = entry->type;
 
-        // Optional metadata reads (FW/CAPS) are still fetched here and do not
-        // affect block presence/type classification.
-        read_optional_block_metadata(entry->address, config_entry);
-
-        if (!config_entry->present) {
-            s_config_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X failed registry presence check", entry->address);
-        } else if (config_entry->block_type == BLOCK_TYPE_UNKNOWN) {
+        if (entry->present && entry->type == BLOCK_TYPE_UNKNOWN) {
             s_config_state.error_count++;
             ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
         }
@@ -292,7 +210,6 @@ esp_err_t block_config_manager_scan(void) {
 
     // Update timestamp
     s_config_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
-    block_config_manager_build_event_map();
 
     ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
              s_config_state.block_count, s_config_state.error_count,
@@ -311,10 +228,6 @@ uint8_t block_config_manager_get_error_count(void) {
 
 const block_config_state_t* block_config_manager_get_state(void) {
     return &s_config_state;
-}
-
-const block_event_map_t* block_config_manager_get_event_map(void) {
-    return &s_event_map;
 }
 
 static void add_capabilities_array(cJSON *whoami_obj, uint8_t caps) {
@@ -483,5 +396,13 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     ESP_LOGD(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
 
+    return ESP_OK;
+}
+
+esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
+    if (out_state == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_state, &s_config_state, sizeof(s_config_state));
     return ESP_OK;
 }

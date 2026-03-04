@@ -20,6 +20,7 @@
 #include "esp_lcd_touch_xpt2046.h"
 
 #include "tft_ui.h"
+#include "command_handler.h"
 
 #define TAG "LED_FLASH_UI_V9"
 
@@ -242,9 +243,9 @@ static void numpad_btn_event_cb(lv_event_t *e)
         case 4: message = "Selected: Orange Pop!"; break;
         case 5: message = "Selected: Purple Power!"; break;
         case 6: message = "Selected: Cyan Splash!"; break;
-        case 7: message = "Selected: Sunshine Flash!"; break;
-        case 8: message = "Selected: Sky Spark!"; break;
-        case 9: message = "Selected: Star Shine!"; break;
+        case 7: message = "Selected: Chase Flash Random!"; break;
+        case 8: message = "Selected: Chase Rainbow White!"; break;
+        case 9: message = "Selected: Comet!"; break;
         default: break;
     }
 
@@ -252,7 +253,12 @@ static void numpad_btn_event_cb(lv_event_t *e)
         lv_label_set_text_fmt(s_status_label, "%s (%u)\nTap SUBMIT to run.", message, (unsigned)digit);
     }
 
-    preview_digit_selection(digit);
+    // Preview is asynchronous; queue full means worker is still busy.
+    if (!command_handler_enqueue_preview(digit)) {
+        if (s_status_label) {
+            lv_label_set_text(s_status_label, "Preview busy. Tap again.");
+        }
+    }
 }
 
 static void submit_btn_event_cb(lv_event_t *e)

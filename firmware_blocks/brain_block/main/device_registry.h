@@ -12,9 +12,9 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 
-// Address range for child blocks
+// Address range for child blocks (inclusive): 0x08–0x16 (15 addresses)
 #define DEVICE_REGISTRY_ADDR_MIN    0x08
-#define DEVICE_REGISTRY_ADDR_MAX    0x15
+#define DEVICE_REGISTRY_ADDR_MAX    0x16
 #define DEVICE_REGISTRY_MAX_DEVICES (DEVICE_REGISTRY_ADDR_MAX - DEVICE_REGISTRY_ADDR_MIN + 1)
 
 // Device entry in the registry
@@ -46,6 +46,13 @@ esp_err_t device_registry_scan(void);
  * @return Pointer to device registry
  */
 const device_registry_t* device_registry_get(void);
+
+/**
+ * @brief Copy the current registry atomically into caller-provided storage
+ * @param out_registry Destination buffer
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_registry is NULL
+ */
+esp_err_t device_registry_get_snapshot(device_registry_t *out_registry);
 
 /**
  * @brief Print the registry to the log

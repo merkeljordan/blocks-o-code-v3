@@ -80,9 +80,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
-  bool _hasLastValidationResult = false;
-  bool _lastConfigIsValid = false;
-  int _lastConfigErrorCount = 0;
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -257,7 +254,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     
     // Navigate to block configuration screen when client connects
     _navigateToScreen(ScreenType.blockConfig);
-    _resendLastConfigValidation();
     
     // Set up message listener with JSON parsing
     String buffer = '';
@@ -299,6 +295,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _processMessage(String message) {
+    if (message.contains('NAK:NEED_VALIDATION') ||
+        message.contains('NAK:INVALID_CONFIG')) {
+      _handleValidationRequestFromBrain(message);
+      return;
+    }
+
     try {
       // Try to parse as JSON
       final json = jsonDecode(message) as Map<String, dynamic>;
@@ -319,12 +321,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           // Validate configuration
           final violations = _configValidator.validate(config);
           final errorCount = violations.where((v) => v.severity == Severity.error).length;
-          final isValid = errorCount == 0;
-          _hasLastValidationResult = true;
-          _lastConfigIsValid = isValid;
-          _lastConfigErrorCount = errorCount;
-          _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
-          
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
@@ -384,7 +380,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       return;
     }
     try {
-      client.write(msg + '\n');
+      client.write('$msg\n');
       setState(() {
         connectionStatus = 'Connected to ESP32 and sent: $msg';
       });
@@ -420,14 +416,28 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _resendLastConfigValidation() {
-    if (!_hasLastValidationResult) {
+  void _handleValidationRequestFromBrain(String requestMessage) {
+    final config = _currentConfiguration;
+    if (config == null) {
+      setState(() {
+        connectionStatus = 'Brain requested validation, but no config is loaded yet';
+      });
       return;
     }
-    _sendConfigValidationEvent(
-      isValid: _lastConfigIsValid,
-      errorCount: _lastConfigErrorCount,
-    );
+
+    final violations = _configValidator.validate(config);
+    final errorCount =
+        violations.where((v) => v.severity == Severity.error).length;
+    final isValid = errorCount == 0;
+
+    _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
+
+    setState(() {
+      _configViolations = violations;
+      connectionStatus =
+          'Validation sent on brain request (${isValid ? "valid" : "invalid"}, errors: $errorCount)';
+      _lastHeartbeatTime = DateTime.now();
+    });
   }
 
   // Heartbeat mechanism
@@ -456,7 +466,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         'type': 'heartbeat',
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
-      _clientSocket!.write(heartbeat + '\n');
+      _clientSocket!.write('$heartbeat\n');
     } catch (e) {
       // Connection lost
       setState(() {
@@ -773,7 +783,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Widget _buildMenu(ColorScheme colorScheme, ThemeData theme) {
     return Container(
-      key: ValueKey('menu_${isConnected}'),
+      key: ValueKey('menu_$isConnected'),
       width: 280,
       margin: const EdgeInsets.only(top: 80, right: 16),
       decoration: BoxDecoration(
