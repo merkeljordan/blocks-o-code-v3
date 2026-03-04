@@ -48,7 +48,13 @@ static void block_event_poll_task(void *arg) {
 
             if (i2c_get_data(entry->address, payload, sizeof(payload)) == ESP_OK) {
                 // payload[0] = event_id, payload[1] = event value (selection digit)
-                brain_event_handle_block_event(entry->address, payload[0], &payload[1], 1);
+                bool queued = brain_event_handle_block_event(entry->address, payload[0], &payload[1], 1);
+                if (!queued) {
+                    ESP_LOGW(TAG, "Failed to enqueue block event from 0x%02X (id=0x%02X, val=%u)",
+                             entry->address, payload[0], payload[1]);
+                }
+            } else {
+                ESP_LOGW(TAG, "CMD_GET_DATA failed for 0x%02X while STATUS_DATA_READY set", entry->address);
             }
         }
 
@@ -77,7 +83,9 @@ void app_main(void) {
     tft_ui_start();   // starts LVGL + GUI task (returns after creating tasks)
     ESP_LOGI(TAG, "tft_ui_start() returned");
 
-    
+    // Forward child block-originated events (e.g., LED flash submit) to brain_event_handler.
+    xTaskCreatePinnedToCore(block_event_poll_task, "block_evt", 4096, NULL, 5, NULL, 0);
+
     // Optional debug-only registry logger task.
 #if ENABLE_DEBUG_REGISTRY_SCAN_TASK
     xTaskCreatePinnedToCore(registry_scan_task, "reg_scan", 4096, NULL, 4, NULL, 0);
