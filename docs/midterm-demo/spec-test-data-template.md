@@ -10,7 +10,7 @@ Use this template to record 10 trials per specification, then compute summary st
 
 | Run | Latency (ms) | Notes |
 |-----|--------------|--------|
-| 1   |       9ms       |       |
+| 1   |              |       |
 | 2   |              |       |
 | 3   |              | *Show live in video* |
 | 4   |              |       |
