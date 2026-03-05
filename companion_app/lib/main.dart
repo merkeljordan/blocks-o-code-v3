@@ -10,6 +10,7 @@ import 'models/block_configuration.dart';
 import 'models/configuration_rules.dart';
 import 'services/block_config_parser.dart';
 import 'services/configuration_validator.dart';
+import 'services/config_latency_metrics.dart';
 import 'models/block_type.dart';
 import 'widgets/block_3d_visualizer.dart';
 
@@ -80,6 +81,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
+<<<<<<< HEAD
+=======
+  final ConfigLatencyCalculator _configLatencyCalculator =
+      ConfigLatencyCalculator();
+  ConfigLatencyMetrics? _configLatencyMetrics;
+  bool _hasLastValidationResult = false;
+  bool _lastConfigIsValid = false;
+  int _lastConfigErrorCount = 0;
+>>>>>>> d830ea61 (test for spec2 files)
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -187,6 +197,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         _currentConfiguration = null;
         _configViolations = [];
         connectionStatus = 'Server stopped';
+        _configLatencyMetrics = null;
       });
     } catch (e) {
       setState(() {
@@ -319,18 +330,55 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       
       // Check if it's a block configuration message
       if (json.containsKey('type') && json['type'] == 'block_config') {
+        final receiveTsMs = DateTime.now().millisecondsSinceEpoch;
         final config = _configParser.parseConfig(message);
         if (config != null) {
           // Validate configuration
           final violations = _configValidator.validate(config);
           final errorCount = violations.where((v) => v.severity == Severity.error).length;
+<<<<<<< HEAD
+=======
+          final isValid = errorCount == 0;
+          _hasLastValidationResult = true;
+          _lastConfigIsValid = isValid;
+          _lastConfigErrorCount = errorCount;
+          final brainDetectToSendMs =
+              _configLatencyCalculator.brainDetectToSend(config);
+          _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
+          
+>>>>>>> d830ea61 (test for spec2 files)
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
+            _configLatencyMetrics = ConfigLatencyMetrics(
+              brainDetectToSendMs: brainDetectToSendMs,
+            );
             connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
+<<<<<<< HEAD
           _publishValidationForCurrentConfig(trigger: 'block_config_update');
+=======
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final renderTsMs = DateTime.now().millisecondsSinceEpoch;
+            final appReceiveToRenderMs = renderTsMs - receiveTsMs;
+            final metrics = _configLatencyMetrics;
+            final estimatedDetectToRenderMs =
+                _configLatencyCalculator.estimatedDetectToRender(
+              brainDetectToSendMs: metrics?.brainDetectToSendMs,
+              appReceiveToRenderMs: appReceiveToRenderMs,
+            );
+            setState(() {
+              _configLatencyMetrics = (metrics ?? const ConfigLatencyMetrics())
+                  .copyWith(
+                appReceiveToRenderMs: appReceiveToRenderMs,
+                estimatedDetectToRenderMs: estimatedDetectToRenderMs,
+              );
+            });
+          });
+>>>>>>> d830ea61 (test for spec2 files)
         } else {
           setState(() {
             connectionStatus = 'Failed to parse block configuration';
@@ -750,6 +798,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           receivedTelemetry: _receivedTelemetry,
           currentConfiguration: _currentConfiguration,
           configViolations: _configViolations,
+          configLatencyMetrics: _configLatencyMetrics,
           onLoadFakeConfig: (path) => _loadFakeConfiguration(path),
         );
         break;
@@ -2182,6 +2231,7 @@ class BlockConfigScreen extends StatelessWidget {
   final List<BlockTelemetry> receivedTelemetry;
   final BlockConfiguration? currentConfiguration;
   final List<RuleViolation> configViolations;
+  final ConfigLatencyMetrics? configLatencyMetrics;
   final Function(String)? onLoadFakeConfig;
 
   const BlockConfigScreen({
@@ -2198,6 +2248,7 @@ class BlockConfigScreen extends StatelessWidget {
     this.receivedTelemetry = const [],
     this.currentConfiguration,
     this.configViolations = const [],
+    this.configLatencyMetrics,
     this.onLoadFakeConfig,
   });
 
@@ -2575,6 +2626,10 @@ class BlockConfigScreen extends StatelessWidget {
                               );
                             },
                           ),
+                          if (configLatencyMetrics != null) ...[
+                            const SizedBox(height: 12),
+                            _buildLatencyMetrics(theme, colorScheme),
+                          ],
                         ],
                       ),
                     ),
@@ -2584,6 +2639,59 @@ class BlockConfigScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLatencyMetrics(ThemeData theme, ColorScheme colorScheme) {
+    final metrics = configLatencyMetrics!;
+    final brainSegment = metrics.brainDetectToSendMs;
+    final appSegment = metrics.appReceiveToRenderMs;
+    final estimated = metrics.estimatedDetectToRenderMs;
+
+    String valueOrPending(int? ms) => ms == null ? 'pending...' : '${ms} ms';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.primary.withOpacity(0.4),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Config Latency',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Brain detect -> send: ${valueOrPending(brainSegment)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          Text(
+            'App receive -> render: ${valueOrPending(appSegment)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          Text(
+            'Estimated detect -> render: ${valueOrPending(estimated)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ],
       ),
     );
   }
