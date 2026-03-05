@@ -24,95 +24,6 @@ static block_event_map_t s_event_map;
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
 
-static bool is_input_block_type(block_type_t type) {
-    return type == BLOCK_TYPE_BUTTON;
-}
-
-static bool is_output_or_delay_block_type(block_type_t type) {
-    return type == BLOCK_TYPE_NOTE ||
-           type == BLOCK_TYPE_MUSIC_SEQ ||
-           type == BLOCK_TYPE_LED_FLASH ||
-           type == BLOCK_TYPE_DISCO ||
-           type == BLOCK_TYPE_DELAY;
-}
-
-static void block_config_manager_build_event_map(void) {
-    memset(&s_event_map, 0, sizeof(s_event_map));
-    s_event_map.generated_at_ms = s_config_state.last_scan_timestamp;
-
-    // First pass: count control-flow boundaries observed in current scan.
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        block_type_t type = s_config_state.blocks[i].block_type;
-        if (type == BLOCK_TYPE_IF) {
-            s_event_map.if_start_count++;
-        } else if (type == BLOCK_TYPE_END_IF) {
-            s_event_map.if_end_count++;
-        } else if (type == BLOCK_TYPE_LOOP) {
-            s_event_map.loop_start_count++;
-        } else if (type == BLOCK_TYPE_END_LOOP) {
-            s_event_map.loop_end_count++;
-        }
-    }
-
-    // Second pass: derive sequence metadata for each IF/LOOP start.
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        block_type_t type = s_config_state.blocks[i].block_type;
-        if (type != BLOCK_TYPE_IF && type != BLOCK_TYPE_LOOP) {
-            continue;
-        }
-
-        if (s_event_map.sequence_count >= BLOCK_CONFIG_MAX_BLOCKS) {
-            ESP_LOGW(TAG, "Event map sequence capacity reached");
-            break;
-        }
-
-        block_sequence_metadata_t *seq = &s_event_map.sequences[s_event_map.sequence_count++];
-        memset(seq, 0, sizeof(*seq));
-        seq->sequence_type = (type == BLOCK_TYPE_IF) ? BLOCK_SEQUENCE_IF : BLOCK_SEQUENCE_LOOP;
-        seq->start_index = (uint8_t)i;
-        seq->end_index = (uint8_t)i;
-        seq->has_end_boundary = false;
-
-        for (int j = i + 1; j < s_config_state.block_count; j++) {
-            block_type_t inner_type = s_config_state.blocks[j].block_type;
-
-            if (is_input_block_type(inner_type)) {
-                seq->has_input = true;
-                seq->input_count++;
-            }
-
-            if (is_output_or_delay_block_type(inner_type)) {
-                seq->has_output_or_delay = true;
-                seq->output_or_delay_count++;
-            }
-
-            bool reached_end_if = (seq->sequence_type == BLOCK_SEQUENCE_IF) &&
-                                  (inner_type == BLOCK_TYPE_END_IF);
-            bool reached_end_loop = (seq->sequence_type == BLOCK_SEQUENCE_LOOP) &&
-                                    (inner_type == BLOCK_TYPE_END_LOOP);
-            if (reached_end_if || reached_end_loop) {
-                seq->end_index = (uint8_t)j;
-                seq->has_end_boundary = true;
-                break;
-            }
-        }
-    }
-
-    s_event_map.is_empty = (s_event_map.if_start_count == 0 &&
-                            s_event_map.if_end_count == 0 &&
-                            s_event_map.loop_start_count == 0 &&
-                            s_event_map.loop_end_count == 0 &&
-                            s_event_map.sequence_count == 0);
-
-    ESP_LOGI(TAG,
-             "Event map: if(start=%u,end=%u) loop(start=%u,end=%u) seq=%u",
-             s_event_map.if_start_count,
-             s_event_map.if_end_count,
-             s_event_map.loop_start_count,
-             s_event_map.loop_end_count,
-             s_event_map.sequence_count);
-}
-
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
@@ -140,21 +51,12 @@ const char* block_type_to_json_string(block_type_t type) {
     }
 }
 
-static void read_whoami_data(uint8_t address, block_config_entry_t *entry) {
-    uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-    esp_err_t ret;
-
-    // Read REG_WHOAMI (required)
-    ret = i2c_read_reg(address, REG_WHOAMI, &whoami, 1);
-    if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "Failed to read WHOAMI from 0x%02X: %s", address, esp_err_to_name(ret));
-        entry->block_type = BLOCK_TYPE_UNKNOWN;
-        entry->present = false;
+static void read_optional_block_metadata(uint8_t address, block_config_entry_t *entry) {
+    if (entry == NULL || !entry->present || entry->block_type == BLOCK_TYPE_UNKNOWN) {
         return;
     }
 
-    entry->block_type = (block_type_t)whoami;
-    entry->present = true;
+    esp_err_t ret;
 
     // Try to read firmware version (optional)
     uint8_t fw_major = 0;
@@ -218,6 +120,111 @@ static bool compare_configurations(const block_config_state_t *prev, const block
     return false;
 }
 
+static bool is_input_block_type(block_type_t type) {
+    return (type == BLOCK_TYPE_BUTTON);
+}
+
+static bool is_output_or_delay_block_type(block_type_t type) {
+    return (type == BLOCK_TYPE_LED_FLASH ||
+            type == BLOCK_TYPE_NOTE ||
+            type == BLOCK_TYPE_MUSIC_SEQ ||
+            type == BLOCK_TYPE_DISCO ||
+            type == BLOCK_TYPE_DELAY);
+}
+
+static void recompute_event_map_from_config(void) {
+    memset(&s_event_map, 0, sizeof(s_event_map));
+    s_event_map.generated_at_ms = s_config_state.last_scan_timestamp;
+    s_event_map.is_empty = (s_config_state.block_count == 0);
+
+    int open_if_stack[BLOCK_CONFIG_MAX_BLOCKS];
+    int open_loop_stack[BLOCK_CONFIG_MAX_BLOCKS];
+    int if_top = -1;
+    int loop_top = -1;
+
+    for (int i = 0; i < s_config_state.block_count && i < BLOCK_CONFIG_MAX_BLOCKS; i++) {
+        block_type_t type = s_config_state.blocks[i].block_type;
+
+        if (type == BLOCK_TYPE_IF) {
+            s_event_map.if_start_count++;
+            if (s_event_map.sequence_count < BLOCK_CONFIG_MAX_BLOCKS) {
+                int seq_idx = s_event_map.sequence_count++;
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                memset(seq, 0, sizeof(*seq));
+                seq->sequence_type = BLOCK_SEQUENCE_IF;
+                seq->start_index = (uint8_t)i;
+                seq->end_index = (uint8_t)i;
+                if (if_top < (BLOCK_CONFIG_MAX_BLOCKS - 1)) {
+                    open_if_stack[++if_top] = seq_idx;
+                }
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_LOOP) {
+            s_event_map.loop_start_count++;
+            if (s_event_map.sequence_count < BLOCK_CONFIG_MAX_BLOCKS) {
+                int seq_idx = s_event_map.sequence_count++;
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                memset(seq, 0, sizeof(*seq));
+                seq->sequence_type = BLOCK_SEQUENCE_LOOP;
+                seq->start_index = (uint8_t)i;
+                seq->end_index = (uint8_t)i;
+                if (loop_top < (BLOCK_CONFIG_MAX_BLOCKS - 1)) {
+                    open_loop_stack[++loop_top] = seq_idx;
+                }
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_END_IF) {
+            s_event_map.if_end_count++;
+            if (if_top >= 0) {
+                int seq_idx = open_if_stack[if_top--];
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                seq->end_index = (uint8_t)i;
+                seq->has_end_boundary = true;
+            }
+            continue;
+        }
+
+        if (type == BLOCK_TYPE_END_LOOP) {
+            s_event_map.loop_end_count++;
+            if (loop_top >= 0) {
+                int seq_idx = open_loop_stack[loop_top--];
+                block_sequence_metadata_t *seq = &s_event_map.sequences[seq_idx];
+                seq->end_index = (uint8_t)i;
+                seq->has_end_boundary = true;
+            }
+            continue;
+        }
+
+        for (int j = 0; j <= if_top; j++) {
+            int seq_idx = open_if_stack[j];
+            if (is_input_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_input = true;
+                s_event_map.sequences[seq_idx].input_count++;
+            }
+            if (is_output_or_delay_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_output_or_delay = true;
+                s_event_map.sequences[seq_idx].output_or_delay_count++;
+            }
+        }
+
+        for (int j = 0; j <= loop_top; j++) {
+            int seq_idx = open_loop_stack[j];
+            if (is_input_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_input = true;
+                s_event_map.sequences[seq_idx].input_count++;
+            }
+            if (is_output_or_delay_block_type(type)) {
+                s_event_map.sequences[seq_idx].has_output_or_delay = true;
+                s_event_map.sequences[seq_idx].output_or_delay_count++;
+            }
+        }
+    }
+}
+
 esp_err_t block_config_manager_scan(void) {
     ESP_LOGI(TAG, "=== BLOCK CONFIGURATION SCAN ===");
 
@@ -254,15 +261,31 @@ esp_err_t block_config_manager_scan(void) {
         config_entry->fw_minor = 0;
         config_entry->caps = 0;
 
-        // Read full WHOAMI data
-        read_whoami_data(entry->address, config_entry);
+        // Use authoritative scan result for type/address from registry, but
+        // fall back to last-known good type if WHOAMI was unstable.
+        block_type_t effective_type = entry->type;
+        if (entry->present &&
+            entry->type == BLOCK_TYPE_UNKNOWN &&
+            s_previous_state_valid) {
+            for (int j = 0; j < s_previous_state.block_count; j++) {
+                const block_config_entry_t *prev = &s_previous_state.blocks[j];
+                if (prev->i2c_address == entry->address &&
+                    prev->block_type != BLOCK_TYPE_UNKNOWN) {
+                    ESP_LOGW(TAG,
+                             "WHOAMI unstable at 0x%02X, keeping previous type 0x%02X",
+                             entry->address, prev->block_type);
+                    effective_type = prev->block_type;
+                    break;
+                }
+            }
+        }
 
-        if (!config_entry->present) {
+        config_entry->block_type = effective_type;
+        config_entry->present = entry->present;
+
+        if (entry->present && entry->type == BLOCK_TYPE_UNKNOWN) {
             s_config_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X failed WHOAMI read", entry->address);
-        } else if (config_entry->block_type == BLOCK_TYPE_UNKNOWN) {
-            s_config_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X returned unknown type", entry->address);
+            ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
         }
 
         s_config_state.block_count++;
@@ -294,7 +317,7 @@ esp_err_t block_config_manager_scan(void) {
 
     // Update timestamp
     s_config_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
-    block_config_manager_build_event_map();
+    recompute_event_map_from_config();
 
     ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
              s_config_state.block_count, s_config_state.error_count,
@@ -483,7 +506,23 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     free(json_string);
     cJSON_Delete(root);
 
-    ESP_LOGI(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
+    ESP_LOGD(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
 
+    return ESP_OK;
+}
+
+esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
+    if (out_state == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_state, &s_config_state, sizeof(s_config_state));
+    return ESP_OK;
+}
+
+esp_err_t block_config_manager_get_event_map_snapshot(block_event_map_t *out_event_map) {
+    if (out_event_map == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    memcpy(out_event_map, &s_event_map, sizeof(s_event_map));
     return ESP_OK;
 }

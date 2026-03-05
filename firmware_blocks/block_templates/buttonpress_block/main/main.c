@@ -1,15 +1,8 @@
-// Skeleton firmware for BUTTON_PRESS block template.
-// Intentionally minimal: fill in modules as you implement the block.
-
 #include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
-
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
 
@@ -19,7 +12,7 @@ extern void initArduino(void);
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
 #define BLOCK_TYPE            BLOCK_TYPE_BUTTON
 
-static const char *TAG = "TPL_BUTTON";
+static const char *TAG = "BUTTONPRESS_BLOCK";
 
 // ============================================================================
 // CONFIG (payload: button_id)
@@ -80,14 +73,41 @@ static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
 // MAIN
 // ============================================================================
 void app_main(void) {
-    ESP_LOGI(TAG, "==== %s block (skeleton) ====", BLOCK_NAME);
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "    BUTTONPRESS BLOCK BOOT");
+    ESP_LOGI(TAG, "========================================");
 
-    config_reset();
-    peripherals_init();
-    peripherals_boot_feedback();
+    // Initialize speaker early for boot/error beeps
+    esp_err_t ret = speaker_init();
+    if (ret == ESP_OK) {
+        speaker_beep_ok();
+    }
 
-    (void)i2c_slave_init();
+    // Initialize LED Matrix
+    ret = led_matrix_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize LED matrix!");
+        speaker_beep_error();
+        return;
+    }
+
+    // Show startup animation
+    led_matrix_startup_animation();
+
+    // Initialize I²C slave
+    ret = i2c_slave_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize I²C slave!");
+        speaker_beep_error();
+        return;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(500));
+    ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
+
+    // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
 
-    peripherals_ok_feedback();
+    ESP_LOGI(TAG, "All tasks created successfully!");
 }

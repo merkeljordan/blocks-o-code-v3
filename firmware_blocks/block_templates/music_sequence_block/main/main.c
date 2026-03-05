@@ -42,6 +42,10 @@ extern void initArduino(void);
 
 static const char *TAG = "TPL_MUSIC_SEQ";
 
+// Implemented in main/i2c_comm.c (kept separate so address/type live with the I2C slave transport).
+esp_err_t i2c_slave_init(void);
+void i2c_task(void *arg);
+
 /* ========================================================================== */
 /* Runtime state                                                               */
 /* ========================================================================== */
@@ -150,6 +154,9 @@ static void command_handle(i2c_command_t cmd,
             g_selected_song = 0;
             g_config_valid = false;
             g_status_flags = STATUS_READY;
+            if (g_execute_queue != NULL) {
+                (void)xQueueReset(g_execute_queue);
+            }
             break;
 
         default:
@@ -279,6 +286,13 @@ void app_main(void)
     err = tft_ui_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "TFT UI start failed: %s", esp_err_to_name(err));
+        peripherals_error_feedback();
+        return;
+    }
+
+    g_execute_queue = xQueueCreate(1, sizeof(execute_request_t));
+    if (g_execute_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create execute request queue");
         peripherals_error_feedback();
         return;
     }

@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.c"
+        "i2c_comm.c"
         "tft_ui.c"
         "speaker_music.c"
     INCLUDE_DIRS

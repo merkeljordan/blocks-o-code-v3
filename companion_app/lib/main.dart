@@ -80,9 +80,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
-  bool _hasLastValidationResult = false;
-  bool _lastConfigIsValid = false;
-  int _lastConfigErrorCount = 0;
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -251,13 +248,15 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _reconnectionAttempts = 0;
       _lastHeartbeatTime = DateTime.now();
     });
+
+    // Proactively publish latest validation state on each connect/reconnect.
+    _publishValidationForCurrentConfig(trigger: 'reconnect');
     
     // Start heartbeat mechanism
     _startHeartbeat();
     
     // Navigate to block configuration screen when client connects
     _navigateToScreen(ScreenType.blockConfig);
-    _resendLastConfigValidation();
     
     // Set up message listener with JSON parsing
     String buffer = '';
@@ -299,6 +298,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _processMessage(String message) {
+    if (message.contains('NAK:NEED_VALIDATION') ||
+        message.contains('NAK:INVALID_CONFIG')) {
+      _handleValidationRequestFromBrain(message);
+      return;
+    }
+
     try {
       // Try to parse as JSON
       final json = jsonDecode(message) as Map<String, dynamic>;
@@ -319,18 +324,13 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           // Validate configuration
           final violations = _configValidator.validate(config);
           final errorCount = violations.where((v) => v.severity == Severity.error).length;
-          final isValid = errorCount == 0;
-          _hasLastValidationResult = true;
-          _lastConfigIsValid = isValid;
-          _lastConfigErrorCount = errorCount;
-          _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
-          
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
             connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
+          _publishValidationForCurrentConfig(trigger: 'block_config_update');
         } else {
           setState(() {
             connectionStatus = 'Failed to parse block configuration';
@@ -384,7 +384,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       return;
     }
     try {
-      client.write(msg + '\n');
+      client.write('$msg\n');
       setState(() {
         connectionStatus = 'Connected to ESP32 and sent: $msg';
       });
@@ -397,37 +397,70 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _sendConfigValidationEvent({
+  bool _sendConfigValidationEvent({
     required bool isValid,
     required int errorCount,
+    required String trigger,
   }) {
     final client = _clientSocket;
     if (client == null || !isConnected) {
-      return;
+      debugPrint('[ValidationTx] skip trigger=$trigger connected=$isConnected client=${client != null}');
+      return false;
     }
 
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
     final validationEvent = jsonEncode({
       'type': 'config_validation',
       'is_valid': isValid,
       'error_count': errorCount,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'timestamp': timestamp,
     });
 
     try {
       client.write('$validationEvent\n');
-    } catch (_) {
+      debugPrint('[ValidationTx] sent trigger=$trigger is_valid=$isValid error_count=$errorCount ts=$timestamp connected=$isConnected');
+      return true;
+    } catch (e) {
+      debugPrint('[ValidationTx] failed trigger=$trigger error=$e');
       // Reconnection path handles retries.
+      return false;
     }
   }
 
-  void _resendLastConfigValidation() {
-    if (!_hasLastValidationResult) {
-      return;
+  void _publishValidationForCurrentConfig({required String trigger}) {
+    final config = _currentConfiguration;
+
+    bool isValid = false;
+    int errorCount = 1;
+    List<RuleViolation>? violations;
+
+    if (config != null) {
+      violations = _configValidator.validate(config);
+      errorCount = violations.where((v) => v.severity == Severity.error).length;
+      isValid = errorCount == 0;
     }
-    _sendConfigValidationEvent(
-      isValid: _lastConfigIsValid,
-      errorCount: _lastConfigErrorCount,
+
+    final bool sent = _sendConfigValidationEvent(
+      isValid: isValid,
+      errorCount: errorCount,
+      trigger: trigger,
     );
+
+    setState(() {
+      if (violations != null) {
+        _configViolations = violations!;
+      }
+      connectionStatus = sent
+          ? 'Validation sent (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)'
+          : 'Validation skipped/failed (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)';
+      if (sent) {
+        _lastHeartbeatTime = DateTime.now();
+      }
+    });
+  }
+
+  void _handleValidationRequestFromBrain(String _) {
+    _publishValidationForCurrentConfig(trigger: 'brain_request');
   }
 
   // Heartbeat mechanism
@@ -456,7 +489,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         'type': 'heartbeat',
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
-      _clientSocket!.write(heartbeat + '\n');
+      _clientSocket!.write('$heartbeat\n');
     } catch (e) {
       // Connection lost
       setState(() {
@@ -773,7 +806,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Widget _buildMenu(ColorScheme colorScheme, ThemeData theme) {
     return Container(
-      key: ValueKey('menu_${isConnected}'),
+      key: ValueKey('menu_$isConnected'),
       width: 280,
       margin: const EdgeInsets.only(top: 80, right: 16),
       decoration: BoxDecoration(
