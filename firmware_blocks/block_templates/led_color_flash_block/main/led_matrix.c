@@ -45,7 +45,7 @@
  static const char *TAG = "LED_MATRIX";
  
  /* ── Hardware constants ────────────────────────────────────────────────── */
-#define LED_GPIO             13       /* WS2812 data pin                  */
+#define LED_GPIO             15       /* WS2812 data pin                  */
 #define LED_MATRIX_SIZE      30       /* Number of LEDs on the strip      */
  
  /* ── Module state ──────────────────────────────────────────────────────── */
