@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 
 #include "esp_err.h"
@@ -57,6 +58,16 @@ static bool    g_config_valid  = false;
 static bool    g_speaker_ready = false;
 /* STATUS_* bitfield exposed over protocol. */
 static uint8_t g_status_flags  = STATUS_READY;
+
+/* Called by i2c_comm.c to sync REG_STATUS with runtime state. */
+uint8_t music_block_get_status_flags(void)
+{
+    return g_status_flags;
+}
+
+/* Queue for execute requests from I2C (used by CMD_RESET to clear pending). */
+typedef struct { uint8_t placeholder; } execute_request_t;
+static QueueHandle_t g_execute_queue = NULL;
 
 /* ========================================================================== */
 /* Peripheral helpers                                                          */
@@ -98,10 +109,9 @@ static void peripherals_error_feedback(void)
 /* Protocol command handler                                                    */
 /* ========================================================================== */
 /*
- * Note: this command handler is ready to be called by an I2C RX task.
- * In this template revision, i2c_task() below is still a transport stub.
+ * Called by i2c_comm.c i2c_task() when Brain sends a command.
  */
-static void command_handle(i2c_command_t cmd,
+void command_handle(i2c_command_t cmd,
                            const uint8_t *rx, size_t rx_len,
                            uint8_t *tx, size_t *tx_len)
 {
@@ -167,50 +177,7 @@ static void command_handle(i2c_command_t cmd,
     }
 }
 
-/* ========================================================================== */
-/* I2C transport (currently stubbed in this template)                          */
-/* ========================================================================== */
-static esp_err_t i2c_slave_init(void)
-{
-    // Called by: app_main() during startup.
-    //
-    // Current behavior:
-    // - just logs and returns OK (stub).
-    //
-    // Future behavior (when enabling Brain control):
-    // 1) Configure I2C in SLAVE mode using BLOCK_I2C_ADDRESS.
-    // 2) Install i2c driver buffers.
-    // 3) Return ESP_OK only when hardware init is successful.
-    ESP_LOGI(TAG, "I2C stub init @0x%02X (type=%s)",
-             BLOCK_I2C_ADDRESS, block_type_to_string(BLOCK_TYPE));
-    return ESP_OK;
-}
-
-static void i2c_task(void *arg)
-{
-    // Called by: FreeRTOS task creation in app_main().
-    (void)arg;
-    ESP_LOGI(TAG, "i2c_task running on core %d (stub)", xPortGetCoreID());
-
-    /*
-     * TODO: Replace this stub with real slave transaction handling.
-     *
-     * Expected runtime flow once implemented:
-     *   A) Read inbound bytes from Brain.
-     *   B) If request is "register read" (WHOAMI/STATUS/etc), return register value.
-     *   C) Else parse first byte as i2c_command_t.
-     *   D) Call command_handle(cmd, payload, ...).
-     *   E) If command_handle produced response bytes, write them back.
-     *
-     * Important:
-     * - command_handle() already contains your execute logic.
-     * - this task is just the transport bridge that delivers Brain commands to it.
-     */
-    while (1) {
-        // Idle loop placeholder until real transport is implemented.
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}
+/* I2C transport is implemented in i2c_comm.c (i2c_slave_init, i2c_task). */
 
 /* ========================================================================== */
 /* Execution task: consumes UI actions                                         */
@@ -305,7 +272,4 @@ void app_main(void)
      * Brain-triggered execute path becomes active once I2C transport is implemented.
      */
     ESP_LOGI(TAG, "Music sequence block ready");
-
-    /* Avoid unused warning if command_handle is not yet wired by transport code. */
-    (void)command_handle;
 }
