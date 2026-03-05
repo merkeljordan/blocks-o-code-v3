@@ -70,7 +70,7 @@ static void peripherals_init(void)
     }
 
     /* Volume now feeds real gain scaling in WAV/tone playback backend. */
-    speaker_set_volume(100);
+    speaker_set_volume(30);
     g_speaker_ready = true;
 }
 

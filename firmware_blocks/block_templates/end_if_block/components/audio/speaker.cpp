@@ -102,7 +102,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms) {
     if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
     if (hz == 0 || ms == 0) return ESP_OK;
 
-    SinWaveGenerator tone(44100, hz, 0.75);
+    SinWaveGenerator tone(44100, hz, 0.35);
     s_dac->setSampleSource(&tone);
     delay_ms(ms);
     s_dac->setSampleSource(&s_silence);

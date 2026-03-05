@@ -24,7 +24,7 @@
 // Debug/demo switch:
 // 1 = output generated sine wave (easy to inspect on oscilloscope)
 // 0 = output embedded WAV song(s)
-#define USE_SCOPE_TONE   1
+#define USE_SCOPE_TONE   0
 #define SCOPE_TONE_HZ    1000
 #define SCOPE_TONE_MS    5000
 

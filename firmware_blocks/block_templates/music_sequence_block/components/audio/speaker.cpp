@@ -44,7 +44,7 @@ static bool s_inited = false;
 static DACOutput *s_dac = NULL;
 
 // User-facing volume control (0..100%).
-static uint8_t s_volume_percent = 100;
+static uint8_t s_volume_percent = 0;
 
 // Map UI percent to linear gain scalar.
 static float volume_to_gain(uint8_t pct)
@@ -231,9 +231,9 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
         return ESP_OK;
     }
 
-    // Keep existing tone headroom (0.75f) and apply user volume on top.
-    float tone_magnitude = 0.75f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
+    //Change the magnitude to avoid clipping. Keep the volume control.
+    float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
+    SinWaveGenerator tone(44100, 1000, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);
