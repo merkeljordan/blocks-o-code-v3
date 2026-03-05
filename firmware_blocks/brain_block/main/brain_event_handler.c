@@ -18,8 +18,42 @@ static block_event_map_t s_event_map;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
 
+#define MUSIC_EXEC_BUSY_TIMEOUT_MS   200U
+#define MUSIC_EXEC_LATENCY_TARGET_MS 50U
+
 static uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
+}
+
+static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_t *out_elapsed_ms, uint8_t *out_status)
+{
+    uint64_t start = now_ms();
+    uint8_t status = 0;
+    esp_err_t last_err = ESP_FAIL;
+
+    while ((now_ms() - start) <= timeout_ms) {
+        last_err = i2c_read_reg(addr, REG_STATUS, &status, 1);
+        if (last_err == ESP_OK) {
+            if ((status & STATUS_BUSY) != 0U) {
+                if (out_elapsed_ms != NULL) {
+                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                }
+                if (out_status != NULL) {
+                    *out_status = status;
+                }
+                return ESP_OK;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+
+    if (out_elapsed_ms != NULL) {
+        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+    }
+    if (out_status != NULL) {
+        *out_status = status;
+    }
+    return last_err;
 }
 
 static void set_default_validation_state(void) {
@@ -73,17 +107,72 @@ static int find_then_index(uint8_t start_index, uint8_t end_index) {
     return -1;
 }
 
+static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_addr) {
+    if (out_addr == NULL) {
+        return false;
+    }
+
+    const block_config_state_t *config = block_config_manager_get_state();
+    if (config == NULL) {
+        return false;
+    }
+
+    for (int i = 0; i < config->block_count; i++) {
+        const block_config_entry_t *entry = &config->blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+        if (entry->block_type != type) {
+            continue;
+        }
+        *out_addr = entry->i2c_address;
+        return true;
+    }
+
+    return false;
+}
+
 static void dispatch_output_action(block_type_t type) {
-    // Placeholder: this is where the I2C broadcast to compatible blocks is called.
+    // TODO: consider richer addressing than "program index == config index" so
+    // that future versions can: (a) target multiple matching output blocks, or
+    // (b) explicitly bind each program step to a specific I2C address.
+    block_config_state_t config_snapshot;
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
+        ESP_LOGW(TAG, "dispatch_output_action: no config available");
+        return;
+    }
+
+    if (s_executor_ctx.pc >= config_snapshot.block_count) {
+        ESP_LOGW(TAG, "dispatch_output_action: pc=%u out of range (count=%u)",
+                 s_executor_ctx.pc, config_snapshot.block_count);
+        return;
+    }
+
+    uint8_t addr = config_snapshot.blocks[s_executor_ctx.pc].i2c_address;
+
     switch (type) {
-        case BLOCK_TYPE_LED_FLASH:
-            ESP_LOGI(TAG, "ACTION led_flash color_id=%u", s_executor_params.color_id);
+        case BLOCK_TYPE_LED_FLASH: {
+            ESP_LOGI(TAG, "ACTION led_flash addr=0x%02X color_id=%u",
+                     addr, s_executor_params.color_id);
+            esp_err_t set_ret = i2c_set_led_color_id(addr, s_executor_params.color_id);
+            esp_err_t exec_ret = i2c_execute(addr);
+            if (set_ret != ESP_OK || exec_ret != ESP_OK) {
+                ESP_LOGW(TAG, "LED_FLASH action failed for 0x%02X (set_ret=%d exec_ret=%d)",
+                         addr, (int)set_ret, (int)exec_ret);
+            }
             break;
+        }
         case BLOCK_TYPE_NOTE:
-            ESP_LOGI(TAG, "ACTION note note_id=%u", s_executor_params.note_id);
+            // TODO: route NOTE actions to one or more BLOCK_TYPE_NOTE child blocks
+            // (e.g., lookup compatible outputs in config snapshot and send I2C play-note command).
+            ESP_LOGI(TAG, "ACTION note note_id=%u (no-op placeholder)", s_executor_params.note_id);
             break;
         case BLOCK_TYPE_MUSIC_SEQ:
-            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u", s_executor_params.music_sequence_id);
+            // TODO: route MUSIC_SEQ actions to music-sequence-capable blocks once
+            // that block type is implemented on the I2C side.
+            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u (no-op placeholder)",
+                     s_executor_params.music_sequence_id);
             break;
         default:
             break;
@@ -124,6 +213,15 @@ typedef struct {
 
 static QueueHandle_t s_event_queue = NULL;
 
+static void brain_executor_task(void *arg) {
+    (void)arg;
+    const TickType_t tick_delay = pdMS_TO_TICKS(20);
+    while (1) {
+        brain_executor_tick();
+        vTaskDelay(tick_delay);
+    }
+}
+
 static bool parse_u8_token(const char *s, uint8_t *out) {
     if (!s || !out) {
         return false;
@@ -143,9 +241,22 @@ static bool process_message_event(const char *message) {
     }
 
     if (strcasecmp(message, "START") == 0) {
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGI(TAG,
+                 "START requested: validation_received=%s validation_ok=%s last_errors=%lu executor_state=%d block_count=%u scan_errors=%u queue_depth=%u",
+                 s_validation_state.has_received_validation ? "true" : "false",
+                 s_validation_state.app_config_valid ? "true" : "false",
+                 (unsigned long)s_validation_state.last_error_count,
+                 (int)s_executor_ctx.state,
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0),
+                 (unsigned)((s_event_queue != NULL) ? uxQueueMessagesWaiting(s_event_queue) : 0));
         esp_err_t err = brain_executor_start();
         if (err != ESP_OK) {
-            ESP_LOGW(TAG, "START rejected: executor cannot start (err=%d)", (int)err);
+            ESP_LOGW(TAG,
+                     "START rejected: executor cannot start (err=%d, validation_gate=%s)",
+                     (int)err,
+                     brain_event_handler_can_start_execution() ? "pass" : "fail");
             return false;
         }
         ESP_LOGI(TAG, "Handled START: executor started");
@@ -218,6 +329,11 @@ static bool process_block_event(uint8_t block_addr,
         return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
     }
 
+    // TODO: support additional block-originated events (e.g., button-press or
+    // sensor readings) by extending the shared event ID contract in
+    // i2c_protocol.h and translating them here into executor inputs like
+    // brain_executor_set_button_state(...) or future parameter setters.
+
     ESP_LOGW(TAG, "Unhandled block event: addr=0x%02X id=0x%02X len=%u",
              block_addr, event_id, (unsigned)payload_len);
     return false;
@@ -262,9 +378,16 @@ void brain_event_handler_init(void) {
     }
 
     // Keep Brain event orchestration on Core 0; GUI runs on Core 1.
-    BaseType_t ok = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
-    if (ok != pdPASS) {
+    BaseType_t ok_evt = xTaskCreatePinnedToCore(brain_event_task, "brain_evt", 4096, NULL, 5, NULL, 0);
+    if (ok_evt != pdPASS) {
         ESP_LOGE(TAG, "Failed to create brain event task");
+        return;
+    }
+
+    // Tick-based executor task: periodically advances the program counter.
+    BaseType_t ok_exec = xTaskCreatePinnedToCore(brain_executor_task, "brain_exec", 3072, NULL, 5, NULL, 0);
+    if (ok_exec != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create brain executor task");
         return;
     }
 
@@ -296,6 +419,10 @@ bool brain_event_handler_can_start_execution(void) {
 }
 
 void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map) {
+    // TODO: extend executor_start to consult s_event_map and refuse to run
+    // structurally invalid programs (e.g., unmatched IF/END_IF, LOOP/END_LOOP,
+    // or sequences with inputs but no outputs) instead of only relying on the
+    // app-side validator.
     if (event_map == NULL) {
         memset(&s_event_map, 0, sizeof(s_event_map));
         return;
@@ -308,7 +435,7 @@ void brain_event_handler_refresh_config_event_map(const block_event_map_t *event
         ESP_LOGW(TAG, "Config changed during execution; stopping executor");
         brain_executor_stop();
     }
-    ESP_LOGI(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
+    ESP_LOGD(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
 }
 
 const block_event_map_t *brain_event_handler_get_config_event_map(void) {
@@ -335,12 +462,23 @@ void brain_executor_set_button_state(bool is_pressed) {
 
 esp_err_t brain_executor_start(void) {
     if (!brain_event_handler_can_start_execution()) {
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGW(TAG,
+                 "brain_executor_start blocked by validation gate: validation_received=%s validation_ok=%s block_count=%u scan_errors=%u",
+                 s_validation_state.has_received_validation ? "true" : "false",
+                 s_validation_state.app_config_valid ? "true" : "false",
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0));
         return ESP_ERR_INVALID_STATE;
     }
 
     brain_executor_reset_context(EXECUTOR_IDLE);
     if (!load_program_from_config()) {
-        ESP_LOGW(TAG, "Cannot start executor: no program blocks");
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        ESP_LOGW(TAG,
+                 "Cannot start executor: no program blocks (block_count=%u scan_errors=%u)",
+                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                 (unsigned)((cfg != NULL) ? cfg->error_count : 0));
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -474,7 +612,13 @@ void brain_executor_tick(void) {
 }
 
 bool brain_event_handle_message(const char *message) {
-    if (!s_event_queue || !message) {
+    if (!message) {
+        ESP_LOGW(TAG, "brain_event_handle_message called with NULL message");
+        return false;
+    }
+
+    if (!s_event_queue) {
+        ESP_LOGW(TAG, "brain_event_handle_message queue not initialized (msg=%s)", message);
         return false;
     }
 
@@ -483,7 +627,18 @@ bool brain_event_handle_message(const char *message) {
     strncpy(evt.data.message, message, sizeof(evt.data.message) - 1);
     evt.data.message[sizeof(evt.data.message) - 1] = '\0';
 
-    return xQueueSend(s_event_queue, &evt, 0) == pdTRUE;
+    BaseType_t sent = xQueueSend(s_event_queue, &evt, 0);
+    if (sent != pdTRUE) {
+        ESP_LOGW(TAG, "Failed to queue message '%s' (queue_depth=%u)",
+                 evt.data.message,
+                 (unsigned)uxQueueMessagesWaiting(s_event_queue));
+        return false;
+    }
+
+    ESP_LOGD(TAG, "Queued message '%s' (queue_depth=%u)",
+             evt.data.message,
+             (unsigned)uxQueueMessagesWaiting(s_event_queue));
+    return true;
 }
 
 bool brain_event_handle_block_event(uint8_t block_addr,

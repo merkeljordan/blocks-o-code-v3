@@ -4,19 +4,32 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "sdkconfig.h"
 
 #include "i2c_protocol.h"
+#include "speaker.h"
+#include "tft_ui.h"
 
 #define BLOCK_NAME            "MUSIC_SEQ"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
-#define BLOCK_TYPE            BLOCK_TYPE_MUSIC_SEQ
+
+#if CONFIG_FREERTOS_UNICORE
+#define EXEC_CORE_ID          0
+#else
+#define EXEC_CORE_ID          0   // core 1 is reserved for TFT/LVGL in tft_ui.c
+#endif
 
 static const char *TAG = "TPL_MUSIC_SEQ";
+
+// Implemented in main/i2c_comm.c (kept separate so address/type live with the I2C slave transport).
+esp_err_t i2c_slave_init(void);
+void i2c_task(void *arg);
 
 // ============================================================================
 // CONFIG (payload: sequence_id)
@@ -27,61 +40,259 @@ typedef struct {
 
 static block_config_t g_config;
 static bool g_config_valid = false;
+static bool g_speaker_ready = false;
+static uint8_t g_status_flags = STATUS_READY;
+static uint8_t g_tempo_pct = 100;
 
-static void config_reset(void) { /* TODO */ }
+typedef struct {
+    uint8_t sequence_id;
+    uint8_t tempo_pct;
+} execute_request_t;
+
+static QueueHandle_t g_execute_queue = NULL; // Single-slot: latest execute request wins.
+
+uint8_t music_block_get_status_flags(void)
+{
+    return g_status_flags;
+}
+
+static void config_reset(void) {
+    g_config.sequence_id = MUSIC_PRESET_TWINKLE;
+    g_config_valid = false;
+    g_tempo_pct = 100;
+}
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
-    (void)out;
-    (void)max_len;
-    // TODO: write sequence_id to payload
-    return 0;
+    if (out == NULL || max_len < sizeof(music_seq_payload_v1_t)) {
+        return 0;
+    }
+
+    music_seq_payload_v1_t payload = {
+        .sequence_id = g_config.sequence_id,
+    };
+    memcpy(out, &payload, sizeof(payload));
+    return sizeof(payload);
 }
 
 // ============================================================================
 // PERIPHERALS (STUBS)
 // ============================================================================
-static void peripherals_init(void) { /* TODO */ }
-static void peripherals_boot_feedback(void) { /* TODO */ }
-static void peripherals_error_feedback(void) { /* TODO */ }
-static void peripherals_ok_feedback(void) { /* TODO */ }
-static void peripherals_show_running(void) { /* TODO */ }
+static void peripherals_init(void) {
+    esp_err_t err = speaker_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "speaker_init failed: %s", esp_err_to_name(err));
+        g_speaker_ready = false;
+        g_status_flags |= STATUS_ERROR;
+        return;
+    }
+
+    speaker_set_volume(85);
+    g_speaker_ready = true;
+}
+
+static void peripherals_boot_feedback(void) {
+    if (g_speaker_ready) {
+        speaker_beep_ok();
+    }
+}
+
+static void peripherals_error_feedback(void) {
+    if (g_speaker_ready) {
+        speaker_beep_error();
+    }
+}
+
+static void peripherals_ok_feedback(void) {
+    if (g_speaker_ready) {
+        (void)speaker_play_tone(1000, 60);
+    }
+}
+
+static void peripherals_show_running(void) {
+    if (g_speaker_ready) {
+        (void)speaker_play_tone(880, 40);
+    }
+}
 
 // ============================================================================
 // COMMAND HANDLER (STUB)
 // ============================================================================
-static uint8_t g_status_flags = STATUS_READY;
+void command_handle(i2c_command_t cmd,
+                    const uint8_t *rx,
+                    size_t rx_len,
+                    uint8_t *tx,
+                    size_t *tx_len) {
+    if (tx_len) {
+        *tx_len = 0;
+    }
 
-static void command_handle(i2c_command_t cmd,
-                           const uint8_t *rx,
-                           size_t rx_len,
-                           uint8_t *tx,
-                           size_t *tx_len) {
-    (void)cmd;
-    (void)rx;
-    (void)rx_len;
-    (void)tx;
-    (void)tx_len;
-    // TODO: implement CMD_* handling per FRAMEWORK.md
+    switch (cmd) {
+        case CMD_PING:
+            break;
+
+        case CMD_GET_STATUS:
+            if (tx && tx_len) {
+                tx[0] = g_status_flags;
+                *tx_len = 1;
+            }
+            break;
+
+        case CMD_GET_DATA:
+            if (tx && tx_len) {
+                *tx_len = config_get_payload(tx, 16);
+            }
+            break;
+
+        case CMD_EXECUTE:
+            if (g_execute_queue != NULL) {
+                execute_request_t req = {
+                    .sequence_id = g_config.sequence_id,
+                    .tempo_pct = g_tempo_pct,
+                };
+                (void)xQueueOverwrite(g_execute_queue, &req);
+                tft_ui_set_status_message("Brain execute requested.");
+            }
+            break;
+
+        case CMD_RESET:
+            config_reset();
+            g_status_flags = STATUS_READY;
+            if (g_execute_queue != NULL) {
+                (void)xQueueReset(g_execute_queue);
+            }
+            break;
+
+        default:
+            (void)rx;
+            (void)rx_len;
+            break;
+    }
 }
 
 // ============================================================================
-// I2C COMM (STUB)
+// EXECUTION TASK (core0)
 // ============================================================================
-static esp_err_t i2c_slave_init(void) { return ESP_OK; }
-static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
+static void execution_task(void *arg) {
+    (void)arg;
+    ESP_LOGI(TAG, "execution_task running on core %d", xPortGetCoreID());
+
+    music_ui_action_t ui_action;
+    execute_request_t exec_req;
+    music_playback_state_t playback_state = {0};
+    tft_ui_set_playback_state(&playback_state);
+
+    while (1) {
+        if (tft_ui_take_action(&ui_action, 20)) {
+            g_config.sequence_id = ui_action.sequence_id;
+            g_tempo_pct = (ui_action.tempo_pct == 0U) ? 100U : ui_action.tempo_pct;
+            g_config_valid = (ui_action.config_valid != 0U);
+
+            ESP_LOGI(TAG,
+                     "UI action type=%u mode=%u seq=0x%02X tempo=%u valid=%u",
+                     (unsigned)ui_action.type,
+                     (unsigned)ui_action.mode,
+                     (unsigned)ui_action.sequence_id,
+                     (unsigned)ui_action.tempo_pct,
+                     (unsigned)ui_action.config_valid);
+
+            g_status_flags |= STATUS_DATA_READY;
+            if (g_config_valid) {
+                g_status_flags &= ~STATUS_ERROR;
+                g_status_flags |= STATUS_READY;
+                tft_ui_set_status_message("Config synced to core0. Waiting for Execute.");
+            }
+        }
+
+        if (g_execute_queue != NULL && xQueueReceive(g_execute_queue, &exec_req, 0) == pdTRUE) {
+            if (!g_speaker_ready) {
+                g_status_flags &= ~STATUS_READY;
+                g_status_flags |= STATUS_ERROR;
+                tft_ui_set_status_message("Cannot execute: speaker not ready.");
+            } else if (exec_req.sequence_id >= MUSIC_PRESET_CUSTOM_1) {
+                g_status_flags &= ~STATUS_READY;
+                g_status_flags |= STATUS_ERROR;
+                tft_ui_set_status_message("Custom Brain execute not implemented yet.");
+            } else {
+                g_status_flags &= ~STATUS_READY;
+                g_status_flags &= ~STATUS_ERROR;
+                g_status_flags |= STATUS_BUSY;
+
+                playback_state.is_playing = true;
+                playback_state.is_preview = false;
+                playback_state.active_preset_id = exec_req.sequence_id;
+                playback_state.step_index = 0;
+                playback_state.note_on_phase = true;
+                tft_ui_set_playback_state(&playback_state);
+
+                peripherals_show_running();
+                tft_ui_set_status_message("Brain is playing selected song...");
+
+                esp_err_t play_err = speaker_play_preset(exec_req.sequence_id,
+                                                        (exec_req.tempo_pct == 0U) ? 100U : exec_req.tempo_pct);
+                if (play_err != ESP_OK) {
+                    ESP_LOGE(TAG, "Brain execute playback failed: %s", esp_err_to_name(play_err));
+                    g_status_flags |= STATUS_ERROR;
+                    tft_ui_set_status_message("Playback failed.");
+                } else {
+                    tft_ui_set_status_message("Playback complete.");
+                }
+
+                g_status_flags &= ~STATUS_BUSY;
+                g_status_flags |= STATUS_READY;
+
+                playback_state.is_playing = false;
+                playback_state.note_on_phase = false;
+                tft_ui_set_playback_state(&playback_state);
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 // ============================================================================
 // MAIN
 // ============================================================================
 void app_main(void) {
-    ESP_LOGI(TAG, "==== %s block (skeleton) ====", BLOCK_NAME);
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "    %s block boot", BLOCK_NAME);
+    ESP_LOGI(TAG, "    core0 = I2C/execution, core1 = TFT UI");
+    ESP_LOGI(TAG, "========================================");
 
     config_reset();
     peripherals_init();
     peripherals_boot_feedback();
 
-    (void)i2c_slave_init();
-    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+    esp_err_t err = i2c_slave_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize I2C stub: %s", esp_err_to_name(err));
+        peripherals_error_feedback();
+        return;
+    }
+
+    err = tft_ui_start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start TFT UI: %s", esp_err_to_name(err));
+        peripherals_error_feedback();
+        return;
+    }
+
+    g_execute_queue = xQueueCreate(1, sizeof(execute_request_t));
+    if (g_execute_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create execute request queue");
+        peripherals_error_feedback();
+        return;
+    }
+
+    BaseType_t ok_i2c = xTaskCreatePinnedToCore(i2c_task, "i2c", 4096, NULL, 5, NULL, EXEC_CORE_ID);
+    BaseType_t ok_exec = xTaskCreatePinnedToCore(execution_task, "exec", 4096, NULL, 4, NULL, EXEC_CORE_ID);
+
+    if (ok_i2c != pdPASS || ok_exec != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create one or more core%d tasks", EXEC_CORE_ID);
+        peripherals_error_feedback();
+        return;
+    }
 
     peripherals_ok_feedback();
+    ESP_LOGI(TAG, "Music sequence block ready");
 }

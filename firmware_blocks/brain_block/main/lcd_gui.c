@@ -11,7 +11,7 @@ static uint8_t stopwatch_sec = -1;
 static uint8_t stopwatch_min = 0;
 
 lv_task_t * stopwatch_countdown_task;
-lv_obj_t * stopwatch_label; 
+lv_obj_t * stopwatch_label;
 lv_obj_t * stopwatch_lap_list; 
 lv_obj_t * drawingpad_canvas; 
 
@@ -475,7 +475,7 @@ void create_stopwatch(lv_obj_t* parent)
 	lv_obj_set_size(start_btn,60,40);
 
     	lv_obj_t* start_btn_label = lv_label_create(start_btn, NULL);
-    	lv_label_set_text(start_btn_label, "Start");
+    	lv_label_set_text(start_btn_label, "START");
 
 	lv_obj_t* stop_btn = lv_btn_create(parent, NULL);
     	lv_obj_set_event_cb(stop_btn, stop_stopwatch_button_handler);
@@ -483,7 +483,7 @@ void create_stopwatch(lv_obj_t* parent)
 	lv_obj_set_size(stop_btn,60,40);
 
     	lv_obj_t* stop_btn_label = lv_label_create(stop_btn, NULL);
-    	lv_label_set_text(stop_btn_label, "Stop");
+    	lv_label_set_text(stop_btn_label, "STOP");
 
 	lv_obj_t* lap_btn = lv_btn_create(parent, NULL);
     	lv_obj_set_event_cb(lap_btn, lap_stopwatch_button_handler);

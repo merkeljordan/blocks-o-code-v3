@@ -50,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
+#define WIFI_SSID       "iPhone" // <-- Set your Wi‑Fi SSID here
 #define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "172.20.10.5" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -229,6 +229,18 @@ static void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
+static bool brain_executor_scan_pause_active(void)
+{
+    const brain_executor_context_t *ctx = brain_executor_get_context();
+    if (ctx == NULL) {
+        return false;
+    }
+
+    return (ctx->state == EXECUTOR_RUNNING ||
+            ctx->state == EXECUTOR_WAIT_DELAY ||
+            ctx->state == EXECUTOR_WAIT_INPUT);
+}
+
 static void tcp_client_task(void *pvParameters)
 {
     char rx_buffer[TCP_RX_BUF_SIZE];
@@ -366,9 +378,7 @@ static void tcp_client_task(void *pvParameters)
                             continue;
                         } else if (strcmp(type, "config_validation") == 0) {
                             if (!s_validation_requested_by_start) {
-                                ESP_LOGI(TAG, "Ignoring unsolicited config_validation");
-                                cJSON_Delete(json);
-                                continue;
+                                ESP_LOGI(TAG, "Applying unsolicited config_validation");
                             }
 
                             cJSON *is_valid_item = cJSON_GetObjectItem(json, "is_valid");

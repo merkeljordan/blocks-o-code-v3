@@ -20,6 +20,97 @@ static device_registry_t s_registry;
 #define DEVICE_REGISTRY_MAX_MISSES 1
 static uint8_t s_miss_counts[DEVICE_REGISTRY_MAX_DEVICES] = {0};
 
+typedef enum {
+    DEVICE_SCAN_NO_DEVICE = 0,
+    DEVICE_SCAN_OK,
+    DEVICE_SCAN_INVALID_WHOAMI,
+    DEVICE_SCAN_INVALID_BRAIN_TYPE_AT_CHILD_ADDR,
+    DEVICE_SCAN_WHOAMI_READ_FAIL,
+} device_scan_result_t;
+
+static bool is_valid_block_type_byte(uint8_t raw)
+{
+    switch ((block_type_t)raw) {
+        case BLOCK_TYPE_BRAIN:
+        case BLOCK_TYPE_IF:
+        case BLOCK_TYPE_THEN:
+        case BLOCK_TYPE_END_IF:
+        case BLOCK_TYPE_LOOP:
+        case BLOCK_TYPE_END_LOOP:
+        case BLOCK_TYPE_DELAY:
+        case BLOCK_TYPE_BUTTON:
+        case BLOCK_TYPE_NOTE:
+        case BLOCK_TYPE_MUSIC_SEQ:
+        case BLOCK_TYPE_LED_FLASH:
+        case BLOCK_TYPE_DISCO:
+        case BLOCK_TYPE_UNKNOWN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static device_scan_result_t scan_one_address(uint8_t addr,
+                                             device_entry_t *entry,
+                                             uint8_t *out_whoami,
+                                             esp_err_t *out_err)
+{
+    if (entry == NULL) {
+        if (out_err != NULL) {
+            *out_err = ESP_ERR_INVALID_ARG;
+        }
+        if (out_whoami != NULL) {
+            *out_whoami = BLOCK_TYPE_UNKNOWN;
+        }
+        return DEVICE_SCAN_NO_DEVICE;
+    }
+
+    entry->address = addr;
+    entry->present = false;
+    entry->type = BLOCK_TYPE_UNKNOWN;
+
+    if (out_whoami != NULL) {
+        *out_whoami = BLOCK_TYPE_UNKNOWN;
+    }
+    if (out_err != NULL) {
+        *out_err = ESP_OK;
+    }
+
+    esp_err_t ret = i2c_ping(addr);
+    if (ret != ESP_OK) {
+        if (out_err != NULL) {
+            *out_err = ret;
+        }
+        return DEVICE_SCAN_NO_DEVICE;
+    }
+
+    entry->present = true;
+
+    uint8_t whoami = BLOCK_TYPE_UNKNOWN;
+    ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
+    if (out_whoami != NULL) {
+        *out_whoami = whoami;
+    }
+    if (out_err != NULL) {
+        *out_err = ret;
+    }
+
+    if (ret != ESP_OK) {
+        return DEVICE_SCAN_WHOAMI_READ_FAIL;
+    }
+
+    if (!is_valid_block_type_byte(whoami)) {
+        return DEVICE_SCAN_INVALID_WHOAMI;
+    }
+
+    if (whoami == (uint8_t)BLOCK_TYPE_BRAIN && addr != 0x00U) {
+        return DEVICE_SCAN_INVALID_BRAIN_TYPE_AT_CHILD_ADDR;
+    }
+
+    entry->type = (block_type_t)whoami;
+    return DEVICE_SCAN_OK;
+}
+
 void device_registry_init(void) {
     memset(&s_registry, 0, sizeof(s_registry));
     for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
@@ -35,7 +126,7 @@ void device_registry_init(void) {
 
 esp_err_t device_registry_scan(void) {
     ESP_LOGI(TAG, "=== DEVICE REGISTRY SCAN ===");
-    
+
     uint8_t found = 0;
 
     for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
@@ -104,7 +195,7 @@ esp_err_t device_registry_scan(void) {
 
     s_registry.count = found;
     ESP_LOGI(TAG, "Scan complete: %d device(s) found", found);
-    
+
     return ESP_OK;
 }
 

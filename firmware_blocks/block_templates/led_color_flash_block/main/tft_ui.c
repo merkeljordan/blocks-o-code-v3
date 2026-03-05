@@ -46,11 +46,17 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_panel_io.h"
+#include "esp_lcd_panel_ops.h"
+#include "esp_lcd_panel_vendor.h"
 #include "esp_timer.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "driver/spi_master.h"
 
 #include "lvgl.h"
+#include "esp_lcd_ili9341.h"
+#include "esp_lcd_touch_xpt2046.h"
 #include "esp_lcd_ili9341.h"
 #include "esp_lcd_touch_xpt2046.h"
 
@@ -141,8 +147,26 @@ static void animate_button_bounce(lv_obj_t *obj, int32_t delta_y)
 
 /* LVGL tick source. */
 static void lvgl_tick_cb(void *arg)
+static void animate_button_bounce(lv_obj_t *obj, int32_t delta_y)
+{
+    const int32_t y0 = (int32_t)lv_obj_get_y(obj);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, obj);
+    lv_anim_set_exec_cb(&a, anim_obj_y);
+    lv_anim_set_values(&a, y0, y0 - delta_y);
+    lv_anim_set_time(&a, 70);
+    lv_anim_set_playback_time(&a, 90);
+    lv_anim_set_repeat_count(&a, 1);
+    lv_anim_start(&a);
+}
+
+/* LVGL tick source. */
+static void lvgl_tick_cb(void *arg)
 {
     (void)arg;
+    lv_tick_inc(TFT_TICK_PERIOD_MS);
     lv_tick_inc(TFT_TICK_PERIOD_MS);
 }
 
@@ -257,7 +281,9 @@ static lv_obj_t *create_key(lv_obj_t *parent, uint8_t digit,
                         (void *)(uintptr_t)digit);
 
     lv_obj_t *label = lv_label_create(btn);
+    lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, text);
+    lv_obj_center(label);
     lv_obj_center(label);
     return btn;
 }
@@ -300,6 +326,16 @@ static lv_obj_t *create_numpad_screen(void)
     create_key(scr, 8, x0 + dx * 1, y0 + dy * 2);
     create_key(scr, 9, x0 + dx * 2, y0 + dy * 2);
     create_key(scr, 0, x0 + dx * 1, y0 + dy * 3);
+    create_key(scr, 1, x0 + dx * 0, y0 + dy * 0);
+    create_key(scr, 2, x0 + dx * 1, y0 + dy * 0);
+    create_key(scr, 3, x0 + dx * 2, y0 + dy * 0);
+    create_key(scr, 4, x0 + dx * 0, y0 + dy * 1);
+    create_key(scr, 5, x0 + dx * 1, y0 + dy * 1);
+    create_key(scr, 6, x0 + dx * 2, y0 + dy * 1);
+    create_key(scr, 7, x0 + dx * 0, y0 + dy * 2);
+    create_key(scr, 8, x0 + dx * 1, y0 + dy * 2);
+    create_key(scr, 9, x0 + dx * 2, y0 + dy * 2);
+    create_key(scr, 0, x0 + dx * 1, y0 + dy * 3);
 
     /* Green SUBMIT button at the bottom */
     lv_obj_t *submit_btn = lv_button_create(scr);
@@ -313,7 +349,9 @@ static lv_obj_t *create_numpad_screen(void)
     lv_obj_add_event_cb(submit_btn, submit_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *submit_label = lv_label_create(submit_btn);
+    lv_obj_t *submit_label = lv_label_create(submit_btn);
     lv_label_set_text(submit_label, "SUBMIT");
+    lv_obj_center(submit_label);
     lv_obj_center(submit_label);
 
     return scr;
@@ -406,8 +444,12 @@ static void lvgl_task(void *arg)
     ESP_LOGI(TAG, "LVGL task started");
 
     if (s_intro_screen == NULL) {
+    ESP_LOGI(TAG, "LVGL task started");
+
+    if (s_intro_screen == NULL) {
         s_intro_screen = create_intro_screen();
     }
+    lv_screen_load(s_intro_screen);
     lv_screen_load(s_intro_screen);
 
     while (1) {
@@ -557,7 +599,10 @@ void tft_ui_start(void)
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "Failed to create LVGL task");
         abort();
+        ESP_LOGE(TAG, "Failed to create LVGL task");
+        abort();
     }
 
+    ESP_LOGI(TAG, "LVGL v9 TFT UI started");
     ESP_LOGI(TAG, "LVGL v9 TFT UI started");
 }
