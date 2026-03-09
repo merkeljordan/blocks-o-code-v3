@@ -25,15 +25,13 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
-#include "i2c_protocol.h"
+#include "../../include/i2c_protocol.h"
 #include "speaker.h"
 #include "tft_ui.h"
 
 extern void initArduino(void);
 
 #define BLOCK_NAME            "MUSIC_SEQ"
-#define BLOCK_I2C_ADDRESS     0x08
-#define BLOCK_TYPE            BLOCK_TYPE_MUSIC_SEQ
 
 #if CONFIG_FREERTOS_UNICORE
 #define EXEC_CORE_ID          0
@@ -62,7 +60,19 @@ static uint8_t g_status_flags  = STATUS_READY;
 /* Called by i2c_comm.c to sync REG_STATUS with runtime state. */
 uint8_t music_block_get_status_flags(void)
 {
-    return g_status_flags;
+    /* Only expose defined status bits and ensure READY is set whenever
+     * the block is not BUSY or in ERROR, so the Brain/app don't see
+     * spurious "stuck" states from high bits or transient flags. */
+    uint8_t flags = g_status_flags & (STATUS_READY |
+                                      STATUS_BUSY |
+                                      STATUS_ERROR |
+                                      STATUS_DATA_READY);
+
+    if ((flags & (STATUS_BUSY | STATUS_ERROR)) == 0) {
+        flags |= STATUS_READY;
+    }
+
+    return flags;
 }
 
 /* Queue for execute requests from I2C (used by CMD_RESET to clear pending). */
@@ -151,11 +161,27 @@ void command_handle(i2c_command_t cmd,
             }
             break;
 
-        case CMD_EXECUTE:
-            /* Brain-side Play should eventually reach this branch via I2C. */
+            case CMD_EXECUTE:
             if (g_speaker_ready && g_config_valid) {
-                // Playback path triggered by Brain.
-                speaker_play_song(g_selected_song);
+                ESP_LOGI(TAG, "CMD_EXECUTE: about to play song %u (status=0x%02X)",
+                         (unsigned)g_selected_song, (unsigned)g_status_flags);
+        
+                g_status_flags |= STATUS_BUSY;
+                g_status_flags &= (uint8_t)~STATUS_ERROR;
+        
+                esp_err_t err = speaker_play_song(g_selected_song);
+        
+                g_status_flags &= (uint8_t)~STATUS_BUSY;
+                if (err != ESP_OK) {
+                    g_status_flags |= STATUS_ERROR;
+                    ESP_LOGE(TAG, "CMD_EXECUTE: speaker_play_song failed err=%d", (int)err);
+                } else {
+                    g_status_flags |= STATUS_DATA_READY;
+                    ESP_LOGI(TAG, "CMD_EXECUTE: playback complete");
+                }
+            } else {
+                ESP_LOGW(TAG, "CMD_EXECUTE: skipped (speaker_ready=%d config_valid=%d)",
+                         (int)g_speaker_ready, (int)g_config_valid);
             }
             break;
 

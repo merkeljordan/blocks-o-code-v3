@@ -46,7 +46,7 @@
  
  /* ── Hardware constants ────────────────────────────────────────────────── */
 #define LED_GPIO             15       /* WS2812 data pin                  */
-#define LED_MATRIX_SIZE      30       /* Number of LEDs on the strip      */
+#define LED_MATRIX_SIZE      16       /* Number of LEDs on the matrix      */
  
  /* ── Module state ──────────────────────────────────────────────────────── */
  static led_strip_handle_t led_strip = NULL;

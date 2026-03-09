@@ -163,13 +163,16 @@ void handle_command(uint8_t *buffer, int len) {
             if (len == 2) {
                 color_id = buffer[1] % 10;
                 ESP_LOGI(TAG, "  → SET_COLOR ID=%d (%s)", color_id, led_pattern_name(color_id));
-                current_status = STATUS_DATA_READY;
+                // SET_LED is a configuration update, not a block-originated event.
+                // Only assert DATA_READY when a submit event is actually pending.
+                current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
             } else if (len >= 4) {
                 led_r = buffer[1];
                 led_g = buffer[2];
                 led_b = buffer[3];
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
-                current_status = STATUS_DATA_READY;
+                // SET_LED is a configuration update, not a block-originated event.
+                current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
             }
             break;
 

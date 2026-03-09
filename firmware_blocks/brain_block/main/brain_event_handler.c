@@ -137,9 +137,16 @@ static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_add
     return false;
 }
 
-static void dispatch_output_action(block_type_t type) {
-    // Current addressing model: one output block instance per program step.
-    // We map the executor PC to the same index in the latest config snapshot.
+static void dispatch_output_action(block_type_t step_type) {
+    /*
+     * Broadcast execution model:
+     * - When the program hits ANY output "action" step, trigger ALL present output blocks.
+     * - For LED_FLASH steps, push the current executor color_id to every LED_FLASH block
+     *   before broadcasting CMD_EXECUTE.
+     *
+     * This intentionally ignores the previous "PC maps to a specific physical block"
+     * addressing rule.
+     */
     block_config_state_t config_snapshot;
     if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
         config_snapshot.block_count == 0) {
@@ -147,85 +154,72 @@ static void dispatch_output_action(block_type_t type) {
         return;
     }
 
-    if (s_executor_ctx.pc >= config_snapshot.block_count) {
-        ESP_LOGW(TAG, "dispatch_output_action: pc=%u out of range (count=%u)",
-                 s_executor_ctx.pc, config_snapshot.block_count);
-        return;
+    uint8_t block_present = 0;
+    uint8_t exec_ok = 0;
+
+    // Phase 1: push shared config updates (only needed for some step types).
+    if (step_type == BLOCK_TYPE_LED_FLASH) {
+        for (int i = 0; i < config_snapshot.block_count; i++) {
+            const block_config_entry_t *entry = &config_snapshot.blocks[i];
+            if (!entry->present) {
+                continue;
+            }
+            if (entry->block_type != BLOCK_TYPE_LED_FLASH) {
+                continue;
+            }
+
+            esp_err_t set_ret = i2c_set_led_color_id(entry->i2c_address, s_executor_params.color_id);
+            if (set_ret != ESP_OK) {
+                ESP_LOGW(TAG, "LED_FLASH set color failed addr=0x%02X (ret=%d)",
+                         entry->i2c_address, (int)set_ret);
+            }
+        }
     }
 
-    const block_config_entry_t *entry = &config_snapshot.blocks[s_executor_ctx.pc];
-    uint8_t addr = entry->i2c_address;
+    // Phase 2: broadcast execute to all present blocks.
+    bool measured_music_latency = false;
+    for (int i = 0; i < config_snapshot.block_count; i++) {
+        const block_config_entry_t *entry = &config_snapshot.blocks[i];
+        if (!entry->present) {
+            continue;
+        }
 
-    switch (type) {
-        case BLOCK_TYPE_LED_FLASH: {
-            ESP_LOGI(TAG, "ACTION led_flash addr=0x%02X color_id=%u",
-                     addr, s_executor_params.color_id);
-            esp_err_t set_ret = i2c_set_led_color_id(addr, s_executor_params.color_id);
-            esp_err_t exec_ret = i2c_execute(addr);
-            if (set_ret != ESP_OK || exec_ret != ESP_OK) {
-                ESP_LOGW(TAG, "LED_FLASH action failed for 0x%02X (set_ret=%d exec_ret=%d)",
-                         addr, (int)set_ret, (int)exec_ret);
-            }
-            break;
+        block_present++;
+
+        esp_err_t exec_ret = i2c_execute(entry->i2c_address);
+        if (exec_ret == ESP_OK) {
+            exec_ok++;
+        } else {
+            ESP_LOGW(TAG, "Broadcast EXECUTE failed addr=0x%02X type=%s (ret=%d)",
+                     entry->i2c_address, block_type_to_string(entry->block_type), (int)exec_ret);
         }
-        case BLOCK_TYPE_NOTE: {
-            if (entry->block_type != BLOCK_TYPE_NOTE) {
-                ESP_LOGW(TAG,
-                         "ACTION note: pc=%u type mismatch (cfg_type=%u), skipping I2C execute",
-                         s_executor_ctx.pc, (unsigned)entry->block_type);
-                break;
-            }
-            ESP_LOGI(TAG, "ACTION note addr=0x%02X note_id=%u",
-                     addr, s_executor_params.note_id);
-            // NOTE block child interprets CMD_EXECUTE using its own selected note;
-            // executor only needs to trigger execute.
-            esp_err_t exec_ret = i2c_execute(addr);
-            if (exec_ret != ESP_OK) {
-                ESP_LOGW(TAG, "NOTE action failed for 0x%02X (exec_ret=%d)",
-                         addr, (int)exec_ret);
-            }
-            break;
-        }
-        case BLOCK_TYPE_MUSIC_SEQ: {
-            if (entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
-                ESP_LOGW(TAG,
-                         "ACTION music_sequence: pc=%u type mismatch (cfg_type=%u), skipping I2C execute",
-                         s_executor_ctx.pc, (unsigned)entry->block_type);
-                break;
-            }
-            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u -> addr=0x%02X",
-                     s_executor_params.music_sequence_id, addr);
-            // Music sequence child already has its selected song in local state;
-            // executor only needs to send CMD_EXECUTE.
+
+        // Optional demo/metrics: only for MUSIC_SEQ steps, measure just the first block.
+        if (!measured_music_latency &&
+            step_type == BLOCK_TYPE_MUSIC_SEQ &&
+            entry->block_type == BLOCK_TYPE_MUSIC_SEQ) {
             uint32_t elapsed_ms = 0;
             uint8_t status = 0;
-            esp_err_t exec_ret = i2c_execute(addr);
-            if (exec_ret != ESP_OK) {
-                ESP_LOGW(TAG, "MUSIC_SEQ execute failed for 0x%02X (exec_ret=%d)",
-                         addr, (int)exec_ret);
-                break;
-            }
-
-            // Optionally measure latency to BUSY for demo/metrics.
-            esp_err_t busy_ret = wait_for_status_busy(addr,
+            esp_err_t busy_ret = wait_for_status_busy(entry->i2c_address,
                                                       MUSIC_EXEC_BUSY_TIMEOUT_MS,
                                                       &elapsed_ms,
                                                       &status);
             if (busy_ret == ESP_OK) {
                 ESP_LOGI(TAG,
-                         "MUSIC_SEQ latency dispatch->BUSY = %u ms (status=0x%02X)",
-                         (unsigned)elapsed_ms, (unsigned)status);
+                         "MUSIC_SEQ latency dispatch->BUSY = %u ms (addr=0x%02X status=0x%02X)",
+                         (unsigned)elapsed_ms, entry->i2c_address, (unsigned)status);
             } else {
                 ESP_LOGW(TAG,
-                         "MUSIC_SEQ did not report BUSY within %u ms (ret=%d, status=0x%02X)",
-                         (unsigned)MUSIC_EXEC_BUSY_TIMEOUT_MS, (int)busy_ret,
-                         (unsigned)status);
+                         "MUSIC_SEQ did not report BUSY within %u ms (addr=0x%02X ret=%d status=0x%02X)",
+                         (unsigned)MUSIC_EXEC_BUSY_TIMEOUT_MS, entry->i2c_address,
+                         (int)busy_ret, (unsigned)status);
             }
-            break;
+            measured_music_latency = true;
         }
-        default:
-            break;
     }
+
+    ESP_LOGI(TAG, "BROADCAST action step=%s -> blocks=%u exec_ok=%u",
+             block_type_to_string(step_type), (unsigned)block_present, (unsigned)exec_ok);
 }
 
 static bool load_program_from_config(void) {
