@@ -81,15 +81,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
-<<<<<<< HEAD
-=======
   final ConfigLatencyCalculator _configLatencyCalculator =
       ConfigLatencyCalculator();
   ConfigLatencyMetrics? _configLatencyMetrics;
   bool _hasLastValidationResult = false;
   bool _lastConfigIsValid = false;
   int _lastConfigErrorCount = 0;
->>>>>>> d830ea61 (test for spec2 files)
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -336,17 +333,17 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           // Validate configuration
           final violations = _configValidator.validate(config);
           final errorCount = violations.where((v) => v.severity == Severity.error).length;
-<<<<<<< HEAD
-=======
           final isValid = errorCount == 0;
           _hasLastValidationResult = true;
           _lastConfigIsValid = isValid;
           _lastConfigErrorCount = errorCount;
           final brainDetectToSendMs =
               _configLatencyCalculator.brainDetectToSend(config);
-          _sendConfigValidationEvent(isValid: isValid, errorCount: errorCount);
-          
->>>>>>> d830ea61 (test for spec2 files)
+          _sendConfigValidationEvent(
+            isValid: isValid,
+            errorCount: errorCount,
+            trigger: 'block_config_update',
+          );
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
@@ -356,10 +353,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
             connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
-<<<<<<< HEAD
-          _publishValidationForCurrentConfig(trigger: 'block_config_update');
-=======
-
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             final renderTsMs = DateTime.now().millisecondsSinceEpoch;
@@ -378,7 +371,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
               );
             });
           });
->>>>>>> d830ea61 (test for spec2 files)
         } else {
           setState(() {
             connectionStatus = 'Failed to parse block configuration';
@@ -496,7 +488,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
     setState(() {
       if (violations != null) {
-        _configViolations = violations!;
+        _configViolations = violations;
       }
       connectionStatus = sent
           ? 'Validation sent (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)'

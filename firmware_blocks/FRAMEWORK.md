@@ -54,9 +54,9 @@ Each block returns a small payload on `CMD_GET_DATA`. Keep it fixed-length per b
 
 | Block Type | Payload | Notes |
 |---|---|---|
-| IF | none | Marker only |
-| THEN | none | Marker only |
-| END_IF | none | Marker only |
+| IF | none | Marker only (control-flow start) |
+| THEN | none | Marker only (action branch) |
+| END_IF | none | Marker only (control-flow end) |
 | LOOP | `loop_count` (uint8) | 1-99 typical |
 | END_LOOP | none | Marker only |
 | DELAY | `delay_ms` (uint16 or uint32) | milliseconds |
@@ -115,6 +115,43 @@ Each block returns a small payload on `CMD_GET_DATA`. Keep it fixed-length per b
 - Numpad selects color.
 - Preview: flash selected color on LED matrix + addressable LEDs.
 - Return `color_id` on `CMD_GET_DATA`.
+
+## Template roadmap (beyond this sprint)
+
+- **IF / THEN / END_IF**
+  - **Behavior**: pure control-flow markers; no payload; provide clear UI prompts and confirmation flashes.
+  - **Peripherals**: TFT for IF/END_IF; LED matrix and speaker for feedback only.
+  - **Complexity**: **S** (THEN is implemented as reference; IF/END_IF mirror the same pattern without payload).
+- **LOOP / END_LOOP**
+  - **Behavior**: LOOP captures `loop_count` via numpad or UI; END_LOOP is a marker. Brain uses these to wrap sequences.
+  - **Config**: `loop_count` (uint8) in `CMD_GET_DATA` payload; END_LOOP has none.
+  - **Peripherals**: Numpad/TFT for LOOP entry; LED matrix previews remaining loops when executing.
+  - **Complexity**: **M** (simple state machine + numeric input UX).
+- **DELAY**
+  - **Behavior**: waits for configured delay on `CMD_EXECUTE` without blocking I²C (use task or timer).
+  - **Config**: `delay_ms` (uint16/uint32) from numpad or remote `CMD_SET_DELAY`.
+  - **Peripherals**: LED matrix countdown/progress bar; speaker tick at completion.
+  - **Complexity**: **M** (timer-based execution + UX).
+- **BUTTON**
+  - **Behavior**: waits for a single button press while Brain executor is in `WAIT_INPUT`; sends back event via `CMD_GET_DATA` / `STATUS_DATA_READY`.
+  - **Config**: `button_id` (uint8) for the active input; debounced and previewed on press.
+  - **Peripherals**: Numpad, LED matrix highlight for selected button, speaker click.
+  - **Complexity**: **M/L** (input handling, debouncing, event reporting).
+- **NOTE**
+  - **Behavior**: plays the selected note once on `CMD_EXECUTE` and on local preview.
+  - **Config**: `note_id` (uint8) A–G mapped 0–6 in payload.
+  - **Peripherals**: Speaker playback, LED matrix music-note pattern.
+  - **Complexity**: **M** (audio tone mapping + simple UI).
+- **MUSIC_SEQ**
+  - **Behavior**: selects and plays a pre-baked song; already has a richer reference implementation.
+  - **Config**: `sequence_id` / `song_id` (uint8) in payload.
+  - **Peripherals**: TFT UI, speaker, optional LED choreography.
+  - **Complexity**: **L** (streaming audio, UI, and execution task).
+- **LED_FLASH**
+  - **Behavior**: flashes the selected color pattern on `CMD_EXECUTE` and sets `STATUS_DATA_READY` when a color is confirmed.
+  - **Config**: `color_id` (uint8) mapped from numpad.
+  - **Peripherals**: LED matrix + strip patterns; simple color picker UI.
+  - **Complexity**: **M** (pattern generation + simple state).
 
 ## Execution Rules (Simple)
 - A block executes its **configured action** when `CMD_EXECUTE` is received.
