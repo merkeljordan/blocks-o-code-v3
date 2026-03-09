@@ -32,4 +32,7 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len);
 /* Network client startup (implemented in app.c) */
 void start_network_client(void);
 
+/* True only while the TCP companion app socket is connected. */
+bool brain_companion_is_connected(void);
+
 #endif // BRAIN_BLOCK_H

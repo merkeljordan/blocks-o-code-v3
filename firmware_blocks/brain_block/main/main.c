@@ -9,7 +9,9 @@
 #include "brain_event_handler.h"
 #include "tft_ui.h"
 #include "brain_event_handler.h"
+#include "audio_speaker.h"
 
+extern void initArduino(void);
 
 static const char *TAG = "BRAIN";
 QueueHandle_t demo_cmd_queue = NULL;
@@ -167,6 +169,23 @@ static void brain_executor_task(void *arg)
     }
 }
 
+static void peripherals_boot_feedback(void)
+{
+    esp_err_t err = speaker_init();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "speaker_init failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    /* Match music sequence block startup volume behavior. */
+    speaker_set_volume(30);
+
+    err = speaker_play_boot_sound();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "speaker_play_boot_sound failed: %s", esp_err_to_name(err));
+    }
+}
+
 // ============================================================================
 // MAIN - Only initialization and task creation
 // ============================================================================
@@ -175,6 +194,8 @@ void app_main(void) {
     esp_log_level_set("XPT2046", ESP_LOG_DEBUG);
     esp_log_level_set("xpt2046", ESP_LOG_DEBUG);
 
+    initArduino();
+    peripherals_boot_feedback();
     
     // Initialize I²C Master
     ESP_ERROR_CHECK(i2c_master_init());

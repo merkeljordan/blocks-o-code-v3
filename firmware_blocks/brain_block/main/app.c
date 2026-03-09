@@ -50,11 +50,11 @@ Enhancement:
 #include "tft_ui.h"
 
 
-#define WIFI_SSID       "iPhone" // <-- Set your Wi‑Fi SSID here
-#define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
+#define WIFI_SSID       "LeoNina" // <-- Set your Wi‑Fi SSID here
+#define WIFI_PASS       "Gabiaida1725"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.5" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "192.168.1.12" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */
@@ -64,17 +64,21 @@ Enhancement:
 #define TCP_RX_BUF_SIZE       512
 #define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
+#define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 6144
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 static bool s_validation_requested_by_start = false;
+static volatile bool s_companion_connected = false;
 
 // Latest block config JSON produced by scan task, sent by TCP task.
 static EventGroupHandle_t s_block_config_event_group;
 #define BLOCK_CONFIG_CHANGED_BIT BIT0
 static SemaphoreHandle_t s_block_config_json_mutex;
 static char s_block_config_json[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+/* Keep scan JSON buffer out of task stack to avoid overflow in block_cfg_scan. */
+static char s_block_config_scan_json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
 static size_t s_block_config_json_len = 0;
 static bool s_block_config_json_valid = false;
 
@@ -138,20 +142,20 @@ static void block_config_scan_task(void *pvParameters) {
 
         // Update cached JSON if changed or if we don't have a valid cache yet.
         if (config_changed || !s_block_config_json_valid) {
-            char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
-            if (block_config_manager_get_json(json_buffer, sizeof(json_buffer)) == ESP_OK) {
-                size_t json_len = strlen(json_buffer);
+            if (block_config_manager_get_json(s_block_config_scan_json_buffer,
+                                              sizeof(s_block_config_scan_json_buffer)) == ESP_OK) {
+                size_t json_len = strlen(s_block_config_scan_json_buffer);
                 // Ensure newline-terminated (desktop parser expects newline)
-                if (json_len < sizeof(json_buffer) - 1) {
-                    json_buffer[json_len] = '\n';
-                    json_buffer[json_len + 1] = '\0';
+                if (json_len < sizeof(s_block_config_scan_json_buffer) - 1) {
+                    s_block_config_scan_json_buffer[json_len] = '\n';
+                    s_block_config_scan_json_buffer[json_len + 1] = '\0';
                     json_len += 1;
                 }
 
                 if (s_block_config_json_mutex != NULL &&
                     xSemaphoreTake(s_block_config_json_mutex, pdMS_TO_TICKS(200)) == pdTRUE) {
                     if (json_len < sizeof(s_block_config_json)) {
-                        memcpy(s_block_config_json, json_buffer, json_len);
+                        memcpy(s_block_config_json, s_block_config_scan_json_buffer, json_len);
                         s_block_config_json[json_len] = '\0';
                         s_block_config_json_len = json_len;
                         s_block_config_json_valid = true;
@@ -176,6 +180,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(TAG, "WiFi disconnected, retrying...");
+        s_companion_connected = false;
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         vTaskDelay(pdMS_TO_TICKS(WIFI_RETRY_MS));
         esp_wifi_connect();
@@ -294,6 +299,7 @@ static void tcp_client_task(void *pvParameters)
         }
 
         ESP_LOGI(TAG, "Successfully connected to server");
+        s_companion_connected = true;
 
         // Brief settle delay before first send (helps when connection was flapping)
         vTaskDelay(pdMS_TO_TICKS(200));
@@ -466,12 +472,14 @@ static void tcp_client_task(void *pvParameters)
 
             } else if (len == 0) {
                 ESP_LOGW(TAG, "Connection closed by peer");
+                s_companion_connected = false;
                 break;
             } else {
                 if (errno == EAGAIN || errno == EWOULDBLOCK) {
                     ESP_LOGD(TAG, "Receive timeout (no data)");
                 } else {
                     ESP_LOGE(TAG, "recv failed: errno %d", errno);
+                    s_companion_connected = false;
                     break;
                 }
             }
@@ -485,12 +493,18 @@ static void tcp_client_task(void *pvParameters)
             close(sock);
             sock = -1;
         }
+        s_companion_connected = false;
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
         vTaskDelay(pdMS_TO_TICKS(TCP_RETRY_MS));
     }
 
     vTaskDelete(NULL);
+}
+
+bool brain_companion_is_connected(void)
+{
+    return s_companion_connected;
 }
 
 void start_network_client(void)
@@ -514,7 +528,12 @@ void start_network_client(void)
     if (s_block_config_json_mutex == NULL) {
         s_block_config_json_mutex = xSemaphoreCreateMutex();
     }
-    xTaskCreate(block_config_scan_task, "block_cfg_scan", 4096, NULL, 4, NULL);
+    xTaskCreate(block_config_scan_task,
+                "block_cfg_scan",
+                BLOCK_CONFIG_SCAN_TASK_STACK_SIZE,
+                NULL,
+                4,
+                NULL);
 
     wifi_init_sta();
 

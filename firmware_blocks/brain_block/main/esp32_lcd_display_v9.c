@@ -21,6 +21,7 @@
 #include "esp_lcd_touch_xpt2046.h"
 
 #include "tft_ui.h"
+#include "brain_block.h"
 #include "brain_event_handler.h"
 
 /*
@@ -34,7 +35,7 @@
  *    - LVGL display + input registration
  *    - LVGL tick + LVGL task loop
  * 2) UI construction:
- *    - A simple home screen using LVGL v9 objects, styles, flex layout, events, and timers
+ *    - A simple home screen using LVGL v9 objects, styles, flex layout, and events
  *
  * If you are learning the flow, read in this order:
  *   - tft_ui_start()              (startup sequence / wiring)
@@ -95,7 +96,6 @@ static const char *TAG = "brain_ui_v9";
 /* Touch debug + transform presets
  * Presets let us test different mirror/swap combinations at runtime without reflashing. */
 #define TOUCH_PRESET_DEFAULT_INDEX     6U
-#define TOUCH_DEBUG_REFRESH_MS         75U
 /* Software touch normalization helps when edge hits are compressed (common on XPT2046).
  * These are safe defaults; adjust if tester still shows corner drift. */
 #define TOUCH_SW_CAL_ENABLE            1
@@ -116,7 +116,7 @@ static const char *TAG = "brain_ui_v9";
  * Notes:
  * - The `tp_cfg.flags` values in tft_ui_start() are just the initial bootstrap config.
  * - apply_touch_transform_preset() is called immediately after touch init and becomes the active mapping.
- * - If touch feels rotated/mirrored, change TOUCH_PRESET_DEFAULT_INDEX or use "Next Touch Map" at runtime.
+ * - If touch feels rotated/mirrored, adjust TOUCH_PRESET_DEFAULT_INDEX for your panel stack-up.
  */
 
 typedef struct {
@@ -173,22 +173,10 @@ static esp_lcd_touch_handle_t s_touch_handle = NULL;
 static esp_timer_handle_t s_lvgl_tick_timer = NULL;
 static lv_obj_t *s_home_screen = NULL;
 static lv_obj_t *s_blocks_screen = NULL;
-static lv_obj_t *s_touch_tester_screen = NULL;
-static lv_obj_t *s_time_label = NULL;
+static lv_obj_t *s_wifi_icon_label = NULL;
 static lv_obj_t *s_status_label = NULL;
 static lv_obj_t *s_blocks_status_label = NULL;
-static lv_timer_t *s_uptime_timer = NULL;
-static lv_timer_t *s_touch_debug_timer = NULL;
-
-/* Home-screen touch diagnostics overlay (visible by default during touch bring-up) */
-static lv_obj_t *s_touch_overlay_panel = NULL;
-static lv_obj_t *s_touch_overlay_label = NULL;
-static lv_obj_t *s_home_touch_marker = NULL;
-
-/* Full-screen touch tester mode objects */
-static lv_obj_t *s_touch_tester_label = NULL;
-static lv_obj_t *s_touch_tester_preset_label = NULL;
-static lv_obj_t *s_touch_tester_marker = NULL;
+static bool s_last_wifi_connected = false;
 
 static touch_debug_state_t s_touch_debug = {
     .last_read_err = ESP_OK,
@@ -198,18 +186,8 @@ static bool s_touch_prev_pressed = false;
 static int64_t s_last_home_action_us = 0;
 static const char *s_last_home_action_name = NULL;
 
-/* Forward declarations for touch debug/tester helpers */
-static void touch_debug_ui_timer_cb(lv_timer_t *timer);
-static lv_obj_t *create_touch_marker(lv_obj_t *parent, lv_color_t color);
-static void update_touch_debug_ui(void);
+/* Forward declarations */
 static void apply_touch_transform_preset(uint8_t preset_index);
-static void cycle_touch_transform_preset(void);
-static void touch_next_preset_event_cb(lv_event_t *e);
-static void header_title_long_press_cb(lv_event_t *e);
-static void touch_tester_back_event_cb(lv_event_t *e);
-static void open_touch_tester_screen(void);
-static lv_obj_t *create_touch_tester_screen(void);
-static void create_home_touch_debug_overlay(lv_obj_t *home_screen_root);
 static void open_blocks_screen(void);
 static lv_obj_t *create_blocks_screen(void);
 static void blocks_back_event_cb(lv_event_t *e);
@@ -383,6 +361,18 @@ static void lvgl_task(void *arg)
     ESP_LOGI(TAG, "LVGL task started");
 
     while (1) {
+        if (s_wifi_icon_label != NULL) {
+            bool connected = brain_companion_is_connected();
+            if (connected != s_last_wifi_connected) {
+                if (connected) {
+                    lv_obj_clear_flag(s_wifi_icon_label, LV_OBJ_FLAG_HIDDEN);
+                } else {
+                    lv_obj_add_flag(s_wifi_icon_label, LV_OBJ_FLAG_HIDDEN);
+                }
+                s_last_wifi_connected = connected;
+            }
+        }
+
         uint32_t delay_ms = lv_timer_handler();
         /* Clamp sleep to avoid both busy-looping and sleeping too long.
          * Keep max poll interval tight for resistive touch responsiveness. */
@@ -393,50 +383,6 @@ static void lvgl_task(void *arg)
         }
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
-}
-
-/* Touch debug helpers ----------------------------------------------------- */
-
-static lv_obj_t *create_touch_marker(lv_obj_t *parent, lv_color_t color)
-{
-    lv_obj_t *marker = lv_obj_create(parent);
-    lv_obj_set_size(marker, 12, 12);
-    lv_obj_clear_flag(marker, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(marker, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_radius(marker, 6, 0);
-    lv_obj_set_style_border_width(marker, 2, 0);
-    lv_obj_set_style_border_color(marker, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_color(marker, color, 0);
-    lv_obj_set_style_bg_opa(marker, LV_OPA_COVER, 0);
-    lv_obj_set_style_shadow_width(marker, 8, 0);
-    lv_obj_set_style_shadow_opa(marker, LV_OPA_30, 0);
-    lv_obj_set_style_shadow_color(marker, color, 0);
-    lv_obj_move_foreground(marker);
-    return marker;
-}
-
-static void set_touch_marker_position(lv_obj_t *marker, bool visible, uint16_t x, uint16_t y)
-{
-    if (marker == NULL) {
-        return;
-    }
-
-    if (!visible) {
-        lv_obj_add_flag(marker, LV_OBJ_FLAG_HIDDEN);
-        return;
-    }
-
-    int x_pos = (int)x - 6;
-    int y_pos = (int)y - 6;
-
-    if (x_pos < 0) x_pos = 0;
-    if (y_pos < 0) y_pos = 0;
-    if (x_pos > (BRAIN_LCD_H_RES - 12)) x_pos = BRAIN_LCD_H_RES - 12;
-    if (y_pos > (BRAIN_LCD_V_RES - 12)) y_pos = BRAIN_LCD_V_RES - 12;
-
-    lv_obj_set_pos(marker, x_pos, y_pos);
-    lv_obj_clear_flag(marker, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(marker);
 }
 
 static void apply_touch_transform_preset(uint8_t preset_index)
@@ -470,267 +416,6 @@ static void apply_touch_transform_preset(uint8_t preset_index)
     ESP_LOGI(TAG, "Touch preset %u applied: %s (x_max=%u y_max=%u swap=%d mx=%d my=%d)",
              (unsigned)preset_index, p->name, p->x_max, p->y_max,
              (int)p->swap_xy, (int)p->mirror_x, (int)p->mirror_y);
-
-    update_touch_debug_ui();
-}
-
-static void cycle_touch_transform_preset(void)
-{
-    uint8_t next = (uint8_t)((s_touch_debug.transform_preset_index + 1U) % s_touch_preset_count);
-    apply_touch_transform_preset(next);
-
-    if (s_status_label != NULL) {
-        lv_label_set_text_fmt(s_status_label, "Touch map: %s", s_touch_presets[next].name);
-    }
-}
-
-static void touch_next_preset_event_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) != LV_EVENT_CLICKED) {
-        return;
-    }
-    cycle_touch_transform_preset();
-}
-
-static void format_touch_debug_lines(char *line1, size_t line1_sz,
-                                     char *line2, size_t line2_sz)
-{
-    const touch_transform_preset_t *p = &s_touch_presets[s_touch_debug.transform_preset_index % s_touch_preset_count];
-    const char *read_name = esp_err_to_name(s_touch_debug.last_read_err);
-
-    snprintf(line1, line1_sz,
-             "Touch:%s  Pts:%u  Z:%u\nXY:%u,%u  Raw:%u,%u",
-             s_touch_debug.pressed ? "PRESSED" : "RELEASED",
-             (unsigned)s_touch_debug.point_count,
-             (unsigned)s_touch_debug.strength,
-             (unsigned)s_touch_debug.x,
-             (unsigned)s_touch_debug.y,
-             (unsigned)s_touch_debug.raw_x,
-             (unsigned)s_touch_debug.raw_y);
-
-    snprintf(line2, line2_sz,
-             "Preset:%s  Read:%s\nx/y=%u/%u  S%d X%d Y%d  T:%lu R:%lu",
-             p->name,
-             (s_touch_debug.last_read_err == ESP_OK) ? "OK" : (read_name ? read_name : "ERR"),
-             (unsigned)p->x_max, (unsigned)p->y_max,
-             (int)p->swap_xy, (int)p->mirror_x, (int)p->mirror_y,
-             (unsigned long)s_touch_debug.pressed_count,
-             (unsigned long)s_touch_debug.released_count);
-}
-
-static void update_touch_debug_ui(void)
-{
-    char line1[128];
-    char line2[128];
-    format_touch_debug_lines(line1, sizeof(line1), line2, sizeof(line2));
-
-    if (s_touch_overlay_label != NULL) {
-        lv_label_set_text_fmt(s_touch_overlay_label, "%s\n%s", line1, line2);
-    }
-
-    if (s_touch_tester_label != NULL) {
-        lv_label_set_text(s_touch_tester_label, line1);
-    }
-
-    if (s_touch_tester_preset_label != NULL) {
-        lv_label_set_text(s_touch_tester_preset_label, line2);
-    }
-
-    set_touch_marker_position(s_home_touch_marker, s_touch_debug.pressed, s_touch_debug.x, s_touch_debug.y);
-    set_touch_marker_position(s_touch_tester_marker, s_touch_debug.pressed, s_touch_debug.x, s_touch_debug.y);
-}
-
-static void touch_debug_ui_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-    update_touch_debug_ui();
-}
-
-static void touch_tester_back_event_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) != LV_EVENT_CLICKED) {
-        return;
-    }
-    if (s_home_screen != NULL) {
-        lv_screen_load_anim(s_home_screen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 220, 0, false);
-    }
-}
-
-static void header_title_long_press_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) != LV_EVENT_LONG_PRESSED) {
-        return;
-    }
-    open_touch_tester_screen();
-}
-
-static lv_obj_t *create_touch_tester_screen(void)
-{
-    lv_obj_t *scr = lv_obj_create(NULL);
-    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_border_width(scr, 0, 0);
-    lv_obj_set_style_radius(scr, 0, 0);
-    lv_obj_set_style_pad_all(scr, 0, 0);
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0xEEF6FF), 0);
-    lv_obj_set_style_bg_grad_color(scr, lv_color_hex(0xFFF7D8), 0);
-    lv_obj_set_style_bg_grad_dir(scr, LV_GRAD_DIR_VER, 0);
-
-    lv_obj_t *header = lv_obj_create(scr);
-    lv_obj_set_size(header, BRAIN_LCD_H_RES, 36);
-    lv_obj_align(header, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_radius(header, 0, 0);
-    lv_obj_set_style_border_width(header, 0, 0);
-    lv_obj_set_style_bg_color(header, UI_COLOR_HEADER, 0);
-    lv_obj_set_style_pad_all(header, 6, 0);
-
-    lv_obj_t *back_btn = lv_button_create(header);
-    lv_obj_set_size(back_btn, 58, 24);
-    lv_obj_align(back_btn, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_add_event_cb(back_btn, touch_tester_back_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *back_lbl = lv_label_create(back_btn);
-    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT " Home");
-    lv_obj_center(back_lbl);
-
-    lv_obj_t *title = lv_label_create(header);
-    lv_label_set_text(title, "Touch Tester");
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
-
-    lv_obj_t *debug_panel = lv_obj_create(scr);
-    lv_obj_set_size(debug_panel, BRAIN_LCD_H_RES - 12, 82);
-    lv_obj_align(debug_panel, LV_ALIGN_TOP_MID, 0, 42);
-    lv_obj_clear_flag(debug_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_radius(debug_panel, 12, 0);
-    lv_obj_set_style_border_width(debug_panel, 1, 0);
-    lv_obj_set_style_border_color(debug_panel, UI_COLOR_BORDER_SOFT, 0);
-    lv_obj_set_style_bg_color(debug_panel, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_pad_all(debug_panel, 6, 0);
-
-    s_touch_tester_label = lv_label_create(debug_panel);
-    lv_obj_set_width(s_touch_tester_label, LV_PCT(100));
-    lv_label_set_long_mode(s_touch_tester_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_color(s_touch_tester_label, UI_COLOR_TEXT_PRIMARY, 0);
-    lv_obj_align(s_touch_tester_label, LV_ALIGN_TOP_LEFT, 0, 0);
-
-    s_touch_tester_preset_label = lv_label_create(debug_panel);
-    lv_obj_set_width(s_touch_tester_preset_label, LV_PCT(100));
-    lv_label_set_long_mode(s_touch_tester_preset_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_color(s_touch_tester_preset_label, UI_COLOR_TEXT_SECONDARY, 0);
-    lv_obj_align(s_touch_tester_preset_label, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-
-    /* Corner markers make it obvious whether the touch transform matches screen orientation. */
-    lv_obj_t *tl = lv_label_create(scr);
-    lv_label_set_text(tl, "TL");
-    lv_obj_align(tl, LV_ALIGN_TOP_LEFT, 6, 130);
-    lv_obj_set_style_text_color(tl, UI_COLOR_TEXT_PRIMARY, 0);
-
-    lv_obj_t *tr = lv_label_create(scr);
-    lv_label_set_text(tr, "TR");
-    lv_obj_align(tr, LV_ALIGN_TOP_RIGHT, -6, 130);
-    lv_obj_set_style_text_color(tr, UI_COLOR_TEXT_PRIMARY, 0);
-
-    lv_obj_t *bl = lv_label_create(scr);
-    lv_label_set_text(bl, "BL");
-    lv_obj_align(bl, LV_ALIGN_BOTTOM_LEFT, 6, -40);
-    lv_obj_set_style_text_color(bl, UI_COLOR_TEXT_PRIMARY, 0);
-
-    lv_obj_t *br = lv_label_create(scr);
-    lv_label_set_text(br, "BR");
-    lv_obj_align(br, LV_ALIGN_BOTTOM_RIGHT, -6, -40);
-    lv_obj_set_style_text_color(br, UI_COLOR_TEXT_PRIMARY, 0);
-
-    lv_obj_t *hint = lv_label_create(scr);
-    lv_label_set_text(hint, "Tap corners and center. Use Next Map until the dot matches your finger.");
-    lv_obj_set_width(hint, BRAIN_LCD_H_RES - 16);
-    lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -58);
-    lv_obj_set_style_text_color(hint, UI_COLOR_TEXT_SECONDARY, 0);
-
-    lv_obj_t *next_btn = lv_button_create(scr);
-    lv_obj_set_size(next_btn, 120, 34);
-    lv_obj_align(next_btn, LV_ALIGN_BOTTOM_MID, 0, -12);
-    lv_obj_set_style_bg_color(next_btn, UI_COLOR_WARN, 0);
-    lv_obj_set_style_border_color(next_btn, UI_COLOR_WARN, 0);
-    lv_obj_add_event_cb(next_btn, touch_next_preset_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *next_lbl = lv_label_create(next_btn);
-    lv_label_set_text(next_lbl, "Next Touch Map");
-    lv_obj_center(next_lbl);
-
-    s_touch_tester_marker = create_touch_marker(scr, UI_COLOR_ALERT);
-    return scr;
-}
-
-static void open_touch_tester_screen(void)
-{
-    if (s_touch_tester_screen == NULL) {
-        s_touch_tester_screen = create_touch_tester_screen();
-    }
-    lv_screen_load_anim(s_touch_tester_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 220, 0, false);
-    update_touch_debug_ui();
-}
-
-static void create_home_touch_debug_overlay(lv_obj_t *home_screen_root)
-{
-    /* This overlay is useful during touch bring-up, but intentionally not attached in create_home_screen()
-     * to keep the normal home UI clean after mapping is validated. */
-    s_touch_overlay_panel = lv_obj_create(home_screen_root);
-    lv_obj_set_size(s_touch_overlay_panel, 176, 112);
-    lv_obj_align(s_touch_overlay_panel, LV_ALIGN_TOP_LEFT, 4, 46);
-    lv_obj_clear_flag(s_touch_overlay_panel, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_radius(s_touch_overlay_panel, 12, 0);
-    lv_obj_set_style_border_width(s_touch_overlay_panel, 1, 0);
-    lv_obj_set_style_border_color(s_touch_overlay_panel, UI_COLOR_BORDER_SOFT, 0);
-    lv_obj_set_style_bg_color(s_touch_overlay_panel, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_opa(s_touch_overlay_panel, LV_OPA_90, 0);
-    lv_obj_set_style_pad_all(s_touch_overlay_panel, 6, 0);
-    lv_obj_move_foreground(s_touch_overlay_panel);
-
-    s_touch_overlay_label = lv_label_create(s_touch_overlay_panel);
-    lv_obj_set_width(s_touch_overlay_label, LV_PCT(100));
-    lv_label_set_long_mode(s_touch_overlay_label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_color(s_touch_overlay_label, UI_COLOR_TEXT_PRIMARY, 0);
-    lv_obj_align(s_touch_overlay_label, LV_ALIGN_TOP_LEFT, 0, 0);
-
-    lv_obj_t *hint = lv_label_create(s_touch_overlay_panel);
-    lv_label_set_text(hint, "Long-press title for tester");
-    lv_obj_set_style_text_color(hint, UI_COLOR_TEXT_SECONDARY, 0);
-    lv_obj_align(hint, LV_ALIGN_BOTTOM_LEFT, 0, 0);
-
-    lv_obj_t *next_btn = lv_button_create(s_touch_overlay_panel);
-    lv_obj_set_size(next_btn, 84, 24);
-    lv_obj_align(next_btn, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
-    lv_obj_set_style_bg_color(next_btn, UI_COLOR_WARN, 0);
-    lv_obj_set_style_border_color(next_btn, UI_COLOR_WARN, 0);
-    lv_obj_add_event_cb(next_btn, touch_next_preset_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *next_lbl = lv_label_create(next_btn);
-    lv_label_set_text(next_lbl, "Next Map");
-    lv_obj_center(next_lbl);
-
-    s_home_touch_marker = create_touch_marker(home_screen_root, UI_COLOR_ALERT);
-}
-
-/* Update the small clock/uptime label in the header.
- * This is a good first LVGL v9 pattern: use a timer to refresh UI state. */
-static void uptime_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-
-    if (s_time_label == NULL) {
-        return;
-    }
-
-    uint32_t total_seconds = (uint32_t)(esp_timer_get_time() / 1000000ULL);
-    uint32_t hours = (total_seconds / 3600U) % 100U;
-    uint32_t minutes = (total_seconds / 60U) % 60U;
-    uint32_t seconds = total_seconds % 60U;
-
-    char buf[24];
-    snprintf(buf, sizeof(buf), LV_SYMBOL_REFRESH " %02lu:%02lu:%02lu",
-             (unsigned long)hours,
-             (unsigned long)minutes,
-             (unsigned long)seconds);
-    lv_label_set_text(s_time_label, buf);
 }
 
 /* One event callback can be reused across many buttons.
@@ -1122,7 +807,7 @@ static void open_blocks_screen(void)
 }
 
 /* Build a basic but clean "home screen" for the Brain Block.
- * This demonstrates: header bar, flex layouts, reusable cards, symbol buttons, and a live timer label. */
+ * This demonstrates: header bar, flex layouts, reusable cards, and symbol buttons. */
 static lv_obj_t *create_home_screen(void)
 {
     /* Root screen object (parent = NULL means "screen"). */
@@ -1155,19 +840,13 @@ static lv_obj_t *create_home_screen(void)
     lv_label_set_text(title, "Brain Block");
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(title, LV_ALIGN_LEFT_MID, 0, 0);
-    /* Hidden maker entry: long-press title opens the full-screen touch tester. */
-    lv_obj_add_flag(title, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(title, header_title_long_press_cb, LV_EVENT_LONG_PRESSED, NULL);
 
-    lv_obj_t *wifi = lv_label_create(header);
-    lv_label_set_text(wifi, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(wifi, UI_COLOR_SUCCESS, 0);
-    lv_obj_align(wifi, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    s_time_label = lv_label_create(header);
-    lv_label_set_text(s_time_label, LV_SYMBOL_REFRESH " 00:00:00");
-    lv_obj_set_style_text_color(s_time_label, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(s_time_label, LV_ALIGN_RIGHT_MID, -26, 0);
+    s_wifi_icon_label = lv_label_create(header);
+    lv_label_set_text(s_wifi_icon_label, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(s_wifi_icon_label, UI_COLOR_SUCCESS, 0);
+    lv_obj_align(s_wifi_icon_label, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_add_flag(s_wifi_icon_label, LV_OBJ_FLAG_HIDDEN);
+    s_last_wifi_connected = false;
 
     /* ---------------- Main content shell ----------------
      * Use a flex column container so sections stack naturally.
@@ -1221,10 +900,14 @@ static lv_obj_t *create_home_screen(void)
     lv_obj_set_flex_flow(action_grid, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(action_grid, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
-    create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS);
-    create_action_tile(action_grid, LV_SYMBOL_LIST, "Blocks", UI_COLOR_INFO);
-    create_action_tile(action_grid, LV_SYMBOL_SETTINGS, "Settings", UI_COLOR_FUN);
-    create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN);
+    /* Keep two rows of actions:
+     * row 1: Start spans the old Start + Blocks space
+     * row 2: Scan spans the old Settings + Scan space */
+    lv_obj_t *start_btn = create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS);
+    lv_obj_set_width(start_btn, LV_PCT(100));
+
+    lv_obj_t *scan_btn = create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN);
+    lv_obj_set_width(scan_btn, LV_PCT(100));
 
     /* Footer status panel: this is where later you can show live brain state / errors / latency. */
     lv_obj_t *status_panel = lv_obj_create(content);
@@ -1252,12 +935,6 @@ static lv_obj_t *create_home_screen(void)
     lv_obj_set_style_text_color(hint_label, UI_COLOR_ALERT, 0);
     lv_obj_align(hint_label, LV_ALIGN_RIGHT_MID, 0, 0);
 
-    /* Touch tester is still available via long-press on the title, but we keep the
-     * home screen clean now that touch mapping is verified. */
-
-    /* Prime the timer-driven header label immediately so it doesn't wait 1s for first update. */
-    uptime_timer_cb(NULL);
-    update_touch_debug_ui();
     return scr;
 }
 
@@ -1270,18 +947,6 @@ static void create_boot_screen(void)
     }
 
     lv_screen_load(s_home_screen);
-
-    if (s_uptime_timer == NULL) {
-        /* LVGL timer runs on the LVGL thread (inside lv_timer_handler), so it is safe to update labels here. */
-        s_uptime_timer = lv_timer_create(uptime_timer_cb, 1000, NULL);
-    }
-
-    if (s_touch_debug_timer == NULL) {
-        /* Poll-only touch debug UI updater. Keeps the overlay/tester labels and crosshair in sync. */
-        s_touch_debug_timer = lv_timer_create(touch_debug_ui_timer_cb, TOUCH_DEBUG_REFRESH_MS, NULL);
-    }
-
-    update_touch_debug_ui();
 }
 
 void tft_ui_start(void)
