@@ -18,6 +18,11 @@ static block_event_map_t s_event_map;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
 
+// Throttling for validation-gate start warnings to avoid log flooding.
+#define BRAIN_EXEC_VALIDATION_LOG_INTERVAL_MS 2000U
+static uint64_t s_last_validation_block_log_ms;
+static uint32_t s_validation_block_attempts_since_last_log;
+
 #define MUSIC_EXEC_BUSY_TIMEOUT_MS   200U
 #define MUSIC_EXEC_LATENCY_TARGET_MS 50U
 
@@ -506,13 +511,36 @@ void brain_executor_set_button_state(bool is_pressed) {
 
 esp_err_t brain_executor_start(void) {
     if (!brain_event_handler_can_start_execution()) {
-        const block_config_state_t *cfg = block_config_manager_get_state();
-        ESP_LOGW(TAG,
-                 "brain_executor_start blocked by validation gate: validation_received=%s validation_ok=%s block_count=%u scan_errors=%u",
-                 s_validation_state.has_received_validation ? "true" : "false",
-                 s_validation_state.app_config_valid ? "true" : "false",
-                 (unsigned)((cfg != NULL) ? cfg->block_count : 0),
-                 (unsigned)((cfg != NULL) ? cfg->error_count : 0));
+        uint64_t now = now_ms();
+        s_validation_block_attempts_since_last_log++;
+
+        bool should_log = false;
+        if (s_last_validation_block_log_ms == 0U ||
+            (now - s_last_validation_block_log_ms) >= BRAIN_EXEC_VALIDATION_LOG_INTERVAL_MS) {
+            should_log = true;
+        }
+
+        if (should_log) {
+            const block_config_state_t *cfg = block_config_manager_get_state();
+            uint32_t suppressed = (s_validation_block_attempts_since_last_log > 0U)
+                                      ? (s_validation_block_attempts_since_last_log - 1U)
+                                      : 0U;
+            ESP_LOGW(TAG,
+                     "brain_executor_start blocked by validation gate: validation_received=%s validation_ok=%s block_count=%u scan_errors=%u suppressed_since_last_log=%u",
+                     s_validation_state.has_received_validation ? "true" : "false",
+                     s_validation_state.app_config_valid ? "true" : "false",
+                     (unsigned)((cfg != NULL) ? cfg->block_count : 0),
+                     (unsigned)((cfg != NULL) ? cfg->error_count : 0),
+                     (unsigned)suppressed);
+            ESP_LOGD(TAG,
+                     "brain_executor_start blocked (attempts_since_last_log=%u suppressed=%u)",
+                     (unsigned)s_validation_block_attempts_since_last_log,
+                     (unsigned)suppressed);
+            s_last_validation_block_log_ms = now;
+            s_validation_block_attempts_since_last_log = 0U;
+        } else {
+            ESP_LOGD(TAG, "brain_executor_start blocked (throttled)");
+        }
         return ESP_ERR_INVALID_STATE;
     }
 

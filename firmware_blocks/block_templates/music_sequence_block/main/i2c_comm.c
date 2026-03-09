@@ -21,7 +21,7 @@ extern uint8_t music_block_get_status_flags(void);
 static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
 
 // Fixed child-bus address/type for the music sequence block.
-#define MY_ADDRESS      0x10
+#define MY_ADDRESS      0x12
 #define MY_BLOCK_TYPE   BLOCK_TYPE_MUSIC_SEQ
 
 // Simple register map for Brain-side WHOAMI/status reads.
