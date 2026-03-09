@@ -133,9 +133,8 @@ static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_add
 }
 
 static void dispatch_output_action(block_type_t type) {
-    // TODO: consider richer addressing than "program index == config index" so
-    // that future versions can: (a) target multiple matching output blocks, or
-    // (b) explicitly bind each program step to a specific I2C address.
+    // Current addressing model: one output block instance per program step.
+    // We map the executor PC to the same index in the latest config snapshot.
     block_config_state_t config_snapshot;
     if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
         config_snapshot.block_count == 0) {
@@ -149,7 +148,8 @@ static void dispatch_output_action(block_type_t type) {
         return;
     }
 
-    uint8_t addr = config_snapshot.blocks[s_executor_ctx.pc].i2c_address;
+    const block_config_entry_t *entry = &config_snapshot.blocks[s_executor_ctx.pc];
+    uint8_t addr = entry->i2c_address;
 
     switch (type) {
         case BLOCK_TYPE_LED_FLASH: {
@@ -163,17 +163,61 @@ static void dispatch_output_action(block_type_t type) {
             }
             break;
         }
-        case BLOCK_TYPE_NOTE:
-            // TODO: route NOTE actions to one or more BLOCK_TYPE_NOTE child blocks
-            // (e.g., lookup compatible outputs in config snapshot and send I2C play-note command).
-            ESP_LOGI(TAG, "ACTION note note_id=%u (no-op placeholder)", s_executor_params.note_id);
+        case BLOCK_TYPE_NOTE: {
+            if (entry->block_type != BLOCK_TYPE_NOTE) {
+                ESP_LOGW(TAG,
+                         "ACTION note: pc=%u type mismatch (cfg_type=%u), skipping I2C execute",
+                         s_executor_ctx.pc, (unsigned)entry->block_type);
+                break;
+            }
+            ESP_LOGI(TAG, "ACTION note addr=0x%02X note_id=%u",
+                     addr, s_executor_params.note_id);
+            // NOTE block child interprets CMD_EXECUTE using its own selected note;
+            // executor only needs to trigger execute.
+            esp_err_t exec_ret = i2c_execute(addr);
+            if (exec_ret != ESP_OK) {
+                ESP_LOGW(TAG, "NOTE action failed for 0x%02X (exec_ret=%d)",
+                         addr, (int)exec_ret);
+            }
             break;
-        case BLOCK_TYPE_MUSIC_SEQ:
-            // TODO: route MUSIC_SEQ actions to music-sequence-capable blocks once
-            // that block type is implemented on the I2C side.
-            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u (no-op placeholder)",
-                     s_executor_params.music_sequence_id);
+        }
+        case BLOCK_TYPE_MUSIC_SEQ: {
+            if (entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
+                ESP_LOGW(TAG,
+                         "ACTION music_sequence: pc=%u type mismatch (cfg_type=%u), skipping I2C execute",
+                         s_executor_ctx.pc, (unsigned)entry->block_type);
+                break;
+            }
+            ESP_LOGI(TAG, "ACTION music_sequence sequence_id=%u -> addr=0x%02X",
+                     s_executor_params.music_sequence_id, addr);
+            // Music sequence child already has its selected song in local state;
+            // executor only needs to send CMD_EXECUTE.
+            uint32_t elapsed_ms = 0;
+            uint8_t status = 0;
+            esp_err_t exec_ret = i2c_execute(addr);
+            if (exec_ret != ESP_OK) {
+                ESP_LOGW(TAG, "MUSIC_SEQ execute failed for 0x%02X (exec_ret=%d)",
+                         addr, (int)exec_ret);
+                break;
+            }
+
+            // Optionally measure latency to BUSY for demo/metrics.
+            esp_err_t busy_ret = wait_for_status_busy(addr,
+                                                      MUSIC_EXEC_BUSY_TIMEOUT_MS,
+                                                      &elapsed_ms,
+                                                      &status);
+            if (busy_ret == ESP_OK) {
+                ESP_LOGI(TAG,
+                         "MUSIC_SEQ latency dispatch->BUSY = %u ms (status=0x%02X)",
+                         (unsigned)elapsed_ms, (unsigned)status);
+            } else {
+                ESP_LOGW(TAG,
+                         "MUSIC_SEQ did not report BUSY within %u ms (ret=%d, status=0x%02X)",
+                         (unsigned)MUSIC_EXEC_BUSY_TIMEOUT_MS, (int)busy_ret,
+                         (unsigned)status);
+            }
             break;
+        }
         default:
             break;
     }

@@ -21,9 +21,6 @@
 #include <math.h>
 #include <stdint.h>
 #include <mat.h>
-#include <string.h>
-#include <cstring>
-#include <cmath>
 
 /**
  * The ekf is a base class for Extended Kalman Filter.
@@ -42,7 +39,7 @@ public:
 
 
     /**
-     * Destructor of EKF
+     * Distructor of EKF
     */
     virtual ~ekf();
     /**

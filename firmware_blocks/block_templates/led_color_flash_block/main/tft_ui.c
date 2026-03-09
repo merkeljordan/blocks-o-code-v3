@@ -221,8 +221,9 @@ static void numpad_btn_event_cb(lv_event_t *e)
         lv_label_set_text_fmt(s_status_label,
                               "#%u: %s\nTap SUBMIT to run!", (unsigned)digit, name);
     }
-
-    led_flash_play_preview(digit);
+    /* Queue a non-blocking preview flash via the command handler so
+     * REG_STATUS and internal state stay consistent with animations. */
+    (void)command_handler_enqueue_preview(digit);
 }
 
 static void submit_btn_event_cb(lv_event_t *e)
@@ -235,10 +236,24 @@ static void submit_btn_event_cb(lv_event_t *e)
         return;
     }
 
+    const uint8_t digit = (uint8_t)s_selected_digit;
+
+    /* Publish the selection to the Brain via REG_STATUS/GET_DATA only.
+     * Do NOT run the full flash animation here; execution is driven
+     * later by the Brain sending CMD_EXECUTE to all output blocks. */
+    bool submitted = command_handler_submit_selection(digit);
+    if (!submitted) {
+        if (s_status_label != NULL) {
+            lv_label_set_text(s_status_label,
+                              "Busy, try again after animation finishes.");
+        }
+        return;
+    }
+
     if (s_status_label != NULL) {
         lv_label_set_text_fmt(s_status_label,
-                              "Submitted #%u: %s", (unsigned)(uint8_t)s_selected_digit,
-                              led_pattern_name((uint8_t)s_selected_digit));
+                              "Submitted #%u: %s", (unsigned)digit,
+                              led_pattern_name(digit));
     }
 }
 

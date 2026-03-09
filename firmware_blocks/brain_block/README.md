@@ -20,8 +20,7 @@ Brain Block (I²C Master @ GPIO 21/22)
     ├─────────────────┬─────────────────┐
     │                 │                 │
     ↓                 ↓                 ↓
-Child Block 1    Child Block 2    Child Block 3
-LED Matrix       OLED Display     (Future)
+Child Block A    Child Block B    Child Block C
 (Addr 0x08)      (Addr 0x09)      (Addr 0x0A)
 ```
 
@@ -292,13 +291,13 @@ I (3750) DEMO: Child 1: GREEN
 
 ## Integration with Child Blocks
 
-### **Child Block 1 - LED Matrix (0x08)**
+### **Child Block A - LED Matrix (0x08)**
 **Responds to:**
 - `CMD_MATRIX_FILL` → Lights up all 16 LEDs with specified RGB color
 - `CMD_MATRIX_CLEAR` → Turns off all LEDs
 - `CMD_MATRIX_BRIGHTNESS` → Adjusts LED brightness (0-255)
 
-### **Child Block 2 - OLED Display (0x09)**
+### **Child Block B - OLED Display (0x09)**
 **Responds to:**
 - `CMD_MATRIX_FILL` → Displays color name and RGB values on screen
 - `CMD_MATRIX_CLEAR` → Shows "CLEAR" state
@@ -357,8 +356,7 @@ I (3750) DEMO: Child 1: GREEN
 - [I²C Protocol Specification](https://www.nxp.com/docs/en/user-guide/UM10204.pdf)
 
 ### **Related Projects**
-- Child Block 1: `../child_block_1/README.md`
-- Child Block 2: `../child_block_2/README.md`
+- Child block templates and reference implementations: `../block_templates/`
 - Protocol Definitions: `main/i2c_protocol.h`
 
 ---

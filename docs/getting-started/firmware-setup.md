@@ -46,10 +46,8 @@ alias get_idf='. $HOME/esp/esp-idf/export.sh'
 
 ```
 firmware_blocks/
-├── brain_block/              # Main Brain Block firmware
-├── child_block_1/            # Example child block
-├── child_block_2/            # Example child block
-├── block_templates/           # Templates for new blocks
+├── brain_block/              # Main Brain Block firmware (I2C master)
+├── block_templates/          # Templates and reference implementations for child blocks
 ├── README.md                 # Firmware overview
 └── FRAMEWORK.md              # Firmware framework documentation
 ```

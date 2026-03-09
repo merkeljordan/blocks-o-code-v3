@@ -30,9 +30,11 @@ This repository contains everything needed for the v3 prototype: firmware for al
    idf.py flash monitor
    ```
 
-3. **Connect child blocks**: Connect your child blocks to the I2C bus (addresses 0x08-0x15)
+3. **Connect child blocks**:
+   - Start with at least one **reference implementation** (e.g., `then_block` built from `firmware_blocks/block_templates/then_block`).
+   - Connect your child blocks to the I2C bus (addresses 0x08-0x15).
 
-4. **Connect and observe**: The ESP32 will connect to your Flutter app and stream block configuration data in real time. The app will validate your block sequence and display any errors or warnings.
+4. **Connect and observe**: The ESP32 will connect to your Flutter app and stream block configuration data in real time. The app will validate your block sequence and display any errors or warnings, including IF/THEN/LOOP grammar and block-type support.
 
 For detailed setup instructions, see the [Getting Started Guide](docs/getting-started/overview.md).
 
@@ -43,10 +45,8 @@ For detailed setup instructions, see the [Getting Started Guide](docs/getting-st
 ```
 blocks-o-code-v3/
 ├── firmware_blocks/          # ESP32 firmware blocks (ESP‑IDF projects)
-│   ├── brain_block/          # Main Brain Block firmware
-│   ├── child_block_1/        # Example child block implementations
-│   ├── child_block_2/
-│   ├── block_templates/      # Templates for creating new blocks
+│   ├── brain_block/          # Main Brain Block firmware (I2C master)
+│   ├── block_templates/      # Templates and reference implementations for child blocks
 │   └── FRAMEWORK.md          # Firmware block contract and requirements
 ├── companion_app/            # Flutter companion application
 │   ├── lib/                  # Dart source code
@@ -68,13 +68,12 @@ blocks-o-code-v3/
   - Connects as a TCP client to the companion app (port `41233`)
   - Detects configuration changes and streams updates
 
-- **`firmware_blocks/block_templates/`**: Templates for creating child blocks:
+- **`firmware_blocks/block_templates/`**: Templates and **reference implementations** for creating real child blocks:
   - Control flow blocks (If, Then, End If, Loop, End Loop, Delay)
   - Input blocks (Button Press)
   - Output blocks (Note, Music Sequence, LED Color Flash, Disco Mode)
-  - Each template includes I2C slave implementation and required modules
-
-- **`firmware_blocks/child_block_1/`** and **`child_block_2/`**: Example child block implementations
+  - Each template is structured as an I2C slave and follows the common contract in `FRAMEWORK.md`.
+  - The `then_block` template is being developed as the first fully working reference child block.
 
 - **`companion_app/`**: Flutter companion application that:
   - Runs a TCP server (default port `41233`)
