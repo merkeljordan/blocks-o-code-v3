@@ -12,7 +12,7 @@ This document defines the three engineering specifications to be demonstrated in
 | **Quantity**       | Latency from a color selection on the LED Color Flash block to the block's visible LED preview output                                                                                   |
 | **Definition**     | Time from when the user presses a numpad key on the LED Color Flash block (selecting a color) until the block's LED matrix (or addressable LEDs) visibly changes to the selected color as a preview. |
 | **Units**          | milliseconds (ms)                                                                                                                                                                       |
-| **Target**         | Mean ≤ 50 ms (with stable, consistent behavior across 10 runs)                                                                                                                         |
+| **Target**         | Mean ≤ 50 ms (with stable, consistent behavior across 10 runs)                                                                                                                        |
 | **Why it matters** | Preview responsiveness is a direct UX requirement: the block spec states "Preview flashes selected color on LED matrix + addressable LEDs." Slow preview makes the block feel unresponsive and hurts usability. It also validates the block-local path: numpad input → firmware logic → LED driver output. |
 
 

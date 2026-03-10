@@ -10,6 +10,7 @@ import 'models/block_configuration.dart';
 import 'models/configuration_rules.dart';
 import 'services/block_config_parser.dart';
 import 'services/configuration_validator.dart';
+import 'services/config_latency_metrics.dart';
 import 'models/block_type.dart';
 import 'widgets/block_3d_visualizer.dart';
 
@@ -80,6 +81,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
   List<RuleViolation> _configViolations = [];
+  final ConfigLatencyCalculator _configLatencyCalculator =
+      ConfigLatencyCalculator();
+  ConfigLatencyMetrics? _configLatencyMetrics;
+  bool _hasLastValidationResult = false;
+  bool _lastConfigIsValid = false;
+  int _lastConfigErrorCount = 0;
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -187,6 +194,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         _currentConfiguration = null;
         _configViolations = [];
         connectionStatus = 'Server stopped';
+        _configLatencyMetrics = null;
       });
     } catch (e) {
       setState(() {
@@ -248,6 +256,9 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _reconnectionAttempts = 0;
       _lastHeartbeatTime = DateTime.now();
     });
+
+    // Proactively publish latest validation state on each connect/reconnect.
+    _publishValidationForCurrentConfig(trigger: 'reconnect');
     
     // Start heartbeat mechanism
     _startHeartbeat();
@@ -295,6 +306,12 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _processMessage(String message) {
+    if (message.contains('NAK:NEED_VALIDATION') ||
+        message.contains('NAK:INVALID_CONFIG')) {
+      _handleValidationRequestFromBrain(message);
+      return;
+    }
+
     try {
       // Try to parse as JSON
       final json = jsonDecode(message) as Map<String, dynamic>;
@@ -310,16 +327,49 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       
       // Check if it's a block configuration message
       if (json.containsKey('type') && json['type'] == 'block_config') {
+        final receiveTsMs = DateTime.now().millisecondsSinceEpoch;
         final config = _configParser.parseConfig(message);
         if (config != null) {
           // Validate configuration
           final violations = _configValidator.validate(config);
-          
+          final errorCount = violations.where((v) => v.severity == Severity.error).length;
+          final isValid = errorCount == 0;
+          _hasLastValidationResult = true;
+          _lastConfigIsValid = isValid;
+          _lastConfigErrorCount = errorCount;
+          final brainDetectToSendMs =
+              _configLatencyCalculator.brainDetectToSend(config);
+          _sendConfigValidationEvent(
+            isValid: isValid,
+            errorCount: errorCount,
+            trigger: 'block_config_update',
+          );
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
-            connectionStatus = 'Block config: ${config.totalBlocks} block(s), ${violations.where((v) => v.severity == Severity.error).length} error(s)';
+            _configLatencyMetrics = ConfigLatencyMetrics(
+              brainDetectToSendMs: brainDetectToSendMs,
+            );
+            connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final renderTsMs = DateTime.now().millisecondsSinceEpoch;
+            final appReceiveToRenderMs = renderTsMs - receiveTsMs;
+            final metrics = _configLatencyMetrics;
+            final estimatedDetectToRenderMs =
+                _configLatencyCalculator.estimatedDetectToRender(
+              brainDetectToSendMs: metrics?.brainDetectToSendMs,
+              appReceiveToRenderMs: appReceiveToRenderMs,
+            );
+            setState(() {
+              _configLatencyMetrics = (metrics ?? const ConfigLatencyMetrics())
+                  .copyWith(
+                appReceiveToRenderMs: appReceiveToRenderMs,
+                estimatedDetectToRenderMs: estimatedDetectToRenderMs,
+              );
+            });
           });
         } else {
           setState(() {
@@ -374,7 +424,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       return;
     }
     try {
-      client.write(msg + '\n');
+      client.write('$msg\n');
       setState(() {
         connectionStatus = 'Connected to ESP32 and sent: $msg';
       });
@@ -385,6 +435,72 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       // Connection might be lost
       _attemptReconnection();
     }
+  }
+
+  bool _sendConfigValidationEvent({
+    required bool isValid,
+    required int errorCount,
+    required String trigger,
+  }) {
+    final client = _clientSocket;
+    if (client == null || !isConnected) {
+      debugPrint('[ValidationTx] skip trigger=$trigger connected=$isConnected client=${client != null}');
+      return false;
+    }
+
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final validationEvent = jsonEncode({
+      'type': 'config_validation',
+      'is_valid': isValid,
+      'error_count': errorCount,
+      'timestamp': timestamp,
+    });
+
+    try {
+      client.write('$validationEvent\n');
+      debugPrint('[ValidationTx] sent trigger=$trigger is_valid=$isValid error_count=$errorCount ts=$timestamp connected=$isConnected');
+      return true;
+    } catch (e) {
+      debugPrint('[ValidationTx] failed trigger=$trigger error=$e');
+      // Reconnection path handles retries.
+      return false;
+    }
+  }
+
+  void _publishValidationForCurrentConfig({required String trigger}) {
+    final config = _currentConfiguration;
+
+    bool isValid = false;
+    int errorCount = 1;
+    List<RuleViolation>? violations;
+
+    if (config != null) {
+      violations = _configValidator.validate(config);
+      errorCount = violations.where((v) => v.severity == Severity.error).length;
+      isValid = errorCount == 0;
+    }
+
+    final bool sent = _sendConfigValidationEvent(
+      isValid: isValid,
+      errorCount: errorCount,
+      trigger: trigger,
+    );
+
+    setState(() {
+      if (violations != null) {
+        _configViolations = violations;
+      }
+      connectionStatus = sent
+          ? 'Validation sent (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)'
+          : 'Validation skipped/failed (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)';
+      if (sent) {
+        _lastHeartbeatTime = DateTime.now();
+      }
+    });
+  }
+
+  void _handleValidationRequestFromBrain(String _) {
+    _publishValidationForCurrentConfig(trigger: 'brain_request');
   }
 
   // Heartbeat mechanism
@@ -413,7 +529,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         'type': 'heartbeat',
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
-      _clientSocket!.write(heartbeat + '\n');
+      _clientSocket!.write('$heartbeat\n');
     } catch (e) {
       // Connection lost
       setState(() {
@@ -674,6 +790,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           receivedTelemetry: _receivedTelemetry,
           currentConfiguration: _currentConfiguration,
           configViolations: _configViolations,
+          configLatencyMetrics: _configLatencyMetrics,
           onLoadFakeConfig: (path) => _loadFakeConfiguration(path),
         );
         break;
@@ -730,7 +847,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
 
   Widget _buildMenu(ColorScheme colorScheme, ThemeData theme) {
     return Container(
-      key: ValueKey('menu_${isConnected}'),
+      key: ValueKey('menu_$isConnected'),
       width: 280,
       margin: const EdgeInsets.only(top: 80, right: 16),
       decoration: BoxDecoration(
@@ -2106,6 +2223,7 @@ class BlockConfigScreen extends StatelessWidget {
   final List<BlockTelemetry> receivedTelemetry;
   final BlockConfiguration? currentConfiguration;
   final List<RuleViolation> configViolations;
+  final ConfigLatencyMetrics? configLatencyMetrics;
   final Function(String)? onLoadFakeConfig;
 
   const BlockConfigScreen({
@@ -2122,6 +2240,7 @@ class BlockConfigScreen extends StatelessWidget {
     this.receivedTelemetry = const [],
     this.currentConfiguration,
     this.configViolations = const [],
+    this.configLatencyMetrics,
     this.onLoadFakeConfig,
   });
 
@@ -2499,6 +2618,10 @@ class BlockConfigScreen extends StatelessWidget {
                               );
                             },
                           ),
+                          if (configLatencyMetrics != null) ...[
+                            const SizedBox(height: 12),
+                            _buildLatencyMetrics(theme, colorScheme),
+                          ],
                         ],
                       ),
                     ),
@@ -2508,6 +2631,59 @@ class BlockConfigScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLatencyMetrics(ThemeData theme, ColorScheme colorScheme) {
+    final metrics = configLatencyMetrics!;
+    final brainSegment = metrics.brainDetectToSendMs;
+    final appSegment = metrics.appReceiveToRenderMs;
+    final estimated = metrics.estimatedDetectToRenderMs;
+
+    String valueOrPending(int? ms) => ms == null ? 'pending...' : '${ms} ms';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.primary.withOpacity(0.4),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Config Latency',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Brain detect -> send: ${valueOrPending(brainSegment)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          Text(
+            'App receive -> render: ${valueOrPending(appSegment)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          Text(
+            'Estimated detect -> render: ${valueOrPending(estimated)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ],
       ),
     );
   }

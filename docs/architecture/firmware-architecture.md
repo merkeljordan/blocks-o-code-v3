@@ -13,6 +13,8 @@ firmware_blocks/brain_block/
 │   ├── app.c                     # TCP client, Wi-Fi
 │   ├── block_config_manager.c    # Configuration management
 │   ├── block_config_manager.h
+│   ├── brain_event_handler.c     # Validation gate + executor
+│   ├── brain_event_handler.h
 │   ├── i2c_comm.c                # I2C master communication
 │   ├── i2c_protocol.h            # Protocol definitions
 │   └── CMakeLists.txt
@@ -62,6 +64,7 @@ firmware_blocks/brain_block/
 - `block_config_manager_update()`: Update from device registry
 - `block_config_manager_generate_json()`: Generate JSON
 - `block_config_manager_has_changed()`: Check for changes
+- `block_config_manager_get_event_map()`: Get derived IF/LOOP/input/output metadata
 
 **Data Structures**:
 - Device registry: Map of I2C addresses to block info
@@ -83,6 +86,23 @@ firmware_blocks/brain_block/
 - `i2c_safe_scan()`: Scan for devices
 - `i2c_read_whoami()`: Read block identification
 
+### 5. Event Handler + Executor (`brain_event_handler.c`)
+
+**Purpose**: Enforce execution validity and interpret block sequence flow.
+
+**Responsibilities**:
+- Track app-driven validation state (`config_validation` events)
+- Expose execution gate (`can_start_execution`)
+- Hold scan-derived event map metadata
+- Run tick-based executor state machine (`IDLE/RUNNING/WAIT_INPUT/WAIT_DELAY/...`)
+
+**Key Functions**:
+- `brain_event_handler_set_config_validation()`
+- `brain_event_handler_can_start_execution()`
+- `brain_executor_start()`
+- `brain_executor_stop()`
+- `brain_executor_tick()`
+
 ## Task Architecture
 
 ### FreeRTOS Tasks
@@ -93,7 +113,12 @@ firmware_blocks/brain_block/
    - Periodically checks for config changes
    - Sends updates via TCP
 
-2. **Configuration Update Task**
+2. **Executor Tick Task**
+   - Priority: Medium
+   - Periodic non-blocking execution of interpreter logic
+   - Advances control-flow program counter and handles waits
+
+3. **Configuration Update Task**
    - Priority: Low
    - Stack: 2048 bytes
    - Periodically scans I2C bus
@@ -175,6 +200,7 @@ The configuration manager generates JSON in this format:
 - **Connection lost**: Attempt reconnection
 - **Send failure**: Retry with backoff
 - **Wi-Fi disconnect**: Reconnect Wi-Fi, then TCP
+- **Validation state**: Reset to invalid on reconnect until app re-sends `config_validation`
 
 ## Memory Management
 

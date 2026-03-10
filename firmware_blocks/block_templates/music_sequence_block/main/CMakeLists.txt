@@ -1,0 +1,24 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "i2c_comm.c"
+        "tft_ui.c"
+        "speaker_music.c"
+    INCLUDE_DIRS
+        "."
+        ".."
+        "../.."
+        "../../../include"
+    REQUIRES
+        driver
+        esp_lcd
+        esp_timer
+        lvgl
+        espressif__arduino-esp32
+        espressif__esp_lcd_ili9341
+        atanisoft__esp_lcd_touch_xpt2046
+        audio
+    # Songs are embedded in flash and exposed as linker symbols.
+    EMBED_FILES
+        "audio/babyshark.wav"
+)

@@ -6,6 +6,8 @@ class BlockConfiguration {
   final List<BlockInfo> blocks;
   final List<ConfigurationError> errors;
   final DateTime timestamp;
+  final int? detectedUptimeMs;
+  final int? sentUptimeMs;
   
   /// The original block count reported by firmware before any synthetic blocks were added
   final int originalFirmwareBlockCount;
@@ -18,6 +20,8 @@ class BlockConfiguration {
     required this.blocks,
     this.errors = const [],
     DateTime? timestamp,
+    this.detectedUptimeMs,
+    this.sentUptimeMs,
     int? originalFirmwareBlockCount,
     this.hasSyntheticBrainBlock = false,
   }) : timestamp = timestamp ?? DateTime.now(),
@@ -47,6 +51,9 @@ class BlockConfiguration {
         timestamp = DateTime.tryParse(ts);
       }
     }
+    final detectedUptimeMs =
+        _parseMillisecondsValue(json['detected_uptime_ms']);
+    final sentUptimeMs = _parseMillisecondsValue(json['sent_uptime_ms']);
 
     // If the firmware reports zero blocks, treat this as a "brain-only" configuration
     // and inject a synthetic Brain Block so the app can still visualize it.
@@ -96,9 +103,18 @@ class BlockConfiguration {
       blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
+      detectedUptimeMs: detectedUptimeMs,
+      sentUptimeMs: sentUptimeMs,
       originalFirmwareBlockCount: originalFirmwareCount,
       hasSyntheticBrainBlock: hasSynthetic,
     );
+  }
+
+  static int? _parseMillisecondsValue(dynamic value) {
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   /// Convert to JSON map
@@ -106,6 +122,8 @@ class BlockConfiguration {
     return {
       'type': 'block_config',
       'timestamp': timestamp.millisecondsSinceEpoch,
+      if (detectedUptimeMs != null) 'detected_uptime_ms': detectedUptimeMs,
+      if (sentUptimeMs != null) 'sent_uptime_ms': sentUptimeMs,
       'config': {
         'total_blocks': totalBlocks,
         'blocks': blocks.map((b) => b.toJson()).toList(),

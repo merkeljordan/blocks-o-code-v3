@@ -12,7 +12,7 @@
 #define I2C_PORT_NUM    I2C_NUM_0
 #define I2C_SDA_PIN     21
 #define I2C_SCL_PIN     22
-#define I2C_FREQ_HZ     100000  // 100 kHz
+#define I2C_FREQ_HZ     100000 // 100 kHz
 
 // ============================================================================
 // REGISTER MAP (Brain -> Child reads)
@@ -30,29 +30,31 @@
 // ============================================================================
 // COMMAND DEFINITIONS (Brain -> Child)
 // NOTE: Commands are "do something". Registers are "tell me who you are".
+// IMPORTANT: Keep command opcodes out of the register range (< 0x10) so child
+// parsers can deterministically distinguish register reads from command packets.
 // ============================================================================
 
 typedef enum {
-    CMD_PING            = 0x00,  // Check if device is alive
-    CMD_GET_TYPE        = 0x01,  // (legacy) Request block type
-    CMD_SET_LED         = 0x02,  // Set LED color (RGB)
-    CMD_GET_STATUS      = 0x03,  // Request status
-    CMD_GET_DATA        = 0x04,  // Request sensor/input data
-    CMD_PLAY_NOTE       = 0x05,  // Play musical note
-    CMD_EXECUTE         = 0x06,  // Execute block action
-    CMD_RESET           = 0x07,  // Reset block state
-    CMD_SET_DELAY       = 0x08,  // Set delay time
-    CMD_SET_LOOP        = 0x09,  // Set loop count
+    CMD_PING            = 0x80,  // Check if device is alive
+    CMD_GET_TYPE        = 0x81,  // (legacy) Request block type
+    CMD_SET_LED         = 0x82,  // Set LED color (RGB)
+    CMD_GET_STATUS      = 0x83,  // Request status
+    CMD_GET_DATA        = 0x84,  // Request sensor/input data
+    CMD_PLAY_NOTE       = 0x85,  // Play musical note
+    CMD_EXECUTE         = 0x86,  // Execute block action
+    CMD_RESET           = 0x87,  // Reset block state
+    CMD_SET_DELAY       = 0x88,  // Set delay time
+    CMD_SET_LOOP        = 0x89,  // Set loop count
 
     // LED MATRIX COMMANDS
-    CMD_MATRIX_FILL         = 0x10,
-    CMD_MATRIX_SET_PIXEL    = 0x11,
-    CMD_MATRIX_CLEAR        = 0x12,
-    CMD_MATRIX_SET_ROW      = 0x13,
-    CMD_MATRIX_SET_COLUMN   = 0x14,
-    CMD_MATRIX_DRAW_PATTERN = 0x15,
-    CMD_MATRIX_BRIGHTNESS   = 0x16,
-    CMD_MATRIX_SHOW         = 0x17,
+    CMD_MATRIX_FILL         = 0x90,
+    CMD_MATRIX_SET_PIXEL    = 0x91,
+    CMD_MATRIX_CLEAR        = 0x92,
+    CMD_MATRIX_SET_ROW      = 0x93,
+    CMD_MATRIX_SET_COLUMN   = 0x94,
+    CMD_MATRIX_DRAW_PATTERN = 0x95,
+    CMD_MATRIX_BRIGHTNESS   = 0x96,
+    CMD_MATRIX_SHOW         = 0x97,
 } i2c_command_t;
 
 // ============================================================================

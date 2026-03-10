@@ -2,6 +2,27 @@
 
 This document provides API reference for the Blocks o' Code Flutter application.
 
+## App -> Firmware Protocol
+
+### `config_validation` event
+
+After parsing and validating each incoming `block_config`, the app emits a
+newline-delimited JSON event to the Brain Block:
+
+```json
+{
+  "type": "config_validation",
+  "is_valid": false,
+  "error_count": 2
+}
+```
+
+**Rules**:
+- Emit immediately after each validation result update.
+- Re-emit the latest known validation state when the TCP connection is re-established.
+- `is_valid` is true only when validation has no error-severity violations.
+- `error_count` is the number of error-severity violations.
+
 ## Providers
 
 ### ConnectionProvider

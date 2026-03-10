@@ -4,3 +4,6 @@
 [submodule "firmware/esp32/brain_block/components/arduino"]
 	path = firmware/esp32/brain_block/components/arduino
 	url = https://github.com/espressif/arduino-esp32.git
+[submodule "firmware_blocks/block_templates/music_sequence_block/components/ESP8266Audio"]
+	path = firmware_blocks/block_templates/music_sequence_block/components/ESP8266Audio
+	url = https://github.com/earlephilhower/ESP8266Audio.git

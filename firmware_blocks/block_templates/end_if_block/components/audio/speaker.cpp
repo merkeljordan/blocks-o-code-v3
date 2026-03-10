@@ -1,0 +1,123 @@
+// Audio component for blocks: boot sound + beeps + WAV playback.
+// Uses atomic14's DACOutput (event-driven I2S DAC on GPIO25).
+
+#include "audio_speaker.h"
+#include "WAVFileReader.h"
+#include "SinWaveGenerator.h"
+#include "DACOutput.h"
+
+#include <Arduino.h>
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+extern const uint8_t bootupsound_wav_start[] asm("_binary_bootupsound_wav_start");
+extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
+
+extern "C" {
+
+static const char *TAG = "AUDIO";
+static bool s_inited = false;
+static DACOutput *s_dac = NULL;
+
+class SilenceSource : public SampleSource {
+public:
+    int sampleRate() override { return 44100; }
+    void getFrames(Frame_t *frames, int number_frames) override {
+        for (int i = 0; i < number_frames; i++) {
+            frames[i].left = 32768;
+            frames[i].right = 32768;
+        }
+    }
+};
+
+static SilenceSource s_silence;
+
+static void delay_ms(uint32_t ms) {
+    if (ms) vTaskDelay(pdMS_TO_TICKS(ms));
+}
+
+esp_err_t speaker_init(void) {
+    if (s_inited) return ESP_OK;
+
+    s_dac = new DACOutput();
+    if (!s_dac) return ESP_ERR_NO_MEM;
+
+    s_dac->start(&s_silence);
+    s_inited = true;
+    ESP_LOGI(TAG, "Speaker ready (I2S DAC on GPIO25)");
+    return ESP_OK;
+}
+
+void speaker_deinit(void) {
+    s_inited = false;
+}
+
+void speaker_set_volume(uint8_t pct) { (void)pct; }
+uint8_t speaker_get_volume(void) { return 100; }
+esp_err_t speaker_stop(void) {
+    if (s_dac) s_dac->setSampleSource(&s_silence);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_boot_sound(void) {
+    if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
+
+    ESP_LOGI(TAG, "Playing boot sound");
+    WAVFileReader reader(bootupsound_wav_start, bootupsound_wav_end);
+
+    int data_bytes = reader.getDataBytes();
+    int bytes_per_sec = reader.sampleRate() * 4; // stereo 16-bit = 4 bytes/frame
+    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 / (bytes_per_sec ? bytes_per_sec : 1));
+    duration_ms += 300;
+
+    s_dac->setSampleSource(&reader);
+    delay_ms(duration_ms);
+    s_dac->setSampleSource(&s_silence);
+    delay_ms(50); // let writer task finish any in-flight getFrames call
+
+    ESP_LOGI(TAG, "Boot sound finished");
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_wav(const uint8_t *data, size_t len) {
+    if (!s_inited || !s_dac || !data || len == 0) return ESP_ERR_INVALID_ARG;
+
+    WAVFileReader reader(data, data + len);
+
+    int data_bytes = reader.getDataBytes();
+    int bytes_per_sec = reader.sampleRate() * 4;
+    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 / (bytes_per_sec ? bytes_per_sec : 1));
+    duration_ms += 300;
+
+    s_dac->setSampleSource(&reader);
+    delay_ms(duration_ms);
+    s_dac->setSampleSource(&s_silence);
+    delay_ms(50);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms) {
+    if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
+    if (hz == 0 || ms == 0) return ESP_OK;
+
+    SinWaveGenerator tone(44100, hz, 0.35);
+    s_dac->setSampleSource(&tone);
+    delay_ms(ms);
+    s_dac->setSampleSource(&s_silence);
+    delay_ms(50);
+    return ESP_OK;
+}
+
+void speaker_beep_ok(void) {
+    speaker_play_tone(1200, 80);
+    delay_ms(40);
+    speaker_play_tone(1600, 80);
+}
+
+void speaker_beep_error(void) {
+    speaker_play_tone(220, 200);
+}
+
+} // extern "C"
