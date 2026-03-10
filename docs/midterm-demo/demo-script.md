@@ -105,7 +105,7 @@ From the user’s point of view, you snap a chain together, tap the TFT on each 
 
 **Script**
 
-“This is the full architecture. On the left, all of the child blocks share a single I2C bus. The Brain block in the middle acts as the I2C master, runs a config manager to scan and diff the current topology, and has an executor plus a TCP client running on the ESP32.  
+“This is the full architecture. On the left, all of the child blocks share a single I2C bus. The Brain block in the middle acts as the I2C master, runs a config manager to scan and identify the current topology, and has an executor plus a TCP client running on the ESP32.  
 
 On the right is our Flutter companion app. It runs a TCP server on a fixed port, receives JSON ‘block_config’ messages from the Brain, parses those into a Dart model, validates the program according to our grammar rules, and then updates the UI in real time—showing the block list, any errors, and a 3D view of the configuration.”
 
