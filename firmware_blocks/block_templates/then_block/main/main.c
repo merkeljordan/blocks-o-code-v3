@@ -5,15 +5,10 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "led_matrix.h"
+#include "command_handler.h"
 
 extern void initArduino(void);
-
-// LED matrix primitives implemented in led_matrix.c
-esp_err_t led_matrix_init(void);
-void led_matrix_startup_animation(void);
-void matrix_fill(uint8_t r, uint8_t g, uint8_t b);
-void matrix_clear(void);
-void matrix_show(void);
 
 // I2C slave transport implemented in i2c_comm.c
 esp_err_t i2c_slave_init(void);
