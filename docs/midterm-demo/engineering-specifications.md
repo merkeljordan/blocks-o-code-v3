@@ -12,7 +12,7 @@ This document defines the three engineering specifications to be demonstrated in
 | **Quantity**       | Latency from a color selection on the LED Color Flash block to the block's visible LED preview output                                                                                   |
 | **Definition**     | Time from when the user presses a numpad key on the LED Color Flash block (selecting a color) until the block's LED matrix (or addressable LEDs) visibly changes to the selected color as a preview. |
 | **Units**          | milliseconds (ms)                                                                                                                                                                       |
-| **Target**         | Mean ≤ 200 ms (with stable, consistent behavior across 10 runs)                                                                                                                        |
+| **Target**         | Mean ≤ 50 ms (with stable, consistent behavior across 10 runs)                                                                                                                        |
 | **Why it matters** | Preview responsiveness is a direct UX requirement: the block spec states "Preview flashes selected color on LED matrix + addressable LEDs." Slow preview makes the block feel unresponsive and hurts usability. It also validates the block-local path: numpad input → firmware logic → LED driver output. |
 
 
@@ -34,7 +34,7 @@ This document defines the three engineering specifications to be demonstrated in
 | **Quantity**       | Latency from physical block change to app UI update                                                                                                                                                       |
 | **Definition**     | Time from the moment a block is added or removed on the I2C bus (or connection order changed) until the Flutter app's block configuration view shows the updated topology (correct block count and list). |
 | **Units**          | milliseconds (ms)                                                                                                                                                                                         |
-| **Target**         | Mean ≤ 6000 ms (within ~2 scan intervals at 3 s) under normal Wi‑Fi and TCP conditions                                                                                                                    |
+| **Target**         | Mean ≤ 2000 ms (within ~2 scan intervals at 3 s) under normal Wi‑Fi and TCP conditions                                                                                                                    |
 | **Why it matters** | Users expect near real-time feedback when rearranging blocks. This end-to-end latency drives perceived responsiveness and validates the pipeline: scan → config manager → JSON → TCP → app parse → UI.    |
 
 
@@ -73,8 +73,8 @@ This document defines the three engineering specifications to be demonstrated in
 
 | Spec | Quantity                             | Units | Target                        |
 | ---- | ------------------------------------ | ----- | ----------------------------- |
-| 1    | LED color select → preview latency   | ms    | Mean ≤ 200 ms                |
-| 2    | Config-change-to-app latency         | ms    | Mean ≤ 6000 ms                |
+| 1    | LED color select → preview latency   | ms    | Mean ≤ 50 ms                 |
+| 2    | Config-change-to-app latency         | ms    | Mean ≤ 2000 ms                |
 | 3    | I2C rise time                        | ns/µs | Within I2C standard-mode spec |
 
 
