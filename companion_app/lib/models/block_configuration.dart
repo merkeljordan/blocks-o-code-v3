@@ -52,8 +52,7 @@ class BlockConfiguration {
       }
     }
     final detectedUptimeMs =
-        _parseMillisecondsValue(json['detected_uptime_ms']) ??
-        _parseMillisecondsValue(json['timestamp']);
+        _parseMillisecondsValue(json['detected_uptime_ms']);
     final sentUptimeMs = _parseMillisecondsValue(json['sent_uptime_ms']);
 
     // If the firmware reports zero blocks, treat this as a "brain-only" configuration
