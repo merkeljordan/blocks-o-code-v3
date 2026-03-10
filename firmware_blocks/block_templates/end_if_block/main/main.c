@@ -11,7 +11,7 @@
 extern void initArduino(void);
 
 #define BLOCK_NAME            "END_IF"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x0A  // I2C address for End If block
 #define BLOCK_TYPE            BLOCK_TYPE_END_IF
 
 static const char *TAG = "END_IF_BLOCK";

@@ -11,7 +11,7 @@
 extern void initArduino(void);
 
 #define BLOCK_NAME            "IF"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x10  // I2C address for If block
 #define BLOCK_TYPE            BLOCK_TYPE_IF
 
 static const char *TAG = "IF_BLOCK";

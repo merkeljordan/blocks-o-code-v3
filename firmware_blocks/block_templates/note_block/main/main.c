@@ -11,7 +11,7 @@
 extern void initArduino(void);
 
 #define BLOCK_NAME            "NOTE"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x0F  // I2C address for Note block
 #define BLOCK_TYPE            BLOCK_TYPE_NOTE
 
 static const char *TAG = "NOTE_BLOCK";
