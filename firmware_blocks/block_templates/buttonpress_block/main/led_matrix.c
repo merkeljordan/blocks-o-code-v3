@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led_strip.h"
+#include "led_matrix.h"
 
 static const char *TAG = "LED_MATRIX";
 

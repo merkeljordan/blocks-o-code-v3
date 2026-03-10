@@ -5,8 +5,13 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "led_matrix.h"
+#include "command_handler.h"
 
 extern void initArduino(void);
+
+// Forward declaration from command_handler.c
+extern void led_status_task(void *arg);
 
 #define BLOCK_NAME            "BUTTON"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
@@ -76,6 +81,9 @@ void app_main(void) {
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "    BUTTONPRESS BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
+
+    // Initialize Arduino runtime before any Arduino-backed APIs
+    initArduino();
 
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();

@@ -5,6 +5,8 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "led_matrix.h"
+#include "command_handler.h"
 
 extern void initArduino(void);
 
@@ -75,6 +77,8 @@ void app_main(void) {
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "    END_LOOP BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
+
+    initArduino();
 
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();

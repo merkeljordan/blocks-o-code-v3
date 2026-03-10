@@ -5,6 +5,8 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "led_matrix.h"
+#include "command_handler.h"
 
 extern void initArduino(void);
 
