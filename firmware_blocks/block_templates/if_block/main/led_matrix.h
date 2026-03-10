@@ -11,8 +11,6 @@ extern "C" {
  * any other led_matrix_* or matrix_* function. */
 esp_err_t led_matrix_init(void);
 
-/* Three quick red flashes used during the boot sequence. */
-void led_matrix_startup_animation(void);
 
 /* Low-level matrix primitives (also used by command_handler). */
 void     matrix_fill(uint8_t r, uint8_t g, uint8_t b);
