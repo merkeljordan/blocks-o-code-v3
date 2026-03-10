@@ -82,6 +82,9 @@ void app_main(void) {
     ESP_LOGI(TAG, "    BUTTONPRESS BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
 
+    // Initialize Arduino runtime before any Arduino-backed APIs
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
