@@ -464,6 +464,19 @@ static void home_action_event_cb(lv_event_t *e)
         return;
     }
 
+    if (strcmp(action_name, "Stop") == 0) {
+        ESP_LOGI(TAG, "Home action pressed: Stop");
+        bool handled = brain_event_handle_message("STOP");
+        if (s_status_label != NULL) {
+            if (handled) {
+                lv_label_set_text(s_status_label, "STOP requested");
+            } else {
+                lv_label_set_text(s_status_label, "STOP rejected: queue/state");
+            }
+        }
+        return;
+    }
+
     if (s_status_label) {
         lv_label_set_text_fmt(s_status_label, "You picked: %s", action_name);
     }
@@ -901,10 +914,13 @@ static lv_obj_t *create_home_screen(void)
     lv_obj_set_flex_align(action_grid, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     /* Keep two rows of actions:
-     * row 1: Start spans the old Start + Blocks space
-     * row 2: Scan spans the old Settings + Scan space */
+     * row 1: Start + Stop (side by side)
+     * row 2: Scan spans the full width */
     lv_obj_t *start_btn = create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS);
-    lv_obj_set_width(start_btn, LV_PCT(100));
+    lv_obj_set_width(start_btn, LV_PCT(48));
+
+    lv_obj_t *stop_btn = create_action_tile(action_grid, LV_SYMBOL_STOP, "Stop", UI_COLOR_ALERT);
+    lv_obj_set_width(stop_btn, LV_PCT(48));
 
     lv_obj_t *scan_btn = create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN);
     lv_obj_set_width(scan_btn, LV_PCT(100));
