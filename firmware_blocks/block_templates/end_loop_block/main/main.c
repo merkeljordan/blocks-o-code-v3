@@ -78,6 +78,8 @@ void app_main(void) {
     ESP_LOGI(TAG, "    END_LOOP BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
 
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
