@@ -30,7 +30,7 @@ Use this template to record 10 trials per specification, then compute summary st
 | Min       |            |
 | Max       |            |
 
-**Target**: Mean ≤ 200 ms. **Met?** Yes / No
+**Target**: Mean ≤ 50 ms. **Met?** Yes / No
 
 ---
 
@@ -60,7 +60,7 @@ Use this template to record 10 trials per specification, then compute summary st
 | Min       |            |
 | Max       |            |
 
-**Target**: Mean ≤ 6000 ms. **Met?** Yes / No
+**Target**: Mean ≤ 2000 ms. **Met?** Yes / No
 
 ---
 
