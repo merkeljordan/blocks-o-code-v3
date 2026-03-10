@@ -128,6 +128,12 @@ void command_handle(i2c_command_t cmd,
         }
         break;
 
+    case CMD_PLAY_NOTE:
+        if (rx && rx_len >= 1) {
+            play_note(rx[0]);
+        }
+        break;
+
     case CMD_GET_DATA:
         if (tx && tx_len && rx_len == 0) {
             uint8_t payload[4];
