@@ -1,249 +1,240 @@
-# Midterm Demo Video Script (10–15 minutes)
+# Blocks o' Code v3 — Midterm Demo Script
 
-Fill in **[bracketed placeholders]** with your team's actual names, numbers, and status. Timings are approximate — calibrate in rehearsal. Each slide cue is marked **[SLIDE]**; each camera/recording cue is marked **[CAMERA]**.
+Use this script with the slides (`slides.html`). Replace `[VIDEO: filename]` with your actual video file when presenting. Suggested folder: `docs/midterm-demo/videos/` (create if needed).
 
----
-
-## Part 1: Intro & System Overview (2–3 min)
+**Target: 20–25 min total** · *Approximate total below: ~23 min*
 
 ---
 
-### 1.1 Title Slide (15–20 s)
+## Time summary
 
-**[SLIDE: Title — project name, course, team name, member names + roles]**
+| Section | Slide | Talk | Videos | Section total | Cumulative |
+|---------|-------|------|--------|---------------|------------|
+| Title | 1 | 0:45 | — | 0:45 | 0:45 |
+| The Problem | 2 | 1:00 | — | 1:00 | 1:45 |
+| Key Requirements | 3 | 1:00 | — | 1:00 | 2:45 |
+| The 15 Blocks | 4 | 1:30 | — | 1:30 | 4:15 |
+| System Architecture | 5 | 1:00 | — | 1:00 | 5:15 |
+| Brain Deep Dive | 6 | 1:15 | — | 1:15 | 6:30 |
+| Flutter Validation | 7 | 1:00 | — | 1:00 | 7:30 |
+| Demo Intro + 3D enclosure | 8 | 1:00 | ~1:30 | 2:30 | 10:00 |
+| Execution Flow | 9 | 1:00 | — | 1:00 | 11:00 |
+| Specs Overview | 10 | 0:45 | — | 0:45 | 11:45 |
+| Spec 1 + 3 runs | 11 | 1:00 | ~2:00 (3×~0:40) | 3:00 | 14:45 |
+| Spec 2 + 3 runs | 12 | 1:00 | ~2:00 (3×~0:40) | 3:00 | 17:45 |
+| Spec 3 + 3 runs | 13 | 1:00 | ~2:00 (3×~0:40) | 3:00 | 20:45 |
+| Demo Scenario 1 & 2 | — | 0:30 | ~2:30 (2×~1:15) | 3:00 | 23:45 |
+| Closing | 14 | 1:00 | — | 1:00 | 24:45 |
 
-> "Hi, we're [Team Name]. This is our midterm demo for Blocks o' Code v3. We'll give you an overview of our subsystems, walk through a live demo scenario, and then show three key engineering specifications backed by test data. Let's get into it."
-
----
-
-### 1.2 Problem & Goal (30–45 s)
-
-**[SLIDE: Problem statement + one-line goal]**
-
-> "The problem we're solving: programming is abstract and inaccessible to beginners, especially young learners. Our solution is a physical, block-based programming system. Users snap together magnetic blocks—control flow, inputs, and outputs—to build programs. The brain of the system reads the physical arrangement and executes it. The goal is to make programming tangible, immediate, and fun."
-
----
-
-### 1.3 Requirements Slide (30–45 s)
-
-**[SLIDE: Top-level requirements — functional + engineering]**
-
-> "Here are our key requirements. On the functional side: the system must detect which blocks are connected and in what order, validate that the sequence is a legal program, execute the sequence on command, and provide real-time visual feedback. On the engineering side: [list your three top engineering specs here, e.g. color preview latency ≤ 200 ms, config-to-app latency ≤ 6 s, I2C rise time within standard-mode spec]. These are the specs we'll demonstrate quantitatively in Part 3."
-
----
-
-### 1.4 Subsystems (60–75 s)
-
-**[SLIDE: System block diagram — Brain Block, Child Blocks by category, Flutter App, I2C bus, TCP link]**
-
-> "Our system has three major subsystems."
-
-**Brain Block**
-
-> "First, the Brain Block — an ESP32 with a TFT touch display. It's the I2C master: it scans the bus, identifies which blocks are connected and where, manages program execution, and communicates with the companion app over Wi-Fi TCP."
-
-**[SLIDE or callout: Child blocks divided into three categories]**
-
-**Child Blocks — Control Flow**
-
-> "Second, the child blocks. Control flow blocks — If, Then, End If, Loop, End Loop, Delay — define the structure of the program. They're marker blocks: they don't produce output themselves, but they tell the Brain how to route execution."
-
-**Child Blocks — Output**
-
-> "Output blocks produce the visible and audible results: LED Color Flash, Disco Mode, Note, and Music Sequence. Each one has an LED matrix, addressable LEDs, and a speaker. When a user configures an output block, they pick a setting using the on-block numpad, and the block previews it immediately."
-
-**Child Blocks — Input**
-
-> "The input block is Button Press. It lets the program wait for a physical button press before continuing — enabling interactive, event-driven programs."
-
-**Flutter Companion App**
-
-> "Third, the Flutter companion app. It runs a TCP server, receives JSON configuration from the Brain, validates the block sequence against our rule set — checking for complete If/Loop structures and correct ordering — and displays the full configuration in real time, including any validation errors or warnings."
+*Total ~24:45 with scenario demos at the end. To hit 20–25 min: show Scenario 1 & 2 right after Slide 8 (same “demo” block) so they replace part of the intro; or keep spec/demo videos to ~30–40 s each. Buffer ~1 min for transitions and Q&A.*
 
 ---
 
-## Part 2: Demo of Overall Functionality (4–6 min)
+## 1. Title (Slide 1) — ~0:45
+
+**[Speaker]**  
+"Thanks for having us. We're [names] from Blocks o' Code v3 — a physical, block-based programming system. You snap magnetic blocks together to build real programs: no keyboard, no screen. The physical arrangement *is* the code."
+
+*[Advance to Slide 2]*
 
 ---
 
-### 2.0 Scenario Setup (20–30 s)
+## 2. The Problem (Slide 2) — ~1:00
 
-**[SLIDE: Scenario title — "Build a Light + Sound Program"]**
+**[Speaker]**  
+"Programming is abstract and inaccessible for many beginners. Our solution is to make it tangible: users snap blocks together, and the system executes with real LEDs, audio, and a touch display. Our midterm goal is a working system where blocks snap together, the Brain reads the arrangement, validates it, and executes — all in real time."
 
-> "For our functionality demo, we'll walk through a single end-to-end scenario called 'Build a Light + Sound Program.' A user snaps together a sequence of blocks to make the system flash LEDs and play a sound, then presses a button on the Brain to run it."
-
----
-
-### 2.1 Connect Blocks Magnetically (30–45 s)
-
-**[CAMERA: close-up of hands snapping blocks together on a surface or rail]**
-
-> "Starting with just the Brain Block powered on. We connect child blocks magnetically — here we're adding a Loop block, then an LED Color Flash block configured to red, a Note block set to a musical note, and then an End Loop. Each block has a unique I2C address, and as they're connected they join the bus."
+*[Advance to Slide 3]*
 
 ---
 
-### 2.2 App Detects Configuration (30–45 s)
+## 3. Key Requirements (Slide 3) — ~1:00
 
-**[CAMERA: split view — hardware + app screen]**
+**[Speaker]**  
+"We have functional requirements — detect and validate block order, execute on command, real-time feedback, control flow and output blocks — and three engineering specs we're measuring: LED color preview latency under 50 ms, config-change-to-app under 2 seconds, and I2C rise time under 1000 ns. Each spec has 10-run data plus three live demo recordings."
 
-> "Within a few seconds the Brain Block scans the I2C bus, detects the new blocks, and sends a configuration message to the app over TCP. Watch the app — the block list updates automatically. We can see all four blocks appear in order with their types and I2C addresses. The app runs our validation rules and confirms this is a valid program sequence — no errors, no warnings."
-
-> "The Brain's TFT display also updates to reflect the connected configuration."
-
----
-
-### 2.3 Press Button to Execute (15–20 s)
-
-**[CAMERA: finger pressing a button or touch on the Brain's TFT display]**
-
-> "Now we press the execute button on the Brain Block's touch display. The app sends a validation confirmation — the program is valid, execution is allowed — and the Brain begins running the sequence."
+*[Advance to Slide 4]*
 
 ---
 
-### 2.4 LEDs Animate, Sound Plays, Display Updates (45–60 s)
+## 4. The 15 Blocks (Slide 4) — ~1:30
 
-**[CAMERA: wide shot showing LED matrix light up + speaker reacting, with TFT display visible]**
+**[Speaker]**  
+"All 15 blocks share the same hardware platform: ESP32, TFT touch display, USB-C, LED matrix, addressable LEDs, and speaker. We have one Brain — I2C master and program executor — six control-flow blocks, one input block (Button), and seven output blocks including LED Color Flash, Note, and Music Sequence. They communicate over a single I2C bus."
 
-> "The Loop block tells the Brain to repeat the body twice. The LED Color Flash block fires — you can see the red flash on the LED matrix and addressable LEDs. Then the Note block plays the note through the speaker. The sequence loops, plays again, and then ends."
-
-> "The Brain's TFT display tracks execution state in real time — you can see it progress through each block."
-
----
-
-### 2.5 Real-Time Responsiveness + Modular Detection (30–40 s)
-
-**[CAMERA: add or swap one block while the system is idle; show app updating]**
-
-> "One of the key behaviors to highlight: the system is fully real-time. Watch what happens when we physically add a block. [Add one block.] The app detects and shows it within a few seconds — no restart needed. And if we swap the order, the configuration updates to match. The program is defined by the physical arrangement of the blocks."
+*[Advance to Slide 5]*
 
 ---
 
-### 2.6 Configuration Validation — Invalid Sequence (40–50 s)
+## 5. System Architecture (Slide 5) — ~1:00
 
-**[SLIDE or screen recording: app receiving a block_config JSON with an invalid sequence, e.g. If without End If]**
+**[Speaker]**  
+"Child blocks sit on one side; the Brain in the middle does I2C master, config manager, executor, and TCP client; the Flutter app on the right runs the TCP server, validator, and real-time UI. Config flows over Wi-Fi as JSON on port 41233."
 
-> "We can't easily create a physically invalid sequence — our blocks are designed to guide users toward valid programs. But our configuration engine handles invalid sequences, and we want to show that. So we'll demonstrate it directly through the app."
-
-> "Here we're sending the app a pre-built configuration JSON with an invalid sequence — an If block with no matching End If. Watch the app immediately flag it: we get a red validation error, the affected block indices are highlighted, and execution is blocked."
-
-> "[Send the valid JSON back.] When we replace it with a valid configuration, the error clears and the system is ready to run again."
+*[Advance to Slide 6]*
 
 ---
 
-### 2.7 Functionality Recap (20–30 s)
+## 6. Brain Block Deep Dive (Slide 6) — ~1:15
 
-**[SLIDE: quick bullet recap]**
+**[Speaker]**  
+"The Brain runs a scan task over I2C addresses 0x08–0x16, the config manager diffs against the previous state, and on change it sends JSON to the app. It sends commands to child blocks: ping, set LED, execute, reset, get data, matrix brightness."
 
-> "To recap what we just showed: magnetic connection and automatic detection, real-time configuration updates in the app, validation of both valid and invalid sequences, and full program execution — LEDs, sound, and display — from a single button press."
-
----
-
-## Part 3: Demo of Three Key Engineering Specifications (4–6 min)
+*[Advance to Slide 7]*
 
 ---
 
-### 3.0 Specs Introduction (20–30 s)
+## 7. Flutter App — Validation (Slide 7) — ~1:00
 
-**[SLIDE: three-row summary table — spec, quantity, units, target]**
+**[Speaker]**  
+"The app enforces four grammar rules: Brain at index zero, valid If/Then/End If and Loop/End Loop sequences. We show valid and invalid examples here; the app flags errors and blocks execution when the sequence is invalid."
 
-> "Part 3 is aimed at viewers with an engineering background. We'll demonstrate three specs, each backed by 10 test runs with summary statistics. Three of those runs per spec are shown live here."
-
-> "Our three specs are:
-> - Spec 1: LED Color Flash preview latency — how fast the block's LED changes after a color is selected. Target: mean ≤ 200 ms.
-> - Spec 2: Config-change-to-app latency — how quickly the app reflects a physical block change. Target: mean ≤ 6000 ms.
-> - Spec 3: I2C rise time — signal integrity on the bus. Target: within the I2C standard-mode requirement."
+*[Advance to Slide 8]*
 
 ---
 
-### 3.1 Spec 1 — LED Color Flash Preview Latency (≈1.5 min)
+## 8. Demo Intro — Two Scenarios & 3D Enclosure (Slide 8) — ~2:30 (talk ~1:00 + video ~1:30)
 
-**[SLIDE: spec definition — quantity, units, target, measurement setup diagram]**
+**[Speaker]**  
+"For the demo we're showing two scenarios with two blocks each, plus our 3D block enclosure. First we'll show the enclosure we've designed and built, then Scenario 1: Brain plus LED Color Flash — connect, app detects, execute, LEDs flash. Then Scenario 2: Brain plus Music Sequence — connect, app detects, execute, music plays. We'll also show real-time validation and what happens with an invalid config."
 
-> "Spec 1 is color-selection preview latency on the LED Color Flash block. When a user presses a numpad key to pick a color, the block spec requires an immediate LED preview. We're measuring how fast that actually happens — from the key press to the moment the LED changes color."
+**▶ PLAY: 3D Block Enclosure** — *~1:30*  
+**[PLAY VIDEO: `3d-enclosure.mp4`]**  
+*(Show the physical 3D block enclosure — design and build.)*
 
-> "We measure using [oscilloscope / logic analyzer / high-fps video — describe your method]. Marker A is at the key press; Marker B is the LED data line transition."
+**[Speaker]**  
+"That's the enclosure that will house our blocks."
 
-**[SLIDE: 10-run results table + bar chart if available — mean, std dev, min, max, target line]**
-
-> "Over 10 runs we got a mean of [X] ms with a standard deviation of [Y] ms, minimum [Z], maximum [W]. Our target is mean under 200 ms. [State whether met and margin.]"
-
-> "Now three live runs."
-
-**[CAMERA: close-up of numpad press + LED matrix, with timer visible or narrated]**
-
-> "Run 1: press — [X] ms. Run 2: [X] ms. Run 3: [X] ms. Consistent with our summary data. [Brief interpretation — met/not met, what it means for user experience.]"
+*[Advance to Slide 9]*
 
 ---
 
-### 3.2 Spec 2 — Config-Change-to-App Latency (≈1.5 min)
+## 9. End-to-End Execution Flow (Slide 9) — ~1:00
 
-**[SLIDE: spec definition — quantity, units, target, measurement method]**
+**[Speaker]**  
+"Walk through the flow: user snaps blocks, Brain scans I2C and sends block_config JSON to the app, app shows valid, user presses Execute on the TFT, Brain sends CMD_EXECUTE to each child block in order, and the app UI updates. Same pipeline for both demo scenarios."
 
-> "Spec 2 is the end-to-end latency from a physical block change — adding or removing a block from the I2C bus — until the Flutter app's configuration view reflects the new topology. This validates the full pipeline: I2C scan → config manager → JSON generation → TCP send → app parse → UI update."
-
-> "We measure from the moment of physical connection or disconnection to when the block count and list in the app change. We use [stopwatch / app-side received timestamp — describe your method]."
-
-**[SLIDE: 10-run results table — mean, std dev, min, max, target line]**
-
-> "Over 10 runs: mean [X] ms, std dev [Y], min [Z], max [W]. Target is 6000 ms. [State whether met and by how much margin.]"
-
-> "Three live runs."
-
-**[CAMERA: add/remove a block; show stopwatch and app side-by-side or in sequence]**
-
-> "Run 1: [X] ms. Run 2: [X] ms. Run 3: [X] ms. [Brief interpretation.]"
+*[Advance to Slide 10]*
 
 ---
 
-### 3.3 Spec 3 — I2C Rise Time (≈1.5 min)
+## 10. Engineering Specs Overview (Slide 10) — ~0:45
 
-**[SLIDE: spec definition — quantity, units, target; diagram showing probe point on SCL/SDA]**
+**[Speaker]**  
+"We have three engineering specs: LED color preview latency — target mean under 50 ms; config-change-to-app — under 2 seconds; and I2C rise time — under 1000 ns. For each we have 10-run data and three live recordings we'll play."
 
-> "Spec 3 is I2C rise time — the time for the SCL or SDA line to transition from low to high, measured 10% to 90% of supply voltage. This is a hardware signal-integrity spec. The I2C standard-mode requirement is a rise time under 1000 ns at 100 kHz. If our edges are too slow due to bus capacitance from multiple blocks and long traces, we risk communication errors."
-
-> "We probe SCL at the Brain Block's I2C header with our normal pull-up resistors and [N] child blocks connected, and use the oscilloscope's automatic rise-time measurement."
-
-**[SLIDE: 10-run results table — mean, std dev, min, max, target line at 1000 ns]**
-
-> "Over 10 captures: mean [X] ns, std dev [Y], min [Z], max [W]. [State whether within spec and describe margin.]"
-
-> "Three live captures."
-
-**[CAMERA: oscilloscope screen with 10%–90% markers on a rising SCL edge]**
-
-> "Capture 1: [X] ns. Capture 2: [X] ns. Capture 3: [X] ns. [Brief interpretation — pull-up sizing and bus loading are appropriate / need tuning.]"
+*[Advance to Slide 11]*
 
 ---
 
-### 3.4 Specs Wrap (15 s)
+## 11. Spec 1 — LED Color Preview Latency (Slide 11) — ~3:00 (talk ~1:00 + 3 videos ~2:00)
 
-> "That covers our three engineering specs — LED preview latency, config-to-app latency, and I2C rise time — each with 10-run data and three live demonstrations."
+**[Speaker]**  
+"Spec 1: time from TFT touch color selection to LED matrix color change. Target: mean ≤ 50 ms. We measured with a logic analyzer — touch event to WS2812 data transition. Our 10-run data is on the slide; mean is about 13.1 ms, so we meet the spec. Here are three live runs."
+
+**▶ PLAY: Spec 1 — Live recording 1** — *~0:40*  
+**[PLAY VIDEO: `spec1-run1.mp4`]**
+
+**▶ PLAY: Spec 1 — Live recording 2** — *~0:40*  
+**[PLAY VIDEO: `spec1-run2.mp4`]**
+
+**▶ PLAY: Spec 1 — Live recording 3** — *~0:40*  
+**[PLAY VIDEO: `spec1-run3.mp4`]**
+
+**[Speaker]**  
+"All three runs show sub-50 ms response. Spec 1 met."
+
+*[Advance to Slide 12]*
 
 ---
 
-## Part 4: Closing & Looking Ahead (30–45 s)
+## 12. Spec 2 — Config-Change-to-App Latency (Slide 12) — ~3:00 (talk ~1:00 + 3 videos ~2:00)
 
-**[SLIDE: summary + remaining work]**
+**[Speaker]**  
+"Spec 2: from physical block add or remove to the app UI showing the new topology. Target: mean ≤ 2000 ms. This exercises the full pipeline — I2C scan, config diff, JSON, TCP, parse, UI. Our 10-run mean is about 50 ms. Three live runs."
 
-> "To wrap up: we built a working end-to-end system — physical blocks connect magnetically, the Brain detects and validates the configuration in real time, the companion app reflects every change instantly, and programs execute with LED animation, audio, and display output. Three engineering specs are backed by measured data."
+**▶ PLAY: Spec 2 — Live recording 1** — *~0:40*  
+**[PLAY VIDEO: `spec2-run1.mp4`]**
 
-> "Before the final demo we're focused on [fill in top 2–3 remaining items — e.g. PCB bring-up, completing execution engine for all block types, mechanical enclosure]. We'd welcome the committee's feedback on [areas you want input on — e.g. signal integrity margin, execution robustness, UX]."
+**▶ PLAY: Spec 2 — Live recording 2** — *~0:40*  
+**[PLAY VIDEO: `spec2-run2.mp4`]**
 
-> "Thanks for watching."
+**▶ PLAY: Spec 2 — Live recording 3** — *~0:40*  
+**[PLAY VIDEO: `spec2-run3.mp4`]**
+
+**[Speaker]**  
+"Config change to app is well under 2 seconds. Spec 2 met."
+
+*[Advance to Slide 13]*
 
 ---
 
-## Timing Summary
+## 13. Spec 3 — I2C Rise Time (Slide 13) — ~3:00 (talk ~1:00 + 3 videos ~2:00)
 
-| Section | Content | Target |
-|---------|---------|--------|
-| 1.1 | Title slide | 15–20 s |
-| 1.2 | Problem & goal | 30–45 s |
-| 1.3 | Requirements | 30–45 s |
-| 1.4 | Subsystems (Brain, child blocks ×3 categories, app) | 60–75 s |
-| 2.1–2.7 | Functionality demo — scenario + validation engine | 4–6 min |
-| 3.0–3.4 | Three engineering specs with live runs | 4–6 min |
-| 4 | Closing & looking ahead | 30–45 s |
-| **Total** | | **10–15 min** |
+**[Speaker]**  
+"Spec 3: I2C SCL rise time at the Brain block header, 10%–90%. Target: ≤ 1000 ns for standard mode. We measured with an oscilloscope during normal scan. Mean about 289 ns, so we're well within spec. Three live scope recordings."
 
-Rehearse with a timer. If over 15 min, trim the subsystem walkthrough (1.4) or the functionality recap (2.7). If under 10 min, expand the spec narration or add a second functionality scenario.
+**▶ PLAY: Spec 3 — Live recording 1** — *~0:40*  
+**[PLAY VIDEO: `spec3-run1.mp4`]**
+
+**▶ PLAY: Spec 3 — Live recording 2** — *~0:40*  
+**[PLAY VIDEO: `spec3-run2.mp4`]**
+
+**▶ PLAY: Spec 3 — Live recording 3** — *~0:40*  
+**[PLAY VIDEO: `spec3-run3.mp4`]**
+
+**[Speaker]**  
+"Rise time is under 1000 ns. Spec 3 met."
+
+*[Advance to Slide 14]*
+
+---
+
+## 14. Demo Videos — Scenario 1 & Scenario 2 (after Spec 3 or with Slide 8)
+
+*If you prefer to show the two scenario demos right after the Demo Intro (Slide 8), use this block there. Otherwise you can show them after Spec 3 or in a separate “live demo” segment.*
+
+**[Speaker]**  
+"Now the two demo scenarios. First: Brain and LED Color Flash."
+
+**▶ PLAY: Demo — Scenario 1 (Brain → LED Color Flash)**  
+**[PLAY VIDEO: `demo-scenario1-led-flash.mp4`]**  
+*(Connect Brain + LED Color Flash; show app detecting config and VALID; press Execute on TFT; LEDs flash.)*
+
+**[Speaker]**  
+"Second: Brain and Music Sequence."
+
+**▶ PLAY: Demo — Scenario 2 (Brain → Music Sequence)**  
+**[PLAY VIDEO: `demo-scenario2-music-sequence.mp4`]**  
+*(Connect Brain + Music Sequence; show app detecting config and VALID; press Execute; music plays.)*
+
+**[Speaker]**  
+"Same flow for both: snap blocks, app validates, execute on the Brain’s TFT, and the child block runs."
+
+---
+
+## 15. Closing (Slide 14) — ~1:00
+
+**[Speaker]**  
+"What we built: the 3D block enclosure, two demo scenarios with two blocks each — Brain to LED Color Flash and Brain to Music Sequence — ESP32 Brain and I2C topology detection, JSON over TCP to the Flutter app, grammar validation, and execution with LEDs and audio. All three engineering specs are met with 10-run data and three live recordings each. Next we’re doing final PCB assembly, full execution for all block types, finalized mechanical enclosure, and app and TFT UI updates. The core idea is unchanged: the physical arrangement of blocks *is* the program — validated, executed, and tangible. Thanks; we’re happy to take questions."
+
+---
+
+## Video checklist
+
+| # | Description | Suggested filename | Est. length |
+|---|-------------|--------------------|-------------|
+| 1 | 3D block enclosure | `3d-enclosure.mp4` | ~1:30 |
+| 2 | Demo — Scenario 1: Brain → LED Color Flash | `demo-scenario1-led-flash.mp4` | ~1:15 |
+| 3 | Demo — Scenario 2: Brain → Music Sequence | `demo-scenario2-music-sequence.mp4` | ~1:15 |
+| 4 | Spec 1 — LED preview latency, run 1 | `spec1-run1.mp4` | ~0:40 |
+| 5 | Spec 1 — LED preview latency, run 2 | `spec1-run2.mp4` | ~0:40 |
+| 6 | Spec 1 — LED preview latency, run 3 | `spec1-run3.mp4` | ~0:40 |
+| 7 | Spec 2 — Config-to-app latency, run 1 | `spec2-run1.mp4` | ~0:40 |
+| 8 | Spec 2 — Config-to-app latency, run 2 | `spec2-run2.mp4` | ~0:40 |
+| 9 | Spec 2 — Config-to-app latency, run 3 | `spec2-run3.mp4` | ~0:40 |
+| 10 | Spec 3 — I2C rise time, run 1 | `spec3-run1.mp4` | ~0:40 |
+| 11 | Spec 3 — I2C rise time, run 2 | `spec3-run2.mp4` | ~0:40 |
+| 12 | Spec 3 — I2C rise time, run 3 | `spec3-run3.mp4` | ~0:40 |
+
+**Total: 12 videos** (1 enclosure + 2 demo scenarios + 9 spec recordings) · **Total video time: ~12 min**

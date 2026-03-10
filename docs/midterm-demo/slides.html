@@ -834,12 +834,12 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 8 — DEMO INTRO
+     SLIDE 8 — DEMO INTRO (2 scenarios, 3D enclosure)
 ════════════════════════════════════════════════════════════ -->
 <div class="slide" id="slide-8">
   <div class="slide-header">
     <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo Scenario — <span>"Build a Light + Sound Program"</span></h2>
+    <h2 class="slide-title">Demo — <span>Two Scenarios &amp; 3D Block Enclosure</span></h2>
   </div>
   <div class="content">
     <div class="row" style="gap:32px;align-items:stretch">
@@ -849,38 +849,49 @@ h3.good { color: #80ffb0; }
           <div class="card-title" style="color:var(--pink)">What We'll Show</div>
           <div style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:flex-start;gap:14px">
+              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(192,68,255,.15);border:1px solid var(--purple);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--purple)">📦</div>
+              <div><strong style="color:var(--text)">3D block enclosure</strong><br><span style="font-size:13px;color:#9fa8da">Show the physical enclosure we've designed and built for the blocks</span></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(233,30,99,.15);border:1px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pink)">1</div>
-              <div><strong style="color:var(--text)">Connect blocks magnetically</strong><br><span style="font-size:13px;color:#9fa8da">Brain → LED Color Flash → Music Sequence</span></div>
+              <div><strong style="color:var(--text)">Scenario 1: Brain → LED Color Flash</strong><br><span style="font-size:13px;color:#9fa8da">Connect 2 blocks; app detects config; execute → LEDs flash</span></div>
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(33,150,243,.15);border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--blue)">2</div>
-              <div><strong style="color:var(--text)">App detects configuration in real time</strong><br><span style="font-size:13px;color:#9fa8da">Brain scans I2C → JSON over TCP → app shows block list + "VALID"</span></div>
+              <div><strong style="color:var(--text)">Scenario 2: Brain → Music Sequence</strong><br><span style="font-size:13px;color:#9fa8da">Connect 2 blocks; app detects config; execute → music plays</span></div>
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
               <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(255,152,0,.15);border:1px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--orange)">3</div>
-              <div><strong style="color:var(--text)">Press execute on Brain's TFT</strong><br><span style="font-size:13px;color:#9fa8da">App confirms valid → Brain starts execution</span></div>
+              <div><strong style="color:var(--text)">App real-time validation</strong><br><span style="font-size:13px;color:#9fa8da">Brain scans I2C → JSON over TCP → app shows block list + "VALID"</span></div>
             </div>
             <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(233,30,99,.15);border:1px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pink)">4</div>
-              <div><strong style="color:var(--text)">LEDs flash red, Music Sequence plays</strong><br><span style="font-size:13px;color:#9fa8da">Brain sends two I2C executes in sequence — LED flash, then Music Sequence</span></div>
-            </div>
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(244,67,54,.15);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--red)">5</div>
-              <div><strong style="color:var(--text)">Inject invalid JSON → show validation error</strong><br><span style="font-size:13px;color:#9fa8da">If block with no End If → app flags error, blocks execution</span></div>
+              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(244,67,54,.15);border:1px solid var(--red);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--red)">4</div>
+              <div><strong style="color:var(--text)">Invalid config → validation error</strong><br><span style="font-size:13px;color:#9fa8da">App flags errors and blocks execution when sequence is invalid</span></div>
             </div>
           </div>
         </div>
       </div>
-      <!-- Block sequence visual -->
+      <!-- Two scenarios: block sequences -->
       <div class="col" style="flex:1">
         <div class="card" style="border-color:var(--border);height:100%;display:flex;flex-direction:column">
-          <div class="card-title" style="color:var(--muted)">Block Sequence</div>
-          <div style="display:flex;flex-direction:column;gap:14px;align-items:stretch;font-size:22px">
-            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
-            <div style="text-align:center;font-size:14px;color:var(--dim);font-weight:600">↓ I2C 0x0D</div>
-            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(255,31,122,.18),rgba(192,68,255,.10));border-radius:9px;border-left:5px solid var(--pink);font-weight:700;color:#ff80b0">💡 LED Color Flash → RED</div>
-            <div style="text-align:center;font-size:14px;color:var(--dim);font-weight:600">↓ I2C 0x10</div>
-            <div style="padding:14px 20px;background:linear-gradient(90deg,rgba(192,68,255,.18),rgba(255,31,122,.10));border-radius:9px;border-left:5px solid var(--purple);font-weight:700;color:#d580ff">🎵 Music Sequence → Baby Shark</div>
+          <div class="card-title" style="color:var(--muted)">Two Scenarios (2 blocks each)</div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:10px;letter-spacing:.08em">SCENARIO 1</div>
+              <div style="display:flex;flex-direction:column;gap:10px;font-size:20px">
+                <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
+                <div style="text-align:center;font-size:12px;color:var(--dim);font-weight:600">↓ I2C</div>
+                <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,31,122,.18),rgba(192,68,255,.10));border-radius:9px;border-left:5px solid var(--pink);font-weight:700;color:#ff80b0">💡 LED Color Flash</div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:var(--cyan);margin-bottom:10px;letter-spacing:.08em">SCENARIO 2</div>
+              <div style="display:flex;flex-direction:column;gap:10px;font-size:20px">
+                <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
+                <div style="text-align:center;font-size:12px;color:var(--dim);font-weight:600">↓ I2C</div>
+                <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(192,68,255,.18),rgba(255,31,122,.10));border-radius:9px;border-left:5px solid var(--purple);font-weight:700;color:#d580ff">🎵 Music Sequence</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -914,11 +925,11 @@ h3.good { color: #80ffb0; }
       <line x1="320" y1="52" x2="320" y2="410" stroke="#1e1e45" stroke-width="1" stroke-dasharray="4 3"/>
 
       <rect x="450" y="16" width="160" height="36" rx="8" fill="#12122a" stroke="#FF1F7A" stroke-width="1.5"/>
-      <text x="530" y="39" text-anchor="middle" fill="#ff80b0" font-size="13" font-weight="700">LED Flash Block</text>
+      <text x="530" y="39" text-anchor="middle" fill="#ff80b0" font-size="13" font-weight="700">Child Block 1</text>
       <line x1="530" y1="52" x2="530" y2="410" stroke="#1e1e45" stroke-width="1" stroke-dasharray="4 3"/>
 
       <rect x="660" y="16" width="140" height="36" rx="8" fill="#12122a" stroke="#FF1F7A" stroke-width="1.5"/>
-      <text x="730" y="39" text-anchor="middle" fill="#ff80b0" font-size="13" font-weight="700">Music Sequence Block</text>
+      <text x="730" y="39" text-anchor="middle" fill="#ff80b0" font-size="13" font-weight="700">Child Block 2</text>
       <line x1="730" y1="52" x2="730" y2="410" stroke="#1e1e45" stroke-width="1" stroke-dasharray="4 3"/>
 
       <rect x="870" y="16" width="190" height="36" rx="8" fill="#12122a" stroke="#00AAFF" stroke-width="1.5"/>
@@ -961,20 +972,20 @@ h3.good { color: #80ffb0; }
         <text x="210" y="210" text-anchor="middle" fill="#b0bcff" font-size="11">Press Execute (TFT)</text>
       </g>
 
-      <!-- 7: Brain → LED -->
+      <!-- 7: Brain → Child Block 1 -->
       <g class="flow-step" data-step="7">
         <line x1="320" y1="252" x2="525" y2="252" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
-        <text x="423" y="246" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (flash red)</text>
+        <text x="423" y="246" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE</text>
         <rect x="497" y="264" width="66" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
-        <text x="530" y="281" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">LEDs flash</text>
+        <text x="530" y="281" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">executes</text>
       </g>
 
-      <!-- 8: Brain → Note -->
+      <!-- 8: Brain → Child Block 2 -->
       <g class="flow-step" data-step="8">
         <line x1="320" y1="308" x2="725" y2="308" stroke="#FFD600" stroke-width="1.5" marker-end="url(#a2)"/>
-        <text x="523" y="302" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE (play Baby Shark)</text>
+        <text x="523" y="302" text-anchor="middle" fill="#FFD600" font-size="11">I2C CMD_EXECUTE</text>
         <rect x="703" y="318" width="54" height="26" rx="6" fill="#1a0516" stroke="rgba(255,31,122,.5)" stroke-width="1.5"/>
-        <text x="730" y="335" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">♪ plays</text>
+        <text x="730" y="335" text-anchor="middle" fill="#ff80b0" font-size="10" font-weight="700">executes</text>
       </g>
 
       <!-- 9: Brain sends telemetry -->
@@ -1029,7 +1040,7 @@ h3.good { color: #80ffb0; }
           </tr>
           <tr>
             <td class="num accent-orange">3</td>
-            <td><strong>I2C SCL/SDA rise time</strong><br><span style="font-size:12px;color:var(--dim)">10%–90% Vdd transition on SCL, measured at Brain Block I2C header</span></td>
+            <td><strong>I2C SCL/SDA rise time</strong><br><span style="font-size:12px;color:var(--dim)">30%–70% Vdd transition on SCL, measured at Brain Block I2C header</span></td>
             <td class="num">ns</td>
             <td class="accent-orange">≤ 1000 ns</td>
             <td style="font-size:13px;color:#9fa8da">Signal integrity: slow edges cause timing violations; validates pull-up sizing and bus loading</td>
@@ -1265,8 +1276,9 @@ h3.good { color: #80ffb0; }
         <div class="card" style="border-color:var(--green)">
           <div class="card-title" style="color:var(--green)">What We Built</div>
           <ul class="checklist">
-            <li>3 physical blocks snapping together magnetically over a single I2C bus</li>
-            <li>ESP32 Brain detects block topology</li>
+            <li>3D block enclosure — physical enclosure designed and built for the blocks</li>
+            <li>2 demo scenarios with 2 blocks each: Brain → LED Color Flash; Brain → Music Sequence</li>
+            <li>ESP32 Brain detects block topology over I2C</li>
             <li>JSON over Wi-Fi/TCP to Flutter companion app in real time</li>
             <li>Grammar validator enforcing 4 program-structure rules</li>
             <li>Full execution: LEDs, audio, touch display feedback</li>
@@ -1279,7 +1291,7 @@ h3.good { color: #80ffb0; }
           <div class="card-title" style="color:var(--purple)">What's Next</div>
           <ul class="checklist">
             <li>Final PCB Assembly (boards are ordered)</li>
-            <li>Complete execution engine for all block types (Music Sequence, Delay, If/Loop)</li>
+            <li>Complete execution engine for all block types (Note Block, Delay, If/Loop)</li>
             <li>Finalized Mechanical enclosure</li>
             <li>Updated App UI and Features</li>
             <li>TFT Display UI for each block type</li>
