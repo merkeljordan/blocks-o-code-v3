@@ -8,6 +8,11 @@
 
 extern void initArduino(void);
 
+// Forward declarations from other modules
+extern esp_err_t led_matrix_init(void);
+extern void led_matrix_startup_animation(void);
+extern void led_status_task(void *arg);
+
 #define BLOCK_NAME            "BUTTON"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
 #define BLOCK_TYPE            BLOCK_TYPE_BUTTON
