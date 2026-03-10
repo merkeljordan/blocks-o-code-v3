@@ -4,9 +4,13 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "i2c_protocol.h"
-#include "audio_speaker.h"
+#include "speaker.h"
+#include "led_matrix.h"
 
-extern void initArduino(void);
+// Forward declarations from other modules
+extern esp_err_t i2c_slave_init(void);
+extern void i2c_task(void *arg);
+extern void led_status_task(void *arg);
 
 #define BLOCK_NAME            "IF"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
@@ -36,10 +40,9 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
 // PERIPHERALS (STUBS)
 // ============================================================================
 static void peripherals_init(void) {
-    initArduino();
     speaker_init();
 }
-static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
+static void peripherals_boot_feedback(void) { speaker_beep_ok(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
 static void peripherals_show_running(void) { /* TODO */ }
@@ -61,12 +64,6 @@ static void command_handle(i2c_command_t cmd,
     (void)tx_len;
     // TODO: implement CMD_* handling per FRAMEWORK.md
 }
-
-// ============================================================================
-// I2C COMM (STUB)
-// ============================================================================
-static esp_err_t i2c_slave_init(void) { return ESP_OK; }
-static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
 
 // ============================================================================
 // MAIN
