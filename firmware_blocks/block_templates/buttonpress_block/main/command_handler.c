@@ -4,13 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "i2c_protocol.h"
-
-// Forward declarations from led_matrix.c
-extern void matrix_fill(uint8_t r, uint8_t g, uint8_t b);
-extern void matrix_clear(void);
-extern void matrix_show(void);
-extern void matrix_set_brightness(uint8_t brightness);
-extern uint8_t matrix_get_brightness(void);
+#include "led_matrix.h"
 
 static const char *TAG = "CMD_HANDLER";
 

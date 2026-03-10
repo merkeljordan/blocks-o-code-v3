@@ -5,8 +5,12 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "led_matrix.h"
 
 extern void initArduino(void);
+
+// Forward declaration from command_handler.c
+extern void led_status_task(void *arg);
 
 #define BLOCK_NAME            "BUTTON"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
