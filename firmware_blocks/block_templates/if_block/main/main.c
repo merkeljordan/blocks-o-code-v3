@@ -4,9 +4,11 @@
 #include "esp_log.h"
 #include "esp_err.h"
 #include "i2c_protocol.h"
-#include "audio_speaker.h"
+#include "speaker.h"
+#include "led_matrix.h"
 
-extern void initArduino(void);
+// Forward declaration from command_handler.c
+extern void led_status_task(void *arg);
 
 #define BLOCK_NAME            "IF"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
@@ -30,36 +32,6 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
     (void)out;
     (void)max_len;
     return 0;
-}
-
-// ============================================================================
-// PERIPHERALS (STUBS)
-// ============================================================================
-static void peripherals_init(void) {
-    initArduino();
-    speaker_init();
-}
-static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
-static void peripherals_error_feedback(void) { speaker_beep_error(); }
-static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
-static void peripherals_show_running(void) { /* TODO */ }
-
-// ============================================================================
-// COMMAND HANDLER (STUB)
-// ============================================================================
-static uint8_t g_status_flags = STATUS_READY;
-
-static void command_handle(i2c_command_t cmd,
-                           const uint8_t *rx,
-                           size_t rx_len,
-                           uint8_t *tx,
-                           size_t *tx_len) {
-    (void)cmd;
-    (void)rx;
-    (void)rx_len;
-    (void)tx;
-    (void)tx_len;
-    // TODO: implement CMD_* handling per FRAMEWORK.md
 }
 
 // ============================================================================
