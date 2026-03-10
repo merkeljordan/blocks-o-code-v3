@@ -1,0 +1,188 @@
+# Final Todo — Blocks o' Code v3
+
+Split between **Jordan** and **Destiny**. Branch status and assignment notes below.
+
+**For implementers:** Each task has a **How** section with step-by-step pointers—which files to open, what to change, and how it fits together.
+
+---
+
+## Branch status (vs `main`)
+
+| Branch | Status vs main | Notes |
+|--------|----------------|--------|
+| `protocol-docs-consistency` | **2 commits ahead** | Current branch. "updating docs" + shared audio/LED components. Protocol docs + startup sound (startup noise implemented here; no separate branch). |
+| `note-block-firmware` | **2 commits ahead** | Note block infrastructure in place; implementation to finish. |
+| `brain-stop-button-tft` | 0 ahead | Not started. Stop-button feature still needed on TFT. |
+| `control-flow-docs-and-blocks` | 0 ahead | No unique commits; control flow docs/blocks not on a branch. |
+| `music-sequences-behavior` | 0 ahead | No unique commits; music sequence work not on branch. |
+| `led-strip-behavior` | 0 ahead | No unique commits; LED strip behavior not on branch. |
+| `origin/add_pcb_files` | remote only | PCB-related content; many file diffs. Use for GPIO pinout doc location when merged. |
+
+---
+
+## Todo list with assignments
+
+### 1. Stop button on Brain (Start → Stop when running)
+
+- **What:** Once Start is pressed, the same button becomes Stop until execution finishes.
+- **Where:** Brain TFT UI — `firmware_blocks/brain_block/main/esp32_lcd_display_v9.c` (Start button, `home_action_event_cb`).
+- **Branch:** `brain-stop-button-tft` exists but has 0 commits ahead of main (not started yet). Implement on this branch or a new one.
+- **Owner:** **Destiny** (TFT / “what you see”).
+- **Status:** [ ] Not started
+- **How:**
+  1. **One physical button, two behaviors:** The Start button is created in `create_home_screen()` — search for `"Start"` and `create_action_tile(..., "Start", ...)`. Change this single button's label and action depending on whether the Brain is *idle* or *running*.
+  2. **Know when we're running:** In `brain_event_handler.h`, `brain_executor_get_context()` returns a struct whose `.state` is `EXECUTOR_RUNNING` when a run is in progress (or `EXECUTOR_IDLE`, `EXECUTOR_DONE`, etc.). Include that header in the display file and call it when handling the button and when updating the button's look.
+  3. **When idle:** Button shows "Start" (and maybe `LV_SYMBOL_PLAY`). On press → `brain_event_handle_message("START")` (already there).
+  4. **When running:** Button shows "Stop" (and maybe `LV_SYMBOL_STOP`). On press → `brain_event_handle_message("STOP")`. The handler already supports `"STOP"` and calls `brain_executor_stop()` in `brain_event_handler.c`.
+  5. **Updating the button:** When execution starts/ends, the button must switch between Start and Stop. Easiest: from the LVGL task (or a small timer), periodically read `brain_executor_get_context()->state`. If `EXECUTOR_RUNNING`, set the button label to "Stop" and make the callback send `"STOP"`; otherwise "Start" and send `"START"`.
+  6. Update `s_status_label` too (e.g. "Running… tap Stop to cancel" when running).
+
+---
+
+### 2. Implement note block firmware
+
+- **What:** Complete the note block so it responds to I2C (e.g. `CMD_PLAY_NOTE`, `CMD_EXECUTE`) and drives the speaker.
+- **Where:** `firmware_blocks/block_templates/note_block/` — `i2c_comm.c` and command handler in `main.c`; `i2c_protocol.h` has `CMD_PLAY_NOTE`.
+- **Branch:** `note-block-firmware` (2 commits ahead) — finish on this branch then merge.
+- **Owner:** *TBD — Jordan / Destiny*
+- **Status:** [ ] In progress (infrastructure present)
+- **How:**
+  1. **Copy the pattern from another output block:** The **LED Color Flash** block and **Music Sequence** block are good references. In `led_color_flash_block/main/command_handler.c` you'll see a `command_handle()` that switches on `cmd` and handles `CMD_EXECUTE`, `CMD_SET_LED`, etc. In `music_sequence_block/main/main.c`, `command_handle()` handles `CMD_EXECUTE` and calls `speaker_play_song()`. The **note** block should do the same for `CMD_PLAY_NOTE` and `CMD_EXECUTE` but play a single note.
+  2. **Note block layout:** In `note_block/main/main.c`, `command_handle()` is currently a stub (empty). Implement it: for `CMD_PLAY_NOTE`, read the note ID from the payload (e.g. first byte) and call whatever speaker/audio API plays that note (see `audio_speaker.h` in the note block or shared audio — e.g. a “play note by ID” or “play frequency” function). For `CMD_EXECUTE`, you can either treat it like “play current note” or map it to the same as `CMD_PLAY_NOTE` with the block’s configured `note_id`.
+  3. **I2C wiring:** In `note_block/main/i2c_comm.c`, the Brain sends commands; the I2C slave receives bytes and calls `command_handle(cmd, ...)`. That file already declares `command_handle` as an extern and calls it — so once you implement `command_handle()` in `main.c`, the Brain’s I2C traffic will reach it. No need to change `i2c_comm.c` unless the note block uses a different register/payload format.
+  4. **Config:** The note block has `g_config.note_id` and `g_config_valid`. When the Brain sends a “set note” style command (or config), update those. When `CMD_PLAY_NOTE` or `CMD_EXECUTE` arrives, use `g_config.note_id` (or the payload) to drive the speaker.
+  5. **Speaker:** Check `note_block/components/audio/` (or shared `firmware_blocks/shared_components/audio/`) for something like `speaker_play_note(uint8_t note_id)` or a tone API. If it doesn’t exist, you may need to add a small API that maps note_id (e.g. 0–6 for A–G) to a frequency and calls the same DAC/PWM path as the boot sound.
+
+---
+
+### 3. Fix up protocol docs + change startup sound
+
+- **What:** (a) Align protocol documentation (e.g. `docs/api/firmware-api.md`, `firmware_blocks/include/i2c_protocol.h`, any protocol-specific doc) with code. (b) Change/replace startup (boot) sound (e.g. `bootupsound.wav` / `speaker_play_boot_sound()` in shared audio). Find where components can be shared across all blocks.
+- **Where:** Docs under `docs/`; `firmware_blocks/shared_components/audio/` and block-level `speaker.cpp` / WAV assets.
+- **Branch:** **`protocol-docs-consistency`** (current) — 2 commits already; verify what’s done and finish here.
+- **Owner:** Jordan
+- **Status:** [ ] Check branch and complete
+- **How:**
+  1. **Protocol docs (Jordan):** Open `docs/api/firmware-api.md` and `firmware_blocks/include/i2c_protocol.h`. Cross-check: every command in the header (e.g. `CMD_PING`, `CMD_SET_LED`, `CMD_PLAY_NOTE`, `CMD_EXECUTE`, …) is described in the doc; register map (REG_WHOAMI, REG_STATUS, …) matches. Update the doc if you add or rename commands. If there’s a separate “protocol” doc in `docs/`, align it with the same source of truth (`i2c_protocol.h`).
+  2. **Startup sound:** The boot (startup) sound is played by `speaker_play_boot_sound()` from shared or block-level audio. Find it: grep for `speaker_play_boot_sound` — it’s in `firmware_blocks/shared_components/audio/speaker.cpp` and in each block’s `speaker.cpp`. The actual sound is usually a WAV file (e.g. `bootupsound.wav`) embedded via the build. To *change* the sound: replace that WAV file (same name or update the embed path in CMakeLists.txt / component config) and rebuild. To make it shared: ensure all blocks that need it use the shared component (see `protocol-docs-consistency` branch for how shared audio/LED is set up) so one WAV change affects all blocks.
+
+---
+
+### 4. Write out control flow blocks
+
+- **What:** Document and/or implement execution behavior for If/Then/End If, Loop/End Loop, Delay (and any related blocks). “Write out” = docs and/or firmware execution path.
+- **Where:** Docs (e.g. `docs/architecture/`, `docs/api/firmware-api.md`); brain executor / event handler; child block templates.
+- **Branch:** No active branch with unique commits. Create branch if needed (e.g. `control-flow-docs-and-blocks`).
+- **Owner:** **Jordan** (validation / execution flow).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Execution path:** The Brain runs the program in `brain_event_handler.c`: the executor has a program (array of block types), a program counter (`pc`), and loop stack. It “ticks” and for each step may send I2C commands (e.g. CMD_EXECUTE) to the block at the current position. Control flow means: when the executor hits an **If**, it must decide whether to run the “then” branch (e.g. check button state); for **Loop**, it must repeat a range of program indices; for **Delay**, it must wait then advance. Read `brain_executor_tick()` and the switch on block type to see where to add or extend logic for IF/THEN/END_IF, LOOP/END_LOOP, DELAY.
+  2. **Event map:** `block_config_manager` (and the event map) tells the Brain how many IF/LOOP boundaries there are and where they are. The executor uses this to know “loop from pc X to Y” or “if branch from A to B”. Docs: describe this in `docs/architecture/` or `docs/api/firmware-api.md` (e.g. “Control flow execution” subsection: how IF/LOOP/DELAY are interpreted and how the executor advances `pc`).
+  3. **Child blocks:** Control flow *blocks* (if_block, loop_block, etc.) have minimal firmware today — mostly stubs. Their `command_handle()` may just acknowledge CMD_EXECUTE without doing much. “Write out” can mean: document what the Brain sends to them (e.g. CMD_SET_LOOP with count, CMD_EXECUTE as “you’re the current step”), and implement any config (e.g. loop count) in those templates so the Brain’s view matches.
+
+---
+
+### 5. Finish music sequence block + add more songs
+
+- **What:** Complete music sequence block behavior and add more songs/assets.
+- **Where:** Music sequence block template and app-side config; audio/song assets.
+- **Branch:** `music-sequences-behavior` has 0 commits ahead — create or reuse branch for this work.
+- **Owner:** **Destiny** (speaker / “what you hear”).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Where the block lives:** `firmware_blocks/block_templates/music_sequence_block/`. Main logic: `main/main.c` has `command_handle()` which on `CMD_EXECUTE` calls `speaker_play_song()`. The TFT UI is in `main/tft_ui.c` (song selection, etc.). Audio/songs are in the block's `components/audio/` or similar — look for WAV files or song IDs.
+  2. **Finish behavior:** Ensure that when the Brain sends CMD_EXECUTE (and any config command for "which song"), the block plays the selected song from start to finish and reports ready again. Match the pattern of the LED Color Flash block: config → submit selection → Brain later sends CMD_EXECUTE to all blocks; music block should play one full song per CMD_EXECUTE.
+  3. **Add more songs:** Add new WAV or song data files (or new entries in a song table) in the music sequence block's assets. Update the UI (e.g. list of songs in `tft_ui.c`) and any song-ID mapping so the user can pick the new song and the Brain can request it. If songs are stored as embedded WAVs, add the new file and register it in the build (CMakeLists.txt or component config).
+
+---
+
+### 6. LED strip: idle type–color mapping + execution mirroring
+
+- **What:** Implement idle behavior (block type → color mapping) and execution mirroring for LED strip, reusing existing `led_strip` driver patterns.
+- **Where:** Brain and/or child block firmware using LED strip; `led_strip` driver / shared LED UX.
+- **Branch:** `led-strip-behavior` has 0 commits ahead — implement on this branch or new one.
+- **Owner:** **Destiny** (LEDs / peripherals).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Existing pieces:** Shared LED UX is in `firmware_blocks/shared_components/led_ux/led_ux.c` — `led_ux_show_startup()`, `led_ux_show_running()`, `led_ux_show_ok()`, `led_ux_show_error()`. These use `led_matrix.h` (e.g. `matrix_fill`, `matrix_show`, `matrix_clear`). The **LED Color Flash** block has a full `led_matrix.c` and `command_handler.c` that drive the strip with patterns. Reuse those patterns: same driver, same “fill/show/clear” style.
+  2. **Idle type–color mapping:** When no block is “active”, each block (or the Brain’s strip, if it’s one strip for the whole chain) should show a *color per block type* (e.g. If = blue, Loop = green, Note = yellow). You need a small table: `block_type_t` → RGB or color_id. On idle, either the Brain tells each block “show your type color” or each block’s firmware sets its segment to that color. Where the strip is (Brain vs per-block) decides where this logic lives.
+  3. **Execution mirroring:** When the executor is running and “current block” is at index N, the strip should *mirror* that (e.g. highlight the Nth block’s LEDs or animate that segment). So: Brain executor has `pc` (program counter) → map `pc` to block index → send a command or state so the strip highlights that position (e.g. brighter, different color, or a small animation). Reuse the same LED driver calls as in `led_ux` and the LED Color Flash block (e.g. set a range of pixels to a color, then `matrix_show()`).
+
+---
+
+### 7. Update any docs
+
+- **What:** General doc pass: accuracy, links, and consistency (e.g. block inventory, firmware-api, architecture, getting-started).
+- **Where:** `docs/` (all `.md` and related).
+- **Branch:** Can go on `protocol-docs-consistency` or a small `docs-update` branch.
+- **Owner:** **Jordan** and **Destiny** (split by area or pass together).
+- **Status:** [ ] Not started
+- **How:**
+  1. **List of docs to touch:** `docs/README.md`, `docs/getting-started/overview.md`, `docs/getting-started/app-setup.md`, `docs/getting-started/firmware-setup.md`, `docs/architecture/system-overview.md`, `docs/architecture/firmware-architecture.md`, `docs/architecture/app-architecture.md`, `docs/api/firmware-api.md`, `docs/api/app-api.md`, `docs/hardware/block-inventory.md`. Plus any in `docs/midterm-demo/` if still relevant.
+  2. **What to do:** Open each and check: (a) links to other docs or to code paths are correct; (b) block counts, GPIO pins, I2C addresses, command names match `i2c_protocol.h` and current firmware; (c) “getting started” steps still work; (d) no outdated branch or feature names. Split the list between you and Jordan (e.g. Jordan: firmware-api, architecture; Destiny: block-inventory, getting-started) and do one pass each, then cross-check.
+
+---
+
+### 8. GPIO pinout markdown (PCB files dir)
+
+- **What:** Add a markdown doc that describes GPIO pinouts (e.g. I2C 21/22, TFT, LED, speaker, etc.). Prefer under PCB files directory when available.
+- **Where:** Likely `docs/hardware/` or wherever PCB files live after `origin/add_pcb_files` is merged; `docs/hardware/block-inventory.md` already mentions GPIO 21/22.
+- **Branch:** Add when merging or after `add_pcb_files`; or in main with a note to move if PCB dir is added later.
+- **Owner:** *TBD — Jordan / Destiny (or hardware owner if different)*
+- **Status:** [ ] Not started
+- **How:**
+  1. **Where to put the doc:** Create e.g. `docs/hardware/gpio-pinouts.md`. `docs/hardware/block-inventory.md` already says I2C uses GPIO 21 (SDA) and 22 (SCL). Gather from Jordan/Camilla/Annie: TFT pins (DC, RST, CS, backlight), LED data pin(s), speaker/audio pins, touch pins. Write a short table: pin number, name, function, which block/Brain. If PCB files dir exists later, you can move or copy the doc there.
+  2. **One place as source of truth:** So firmware and PCB folks can both refer to the same doc.
+
+---
+
+### 9. Battery percentage on each block’s TFT UI
+
+- **What:** Show battery percentage on the TFT UI of each child block that has a display (and battery monitoring).
+- **Where:** Child block templates with TFT (e.g. blocks that use a display); `firmware_blocks/block_templates/common_block/components/battery_monitor` if present; each block’s UI code.
+- **Branch:** New branch (e.g. `block-tft-battery`) or add to a block-UI branch if one exists.
+- **Owner:** **Destiny** (displays / peripherals).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Which blocks have a TFT:** Only **LED Color Flash** and **Music Sequence** have a TFT (`main/tft_ui.c`). Add a small battery % label (e.g. corner) in each block's UI. Other blocks have no TFT yet.
+  2. **Where battery data comes from:** Check `common_block/components/battery_monitor`. You need an API like `battery_monitor_get_percent()`. If not implemented, stub it (e.g. return 100) so the UI can be built; Jordan/hardware can help with real ADC wiring later.
+  3. **In the TFT UI:** In `tft_ui.c`, add a label for the percentage. Periodically (e.g. every few seconds) call the battery API and set the label text (e.g. `lv_label_set_text_fmt(battery_label, "%u%%", percent)`). Run that from the existing LVGL task or timer.
+  4. **Control flow blocks:** They only have an LED matrix today, so battery-on-TFT applies only once they get a display. Focus on LED Color Flash and Music Sequence first.
+
+
+
+---
+
+### 10. Control flow blocks TFT UI: block type label + disco animations
+
+- **What:** (a) Each control flow block’s TFT UI should clearly show what kind of block it is (e.g. “If”, “Then”, “End If”, “Loop”, “End Loop”, “Delay”). (b) When that block is executing, the UI should switch to fun disco-style animations (e.g. colors, motion) so execution is visible and engaging.
+- **Where:** Control flow block templates with TFT: `if_block`, `then_block`, `end_if_block`, `loop_block`, `end_loop_block`, `delay_block` under `firmware_blocks/block_templates/`; each block’s display/UI code and execution-state handling (e.g. when Brain sends CMD_EXECUTE or block is “active” in the run).
+- **Branch:** Same as #4 (`control-flow-docs-and-blocks`) or a dedicated branch (e.g. `control-flow-block-tft-ui`). Coordinates with execution behavior from #4.
+- **Owner:** **Destiny** (displays / “what you see”).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Which blocks have a TFT today:** Control flow blocks (if, then, end_if, loop, end_loop, delay) currently use **LED matrix** only (see their `main.c`: `led_matrix_init()`, `led_matrix_startup_animation()`). So either (a) add a small TFT to those blocks later and show the label + disco there, or (b) for now use the **LED matrix** to show the block type (e.g. scrolling "LOOP" or a color) and disco = animations on the matrix (like `led_ux_show_running()` but fancier).
+  2. **Block type label:** Each control flow block's `main.c` already has `BLOCK_NAME` (e.g. "LOOP", "IF"). If using TFT: add a small display driver and draw that string on screen (reference: `led_color_flash_block/main/tft_ui.c` for LVGL + display init). If using LED matrix only: drive the matrix to show the text or a distinct pattern per block type (see `led_matrix.c` / pattern helpers in LED Color Flash block).
+  3. **Disco when executing:** When the Brain sends **CMD_EXECUTE** to that block (i.e. the executor is on that step), the block should switch from idle to running visuals. In `command_handle()`, when you get `CMD_EXECUTE`, call `peripherals_show_running()` — which is currently a stub in each control flow block. Implement it: e.g. start a short disco animation (flashing colors, moving pattern) on the LED matrix (or TFT). Use a timer or a small task so the animation runs for a second or two, then stop. Reuse ideas from `led_ux_show_running()` or the LED Color Flash block's pattern code.
+  4. **Keeping executing in sync:** The block only knows it's executing when it receives CMD_EXECUTE. The disco starts on that command and can auto-stop after a fixed time, or when the block gets CMD_RESET. No need to talk back to the Brain — just local reaction to I2C commands.
+
+---
+
+## Summary table
+
+| # | Task | Suggested owner | Branch |
+|---|------|-----------------|--------|
+| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new |
+| 2 | Note block firmware | TBD | `note-block-firmware` |
+| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` |
+| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` |
+| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` |
+| 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` |
+| 7 | Update any docs | Jordan | same as #3 or small branch |
+| 8 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | with PCB merge or `docs/hardware` |
+| 9 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |
+| 10 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |
+
+---
+
+*Edit the “Owner” lines and checkboxes as you assign and complete. Last updated: from main branch context.*
