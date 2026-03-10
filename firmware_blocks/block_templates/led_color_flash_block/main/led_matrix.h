@@ -35,8 +35,6 @@
   * any other matrix_* or led_flash_* function. */
  esp_err_t led_matrix_init(void);
  
- /* Three quick red flashes used during the boot sequence. */
- void led_matrix_startup_animation(void);
  
  /* ── Low-level primitives (also used by command_handler for raw I2C
   *    commands like CMD_MATRIX_FILL / CMD_MATRIX_CLEAR). ────────────── */

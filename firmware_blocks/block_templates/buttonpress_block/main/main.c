@@ -10,6 +10,9 @@
 
 extern void initArduino(void);
 
+// Forward declaration from command_handler.c
+extern void led_status_task(void *arg);
+
 #define BLOCK_NAME            "BUTTON"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
 #define BLOCK_TYPE            BLOCK_TYPE_BUTTON

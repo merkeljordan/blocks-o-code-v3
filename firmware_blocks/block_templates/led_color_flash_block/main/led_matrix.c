@@ -400,18 +400,6 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
      return ESP_OK;
  }
  
- /** Boot-time visual: three quick red flashes so the user knows the
-  *  strip is alive. */
- void led_matrix_startup_animation(void) {
-     ESP_LOGI(TAG, "Startup animation");
-     for (int flash = 0; flash < 3; flash++) {
-         fill_scaled(10, 0, 0);
-         show();
-         vTaskDelay(pdMS_TO_TICKS(200));
-         clear_and_show();
-         vTaskDelay(pdMS_TO_TICKS(200));
-     }
- }
  
  /* ── Low-level primitives ──────────────────────────────────────────────
   *  These are thin wrappers so command_handler.c can drive the strip

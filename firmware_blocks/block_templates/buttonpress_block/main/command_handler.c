@@ -4,7 +4,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "i2c_protocol.h"
-
 #include "led_matrix.h"
 
 static const char *TAG = "CMD_HANDLER";
