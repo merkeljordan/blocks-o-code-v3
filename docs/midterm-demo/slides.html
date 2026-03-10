@@ -187,17 +187,11 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
 
 /* ── Navigation ──────────────────────────────────────────── */
 #nav {
+  display: none; /* hidden; use keyboard ← → or click elsewhere to advance */
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 16px; z-index: 100;
+  align-items: center; gap: 16px; z-index: 100;
   background: rgba(7,7,26,.7); backdrop-filter: blur(12px);
   padding: 8px 16px; border-radius: 32px; border: 1px solid var(--border);
-}
-#progress-bar {
-  width: 180px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
-}
-#progress-fill {
-  height: 100%; border-radius: 2px; transition: width .3s;
-  background: linear-gradient(90deg, var(--pink), var(--purple), var(--blue));
 }
 #slide-counter { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 48px; text-align: center; font-weight: 600; }
 .nav-btn {
@@ -1316,7 +1310,7 @@ h3.good { color: #80ffb0; }
 <div id="nav">
   <button class="nav-btn" id="btn-prev" title="Previous (←)">‹</button>
   <div id="progress-bar"><div id="progress-fill"></div></div>
-  <span id="slide-counter">1 / 15</span>
+  <span id="slide-counter">1 / 14</span>
   <button class="nav-btn" id="btn-next" title="Next (→)">›</button>
 </div>
 

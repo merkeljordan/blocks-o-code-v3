@@ -25,7 +25,7 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
-#include "../../include/i2c_protocol.h"
+#include "i2c_protocol.h"
 #include "speaker.h"
 #include "tft_ui.h"
 
