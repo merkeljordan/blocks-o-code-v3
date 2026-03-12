@@ -7,12 +7,11 @@
 #include "audio_speaker.h"
 #include "tft_ui.h"
 #include "command_handler.h"
+#include "led_matrix.h"
 
 extern void initArduino(void);
 
 // Forward declarations from other modules
-extern esp_err_t led_matrix_init(void);
-extern void led_matrix_startup_animation(void);
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 extern void led_status_task(void *arg);

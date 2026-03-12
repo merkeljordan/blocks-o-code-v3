@@ -399,10 +399,30 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
      ESP_LOGI(TAG, "LED Matrix initialized successfully");
      return ESP_OK;
  }
- 
- 
- /* ── Low-level primitives ──────────────────────────────────────────────
-  *  These are thin wrappers so command_handler.c can drive the strip
+
+void led_matrix_startup_animation(void) {
+    static const rgb_t boot_colors[] = {
+        {255, 80, 0},
+        {0, 180, 255},
+        {120, 0, 255},
+    };
+
+    if (led_strip == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; i < (sizeof(boot_colors) / sizeof(boot_colors[0])); i++) {
+        fill_scaled(boot_colors[i].r, boot_colors[i].g, boot_colors[i].b);
+        show();
+        vTaskDelay(pdMS_TO_TICKS(90));
+    }
+
+    clear_and_show();
+}
+
+
+/* ── Low-level primitives ──────────────────────────────────────────────
+ *  These are thin wrappers so command_handler.c can drive the strip
   *  directly for raw I2C commands (CMD_MATRIX_FILL, CMD_MATRIX_CLEAR,
   *  CMD_MATRIX_BRIGHTNESS, CMD_MATRIX_SHOW).                           */
  

@@ -174,9 +174,14 @@ static esp_timer_handle_t s_lvgl_tick_timer = NULL;
 static lv_obj_t *s_home_screen = NULL;
 static lv_obj_t *s_blocks_screen = NULL;
 static lv_obj_t *s_wifi_icon_label = NULL;
+static lv_obj_t *s_start_action_button = NULL;
+static lv_obj_t *s_start_action_stripe = NULL;
+static lv_obj_t *s_start_action_icon = NULL;
+static lv_obj_t *s_start_action_text = NULL;
 static lv_obj_t *s_status_label = NULL;
 static lv_obj_t *s_blocks_status_label = NULL;
 static bool s_last_wifi_connected = false;
+static brain_executor_state_t s_last_executor_state = EXECUTOR_IDLE;
 
 static touch_debug_state_t s_touch_debug = {
     .last_read_err = ESP_OK,
@@ -192,6 +197,8 @@ static void open_blocks_screen(void);
 static lv_obj_t *create_blocks_screen(void);
 static void blocks_back_event_cb(lv_event_t *e);
 static void block_card_event_cb(lv_event_t *e);
+static bool executor_state_is_active(brain_executor_state_t state);
+static void refresh_home_action_state(void);
 
 /* ESP timer callback that feeds LVGL's internal timing system.
  * LVGL uses this timing for animations, input repeat, timers, etc. */
@@ -361,6 +368,8 @@ static void lvgl_task(void *arg)
     ESP_LOGI(TAG, "LVGL task started");
 
     while (1) {
+        refresh_home_action_state();
+
         if (s_wifi_icon_label != NULL) {
             bool connected = brain_companion_is_connected();
             if (connected != s_last_wifi_connected) {
@@ -383,6 +392,63 @@ static void lvgl_task(void *arg)
         }
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
+}
+
+static bool executor_state_is_active(brain_executor_state_t state)
+{
+    return (state == EXECUTOR_RUNNING ||
+            state == EXECUTOR_WAIT_DELAY ||
+            state == EXECUTOR_WAIT_INPUT);
+}
+
+static void refresh_home_action_state(void)
+{
+    const brain_executor_context_t *ctx = brain_executor_get_context();
+    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
+    bool is_active = executor_state_is_active(state);
+    lv_color_t accent = is_active ? UI_COLOR_ALERT : UI_COLOR_SUCCESS;
+
+    if (s_start_action_button != NULL) {
+        lv_obj_set_style_border_color(s_start_action_button, accent, 0);
+    }
+    if (s_start_action_stripe != NULL) {
+        lv_obj_set_style_bg_color(s_start_action_stripe, accent, 0);
+    }
+    if (s_start_action_icon != NULL) {
+        lv_label_set_text(s_start_action_icon, is_active ? LV_SYMBOL_STOP : LV_SYMBOL_PLAY);
+        lv_obj_set_style_text_color(s_start_action_icon, accent, 0);
+    }
+    if (s_start_action_text != NULL) {
+        lv_label_set_text(s_start_action_text, is_active ? "Stop" : "Start");
+    }
+
+    if (s_status_label == NULL || state == s_last_executor_state) {
+        return;
+    }
+
+    switch (state) {
+        case EXECUTOR_RUNNING:
+            lv_label_set_text(s_status_label, "Running... tap Stop to cancel");
+            break;
+        case EXECUTOR_WAIT_DELAY:
+            lv_label_set_text(s_status_label, "Waiting... tap Stop to cancel");
+            break;
+        case EXECUTOR_WAIT_INPUT:
+            lv_label_set_text(s_status_label, "Waiting for input... tap Stop to cancel");
+            break;
+        case EXECUTOR_DONE:
+            lv_label_set_text(s_status_label, "Run complete. Tap Start to run again");
+            break;
+        case EXECUTOR_STOPPED:
+            lv_label_set_text(s_status_label, "Stopped. Tap Start to run again");
+            break;
+        case EXECUTOR_IDLE:
+        default:
+            lv_label_set_text(s_status_label, "Tap Start to run the program");
+            break;
+    }
+
+    s_last_executor_state = state;
 }
 
 static void apply_touch_transform_preset(uint8_t preset_index)
@@ -444,20 +510,28 @@ static void home_action_event_cb(lv_event_t *e)
         return;
     }
 
-    if (strcmp(action_name, "Start") == 0) {
-        ESP_LOGI(TAG, "Home action pressed: Start");
-        bool handled = brain_event_handle_message("START");
+    if (lv_event_get_target_obj(e) == s_start_action_button || strcmp(action_name, "Start") == 0) {
+        const brain_executor_context_t *ctx = brain_executor_get_context();
+        bool is_active = (ctx != NULL) && executor_state_is_active(ctx->state);
+        const char *command = is_active ? "STOP" : "START";
+
+        ESP_LOGI(TAG, "Home action pressed: %s", command);
+        bool handled = brain_event_handle_message(command);
         if (s_status_label != NULL) {
             if (handled) {
-                lv_label_set_text(s_status_label, "START requested");
+                lv_label_set_text_fmt(s_status_label, "%s requested", command);
             } else {
-                const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
-                if (validation != NULL && !validation->has_received_validation) {
-                    lv_label_set_text(s_status_label, "START blocked: waiting for validation");
-                } else if (validation != NULL && !validation->app_config_valid) {
-                    lv_label_set_text(s_status_label, "START blocked: config invalid");
+                if (is_active) {
+                    lv_label_set_text(s_status_label, "STOP rejected: queue/state");
                 } else {
-                    lv_label_set_text(s_status_label, "START rejected: queue/state");
+                    const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+                    if (validation != NULL && !validation->has_received_validation) {
+                        lv_label_set_text(s_status_label, "START blocked: waiting for validation");
+                    } else if (validation != NULL && !validation->app_config_valid) {
+                        lv_label_set_text(s_status_label, "START blocked: config invalid");
+                    } else {
+                        lv_label_set_text(s_status_label, "START rejected: queue/state");
+                    }
                 }
             }
         }
@@ -513,7 +587,10 @@ static lv_obj_t *create_metric_card(lv_obj_t *parent,
 static lv_obj_t *create_action_tile(lv_obj_t *parent,
                                     const char *symbol_text,
                                     const char *label_text,
-                                    lv_color_t accent_color)
+                                    lv_color_t accent_color,
+                                    lv_obj_t **out_stripe,
+                                    lv_obj_t **out_icon,
+                                    lv_obj_t **out_text)
 {
     lv_obj_t *btn = lv_button_create(parent);
     lv_obj_set_size(btn, 104, 70);
@@ -549,6 +626,16 @@ static lv_obj_t *create_action_tile(lv_obj_t *parent,
     lv_obj_t *text = lv_label_create(btn);
     lv_label_set_text(text, label_text);
     lv_obj_set_style_text_color(text, UI_COLOR_TEXT_PRIMARY, 0);
+
+    if (out_stripe != NULL) {
+        *out_stripe = stripe;
+    }
+    if (out_icon != NULL) {
+        *out_icon = icon;
+    }
+    if (out_text != NULL) {
+        *out_text = text;
+    }
 
     lv_obj_add_event_cb(btn, home_action_event_cb, LV_EVENT_PRESSED, (void *)label_text);
     return btn;
@@ -903,10 +990,12 @@ static lv_obj_t *create_home_screen(void)
     /* Keep two rows of actions:
      * row 1: Start spans the old Start + Blocks space
      * row 2: Scan spans the old Settings + Scan space */
-    lv_obj_t *start_btn = create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS);
-    lv_obj_set_width(start_btn, LV_PCT(100));
+    s_start_action_button = create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS,
+                                               &s_start_action_stripe, &s_start_action_icon, &s_start_action_text);
+    lv_obj_set_width(s_start_action_button, LV_PCT(100));
 
-    lv_obj_t *scan_btn = create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN);
+    lv_obj_t *scan_btn = create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN,
+                                            NULL, NULL, NULL);
     lv_obj_set_width(scan_btn, LV_PCT(100));
 
     /* Footer status panel: this is where later you can show live brain state / errors / latency. */
@@ -924,11 +1013,13 @@ static lv_obj_t *create_home_screen(void)
     lv_obj_set_style_pad_bottom(status_panel, 0, 0);
 
     s_status_label = lv_label_create(status_panel);
-    lv_label_set_text(s_status_label, "Tap a button to start!");
+    lv_label_set_text(s_status_label, "Tap Start to run the program");
     lv_obj_set_width(s_status_label, BRAIN_LCD_H_RES - 56);
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_color(s_status_label, UI_COLOR_TEXT_PRIMARY, 0);
     lv_obj_align(s_status_label, LV_ALIGN_LEFT_MID, 0, 0);
+
+    refresh_home_action_state();
 
     lv_obj_t *hint_label = lv_label_create(status_panel);
     lv_label_set_text(hint_label, LV_SYMBOL_WARNING);

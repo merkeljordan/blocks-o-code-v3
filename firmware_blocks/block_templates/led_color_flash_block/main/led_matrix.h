@@ -31,13 +31,16 @@
  extern "C" {
  #endif
  
- /* Initialise the RMT-backed WS2812 strip.  Must be called once before
-  * any other matrix_* or led_flash_* function. */
- esp_err_t led_matrix_init(void);
- 
- 
- /* ── Low-level primitives (also used by command_handler for raw I2C
-  *    commands like CMD_MATRIX_FILL / CMD_MATRIX_CLEAR). ────────────── */
+/* Initialise the RMT-backed WS2812 strip.  Must be called once before
+ * any other matrix_* or led_flash_* function. */
+esp_err_t led_matrix_init(void);
+
+/* Short boot-time animation shown once after matrix init succeeds. */
+void led_matrix_startup_animation(void);
+
+
+/* ── Low-level primitives (also used by command_handler for raw I2C
+ *    commands like CMD_MATRIX_FILL / CMD_MATRIX_CLEAR). ────────────── */
  
  void     matrix_fill(uint8_t r, uint8_t g, uint8_t b);
  void     matrix_set_pixel(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);

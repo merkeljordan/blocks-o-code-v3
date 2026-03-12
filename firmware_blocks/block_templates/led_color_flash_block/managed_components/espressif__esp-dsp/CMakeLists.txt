@@ -226,3 +226,13 @@ set(priv_include_dirs           "modules/dotprod/float"
 idf_component_register(SRCS ${srcs}
                       INCLUDE_DIRS ${include_dirs}
                       PRIV_INCLUDE_DIRS ${priv_include_dirs})
+
+# Work around an xtensa-esp32-elf GCC internal compiler error seen on
+# modules/conv/float/dspi_conv_f32_ansi.c by lowering optimization for
+# that single translation unit instead of changing global build flags.
+if(NOT CMAKE_SCRIPT_MODE_FILE)
+    set_source_files_properties(
+        "modules/conv/float/dspi_conv_f32_ansi.c"
+        PROPERTIES COMPILE_OPTIONS "-O0"
+    )
+endif()
