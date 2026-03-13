@@ -23,6 +23,14 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 1
 #define BRAIN_EXECUTOR_TICK_INTERVAL_MS 10
 
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} led_rgb_t;
+
+static bool executor_state_is_active(brain_executor_state_t state);
+
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
 // ============================================================================
@@ -104,6 +112,146 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
     return false;
 }
 
+static bool block_type_supports_led_mirroring(block_type_t type)
+{
+    switch (type) {
+        case BLOCK_TYPE_IF:
+        case BLOCK_TYPE_THEN:
+        case BLOCK_TYPE_END_IF:
+        case BLOCK_TYPE_LOOP:
+        case BLOCK_TYPE_END_LOOP:
+        case BLOCK_TYPE_DELAY:
+        case BLOCK_TYPE_BUTTON:
+        case BLOCK_TYPE_NOTE:
+        case BLOCK_TYPE_LED_FLASH:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static led_rgb_t block_type_led_color(block_type_t type)
+{
+    switch (type) {
+        case BLOCK_TYPE_IF:
+            return (led_rgb_t){40, 100, 255};
+        case BLOCK_TYPE_THEN:
+            return (led_rgb_t){0, 170, 110};
+        case BLOCK_TYPE_END_IF:
+            return (led_rgb_t){0, 210, 170};
+        case BLOCK_TYPE_LOOP:
+            return (led_rgb_t){0, 180, 60};
+        case BLOCK_TYPE_END_LOOP:
+            return (led_rgb_t){120, 220, 80};
+        case BLOCK_TYPE_DELAY:
+            return (led_rgb_t){255, 170, 0};
+        case BLOCK_TYPE_BUTTON:
+            return (led_rgb_t){255, 80, 130};
+        case BLOCK_TYPE_NOTE:
+            return (led_rgb_t){255, 220, 0};
+        case BLOCK_TYPE_LED_FLASH:
+            return (led_rgb_t){180, 70, 255};
+        default:
+            return (led_rgb_t){32, 32, 32};
+    }
+}
+
+static led_rgb_t highlight_led_color(led_rgb_t base)
+{
+    led_rgb_t highlight = {
+        .r = (uint8_t)((base.r + 255U) / 2U),
+        .g = (uint8_t)((base.g + 255U) / 2U),
+        .b = (uint8_t)((base.b + 255U) / 2U),
+    };
+
+    if (highlight.r < 96U) {
+        highlight.r = 96U;
+    }
+    if (highlight.g < 96U) {
+        highlight.g = 96U;
+    }
+    if (highlight.b < 96U) {
+        highlight.b = 96U;
+    }
+
+    return highlight;
+}
+
+static int brain_led_highlight_index(const brain_executor_context_t *ctx)
+{
+    if (ctx == NULL || !executor_state_is_active(ctx->state) || ctx->program_len == 0) {
+        return -1;
+    }
+
+    if (ctx->state == EXECUTOR_WAIT_DELAY || ctx->state == EXECUTOR_WAIT_INPUT) {
+        return (ctx->pc > 0) ? (int)(ctx->pc - 1) : 0;
+    }
+
+    if (ctx->pc >= ctx->program_len) {
+        return (ctx->program_len > 0) ? (int)(ctx->program_len - 1) : -1;
+    }
+
+    return (int)ctx->pc;
+}
+
+static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
+                                           const brain_executor_context_t *ctx)
+{
+    static uint64_t s_last_render_scan_ts = 0;
+    static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
+    static uint8_t s_last_render_pc = 0xFF;
+    static uint8_t s_last_render_block_count = 0xFF;
+
+    if (cfg == NULL) {
+        return;
+    }
+
+    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
+    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
+    if (s_last_render_scan_ts == cfg->last_scan_timestamp &&
+        s_last_render_state == state &&
+        s_last_render_pc == pc &&
+        s_last_render_block_count == cfg->block_count) {
+        return;
+    }
+
+    int highlight_index = brain_led_highlight_index(ctx);
+
+    for (int i = 0; i < cfg->block_count; i++) {
+        const block_config_entry_t *entry = &cfg->blocks[i];
+        if (!entry->present || !block_type_supports_led_mirroring(entry->block_type)) {
+            continue;
+        }
+
+        led_rgb_t color = block_type_led_color(entry->block_type);
+        if (i == highlight_index) {
+            color = highlight_led_color(color);
+        }
+
+        esp_err_t fill_ret = i2c_matrix_fill(entry->i2c_address, color.r, color.g, color.b);
+        if (fill_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror fill failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(fill_ret));
+            continue;
+        }
+
+        esp_err_t show_ret = i2c_matrix_show(entry->i2c_address);
+        if (show_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror show failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(show_ret));
+        }
+    }
+
+    s_last_render_scan_ts = cfg->last_scan_timestamp;
+    s_last_render_state = state;
+    s_last_render_pc = pc;
+    s_last_render_block_count = cfg->block_count;
+}
+
 static bool executor_state_is_active(brain_executor_state_t state)
 {
     return (state == EXECUTOR_RUNNING ||
@@ -165,6 +313,9 @@ static void brain_executor_task(void *arg)
 #endif
 
         brain_executor_tick();
+        ctx = brain_executor_get_context();
+        cfg = block_config_manager_get_state();
+        brain_led_refresh_child_blocks(cfg, ctx);
         vTaskDelay(pdMS_TO_TICKS(BRAIN_EXECUTOR_TICK_INTERVAL_MS));
     }
 }
