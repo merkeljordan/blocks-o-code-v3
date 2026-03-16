@@ -5,6 +5,7 @@ idf_component_register(
         "command_handler.c"
         "led_matrix.c"
         "speaker.c"
-    INCLUDE_DIRS "." "../.." "../../../include"
+        "../../../shared_components/status_strip/status_strip.c"
+    INCLUDE_DIRS "." "../.." "../../../include" "../../../shared_components/status_strip"
     REQUIRES driver led_strip
 )

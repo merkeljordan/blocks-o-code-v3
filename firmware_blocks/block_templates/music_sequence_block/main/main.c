@@ -27,6 +27,7 @@
 
 #include "i2c_protocol.h"
 #include "speaker.h"
+#include "status_strip.h"
 #include "tft_ui.h"
 
 extern void initArduino(void);
@@ -40,6 +41,13 @@ extern void initArduino(void);
 #endif
 
 static const char *TAG = "TPL_MUSIC_SEQ";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 // Implemented in main/i2c_comm.c (kept separate so address/type live with the I2C slave transport).
 esp_err_t i2c_slave_init(void);
@@ -140,6 +148,14 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    if (status_strip_handle_matrix_command(TAG,
+                                           &kStatusStripConfig,
+                                           cmd,
+                                           rx,
+                                           rx_len)) {
+        return;
+    }
+
     switch (cmd) {
         case CMD_PING:
             break;
@@ -190,6 +206,7 @@ void command_handle(i2c_command_t cmd,
             g_selected_song = 0;
             g_config_valid = false;
             g_status_flags = STATUS_READY;
+            (void)status_strip_reset(&kStatusStripConfig);
             if (g_execute_queue != NULL) {
                 (void)xQueueReset(g_execute_queue);
             }

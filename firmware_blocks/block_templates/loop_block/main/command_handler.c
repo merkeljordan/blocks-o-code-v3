@@ -6,8 +6,16 @@
 #include "i2c_protocol.h"
 
 #include "led_matrix.h"
+#include "status_strip.h"
 
 static const char *TAG = "CMD_HANDLER";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 // Module-private state
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
@@ -25,6 +33,14 @@ void handle_command(uint8_t *buffer, int len) {
 
     ESP_LOGI(TAG, "Command: %s (0x%02X), Length: %d bytes",
              command_to_string(cmd), cmd, len);
+
+    if (status_strip_handle_matrix_command(TAG,
+                                           &kStatusStripConfig,
+                                           (i2c_command_t)cmd,
+                                           (len > 1) ? &buffer[1] : NULL,
+                                           (len > 1) ? (size_t)(len - 1) : 0U)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:
@@ -80,6 +96,7 @@ void handle_command(uint8_t *buffer, int len) {
             led_r = 0;
             led_g = 0;
             led_b = 0;
+            (void)status_strip_reset(&kStatusStripConfig);
             matrix_clear();
             matrix_show();
             current_status = STATUS_READY;

@@ -14,7 +14,7 @@ static const char *TAG = "BUTTONPRESS_BLOCK";
 
 // TODO: Change per block
 #define MY_ADDRESS      0x0E
-#define MY_BLOCK_TYPE   BLOCK_TYPE_BUTTONPRESS
+#define MY_BLOCK_TYPE   BLOCK_TYPE_BUTTON
 
 // ============================================================================
 // REGISTER MAP - What the Brain can read from us

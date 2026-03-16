@@ -30,6 +30,9 @@ typedef struct {
 } led_rgb_t;
 
 static bool executor_state_is_active(brain_executor_state_t state);
+static uint8_t brain_led_idle_brightness(void);
+static uint8_t brain_led_active_brightness(void);
+static uint8_t brain_led_inactive_running_brightness(void);
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
@@ -123,6 +126,7 @@ static bool block_type_supports_led_mirroring(block_type_t type)
         case BLOCK_TYPE_DELAY:
         case BLOCK_TYPE_BUTTON:
         case BLOCK_TYPE_NOTE:
+        case BLOCK_TYPE_MUSIC_SEQ:
         case BLOCK_TYPE_LED_FLASH:
             return true;
         default:
@@ -149,6 +153,8 @@ static led_rgb_t block_type_led_color(block_type_t type)
             return (led_rgb_t){255, 80, 130};
         case BLOCK_TYPE_NOTE:
             return (led_rgb_t){255, 220, 0};
+        case BLOCK_TYPE_MUSIC_SEQ:
+            return (led_rgb_t){255, 80, 0};
         case BLOCK_TYPE_LED_FLASH:
             return (led_rgb_t){180, 70, 255};
         default:
@@ -156,25 +162,19 @@ static led_rgb_t block_type_led_color(block_type_t type)
     }
 }
 
-static led_rgb_t highlight_led_color(led_rgb_t base)
+static uint8_t brain_led_idle_brightness(void)
 {
-    led_rgb_t highlight = {
-        .r = (uint8_t)((base.r + 255U) / 2U),
-        .g = (uint8_t)((base.g + 255U) / 2U),
-        .b = (uint8_t)((base.b + 255U) / 2U),
-    };
+    return 96U;
+}
 
-    if (highlight.r < 96U) {
-        highlight.r = 96U;
-    }
-    if (highlight.g < 96U) {
-        highlight.g = 96U;
-    }
-    if (highlight.b < 96U) {
-        highlight.b = 96U;
-    }
+static uint8_t brain_led_active_brightness(void)
+{
+    return 255U;
+}
 
-    return highlight;
+static uint8_t brain_led_inactive_running_brightness(void)
+{
+    return 48U;
 }
 
 static int brain_led_highlight_index(const brain_executor_context_t *ctx)
@@ -216,6 +216,7 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
     }
 
     int highlight_index = brain_led_highlight_index(ctx);
+    bool is_active_run = executor_state_is_active(state);
 
     for (int i = 0; i < cfg->block_count; i++) {
         const block_config_entry_t *entry = &cfg->blocks[i];
@@ -224,8 +225,11 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
         }
 
         led_rgb_t color = block_type_led_color(entry->block_type);
-        if (i == highlight_index) {
-            color = highlight_led_color(color);
+        uint8_t brightness = brain_led_idle_brightness();
+        if (is_active_run) {
+            brightness = (i == highlight_index)
+                             ? brain_led_active_brightness()
+                             : brain_led_inactive_running_brightness();
         }
 
         esp_err_t fill_ret = i2c_matrix_fill(entry->i2c_address, color.r, color.g, color.b);
@@ -234,6 +238,15 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
                      entry->i2c_address,
                      block_type_to_string(entry->block_type),
                      esp_err_to_name(fill_ret));
+            continue;
+        }
+
+        esp_err_t brightness_ret = i2c_matrix_set_brightness(entry->i2c_address, brightness);
+        if (brightness_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror brightness failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(brightness_ret));
             continue;
         }
 
