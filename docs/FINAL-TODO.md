@@ -212,9 +212,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 | # | Task | Suggested owner | Branch | Status |
 |---|------|-----------------|--------|--------|
-| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [ ] Pushed (needs merge) |
+| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [x] Pushed (needs merge) |
 | 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
-| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` | [ ] Pushed (needs merge) |
+| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` | [x] Pushed (needs merge) |
 | 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [ ] Not started |
 | 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [ ] Not started |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
