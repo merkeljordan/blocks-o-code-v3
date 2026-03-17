@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stddef.h>
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -7,8 +8,13 @@
 #include "freertos/task.h"
 #include "i2c_protocol.h"
 
-// Forward declaration from command_handler.c
-extern void handle_command(uint8_t *buffer, int len);
+// Command dispatcher implemented in main.c
+extern void command_handle(i2c_command_t cmd,
+                           const uint8_t *rx,
+                           size_t rx_len,
+                           uint8_t *tx,
+                           size_t *tx_len);
+extern uint8_t end_loop_block_get_status_flags(void);
 
 static const char *TAG = "END_LOOP_BLOCK";
 
@@ -26,6 +32,16 @@ static void init_registers(void) {
     registers[REG_STATUS]   = STATUS_READY;   // Status
     registers[REG_FW_MAJOR] = 1;              // Firmware major
     registers[REG_FW_MINOR] = 0;              // Firmware minor
+}
+
+static void refresh_dynamic_registers(void)
+{
+    registers[REG_STATUS] = end_loop_block_get_status_flags();
+}
+
+static bool is_register_index_byte(uint8_t v)
+{
+    return (v < 0x10U);
 }
 
 // ============================================================================
@@ -67,7 +83,9 @@ esp_err_t i2c_slave_init(void) {
 // I²C RECEIVE TASK - Handles commands and register reads
 // ============================================================================
 void i2c_task(void *arg) {
+    (void)arg;
     uint8_t buffer[128];
+    uint8_t tx_buf[16];
 
     while (1) {
         int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(100));
@@ -75,15 +93,34 @@ void i2c_task(void *arg) {
         if (len > 0) {
             ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
 
-            // Single byte < 0x10 = register read request
-            if (len == 1 && buffer[0] < 0x10) {
-                uint8_t reg = buffer[0];
-                uint8_t response = registers[reg];
-                i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-                ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
-            } else {
-                // Command
-                handle_command(buffer, len);
+            refresh_dynamic_registers();
+            if (is_register_index_byte(buffer[0])) {
+                bool all_register_indexes = true;
+                for (int i = 1; i < len; i++) {
+                    if (!is_register_index_byte(buffer[i])) {
+                        all_register_indexes = false;
+                        break;
+                    }
+                }
+
+                if (all_register_indexes) {
+                    uint8_t reg = buffer[len - 1];
+                    uint8_t response = registers[reg];
+                    (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
+                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
+                    continue;
+                }
+            }
+
+            size_t tx_len = 0;
+            i2c_command_t cmd = (i2c_command_t)buffer[0];
+            const uint8_t *payload = (len > 1) ? &buffer[1] : NULL;
+            size_t payload_len = (len > 1) ? (size_t)(len - 1) : 0U;
+
+            command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
+            if (tx_len > 0U) {
+                (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+                ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
             }
         }
     }

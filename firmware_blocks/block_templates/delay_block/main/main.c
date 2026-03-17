@@ -10,6 +10,10 @@
 
 extern void initArduino(void);
 
+// I2C slave transport implemented in i2c_comm.c
+extern esp_err_t i2c_slave_init(void);
+extern void i2c_task(void *arg);
+
 #define BLOCK_NAME            "DELAY"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
 #define BLOCK_TYPE            BLOCK_TYPE_DELAY
@@ -26,17 +30,29 @@ typedef struct {
 static block_config_t g_config;
 static bool g_config_valid = false;
 
-static void config_reset(void) { /* TODO */ }
+static uint8_t g_status_flags = STATUS_READY;
+
+static void config_reset(void)
+{
+    g_config.delay_ms = 500;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY;
+}
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
-    (void)out;
-    (void)max_len;
-    // TODO: write delay_ms to payload
-    return 0;
+    if (out == NULL || max_len < 4) {
+        return 0;
+    }
+    // Little-endian uint32 delay_ms
+    out[0] = (uint8_t)(g_config.delay_ms & 0xFFu);
+    out[1] = (uint8_t)((g_config.delay_ms >> 8) & 0xFFu);
+    out[2] = (uint8_t)((g_config.delay_ms >> 16) & 0xFFu);
+    out[3] = (uint8_t)((g_config.delay_ms >> 24) & 0xFFu);
+    return 4;
 }
 
 // ============================================================================
-// PERIPHERALS (STUBS)
+// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
@@ -45,31 +61,90 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
-static void peripherals_show_running(void) { /* TODO */ }
-
-// ============================================================================
-// COMMAND HANDLER (STUB)
-// ============================================================================
-static uint8_t g_status_flags = STATUS_READY;
-
-static void command_handle(i2c_command_t cmd,
-                           const uint8_t *rx,
-                           size_t rx_len,
-                           uint8_t *tx,
-                           size_t *tx_len) {
-    (void)cmd;
-    (void)rx;
-    (void)rx_len;
-    (void)tx;
-    (void)tx_len;
-    // TODO: implement CMD_* handling per FRAMEWORK.md
+static void peripherals_show_running(void)
+{
+    // Simple "running" indication: brief amber flash on the matrix.
+    matrix_fill(64, 32, 0);
+    matrix_show();
+    vTaskDelay(pdMS_TO_TICKS(120));
+    matrix_clear();
+    matrix_show();
 }
 
 // ============================================================================
-// I2C COMM (STUB)
+// STATUS ACCESSOR (used by i2c_comm.c register map)
 // ============================================================================
-static esp_err_t i2c_slave_init(void) { return ESP_OK; }
-static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
+uint8_t delay_block_get_status_flags(void)
+{
+    return g_status_flags;
+}
+
+// ============================================================================
+// COMMAND HANDLER
+// ============================================================================
+void command_handle(i2c_command_t cmd,
+                    const uint8_t *rx,
+                    size_t rx_len,
+                    uint8_t *tx,
+                    size_t *tx_len)
+{
+    if (tx_len) {
+        *tx_len = 0;
+    }
+
+    switch (cmd) {
+        case CMD_PING:
+            g_status_flags = STATUS_READY;
+            peripherals_ok_feedback();
+            break;
+
+        case CMD_GET_STATUS:
+            if (tx && tx_len) {
+                tx[0] = g_status_flags;
+                *tx_len = 1;
+            }
+            break;
+
+        case CMD_SET_DELAY:
+            if (rx_len >= 4) {
+                uint32_t v = 0;
+                v |= (uint32_t)rx[0];
+                v |= ((uint32_t)rx[1] << 8);
+                v |= ((uint32_t)rx[2] << 16);
+                v |= ((uint32_t)rx[3] << 24);
+                g_config.delay_ms = v;
+                g_config_valid = true;
+                g_status_flags = STATUS_READY;
+            }
+            break;
+
+        case CMD_GET_DATA:
+            if (tx && tx_len) {
+                *tx_len = config_get_payload(tx, 16);
+            }
+            break;
+
+        case CMD_EXECUTE:
+            if (!config_is_valid()) {
+                g_status_flags = STATUS_ERROR;
+                peripherals_error_feedback();
+                break;
+            }
+            peripherals_show_running();
+            g_status_flags = STATUS_READY;
+            break;
+
+        case CMD_RESET:
+            config_reset();
+            matrix_clear();
+            matrix_show();
+            g_status_flags = STATUS_READY;
+            break;
+
+        default:
+            break;
+    }
+}
 
 // ============================================================================
 // MAIN

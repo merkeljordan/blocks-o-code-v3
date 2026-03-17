@@ -90,6 +90,74 @@ Notes:
 - IF/LOOP/DELAY control flow is interpreted with a program counter.
 - Config refresh during execution triggers an execution stop to avoid stale topology behavior.
 
+### Control Flow Execution Semantics (IF / LOOP / DELAY)
+
+The Brain executes a “program” that is the scanned block list (excluding the Brain). The executor holds:
+- `program[]`: array of `block_type_t`
+- `pc`: program counter (index into `program[]`)
+- `loop_stack[]`: loop frames for nested loops
+
+At each tick (`brain_executor_tick()`), the executor advances `pc` or transitions into a wait state.
+
+**Output steps**:
+- For output/action block types (currently `LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain broadcasts `CMD_EXECUTE` to all present blocks.
+- For `LED_FLASH` steps, the Brain first pushes the current `color_id` to each LED flash block (via `i2c_set_led_color_id`) before broadcasting execute.
+
+**DELAY** (`BLOCK_TYPE_DELAY`):
+- On a DELAY step, the executor sets `wait_until_ms = now + delay_ms` and enters `EXECUTOR_WAIT_DELAY`.
+- When the delay expires, execution resumes at the next `pc`.
+- `delay_ms` is chosen per-program-position when available (see “Block -> Brain control-flow config submit” below). Otherwise it falls back to the executor global parameter `brain_executor_params_t.delay_ms`.
+
+**IF / THEN / END_IF** (`BLOCK_TYPE_IF`, `BLOCK_TYPE_THEN`, `BLOCK_TYPE_END_IF`):
+- The executor treats IF as a conditional gate.
+- Current condition implementation: `button_pressed` (set via `brain_executor_set_button_state()`).
+- Condition behavior: any `BUTTON_PRESS` event sets `button_pressed=true`, and the executor auto-clears it after the condition is consumed (single-press semantics).
+- When IF condition is false, the executor skips forward to the matching `END_IF` (accounting for nesting) and continues after it.
+- When IF condition is true, the executor starts executing the IF body (after IF, or after THEN if present).
+- `THEN` and `END_IF` are markers and do not perform an action; the executor simply advances past them.
+
+**LOOP / END_LOOP** (`BLOCK_TYPE_LOOP`, `BLOCK_TYPE_END_LOOP`):
+- On LOOP, the executor finds the matching `END_LOOP` (accounting for nesting) and pushes a loop frame:
+  - `loop_start_pc`: the `LOOP` index
+  - `loop_end_pc`: the `END_LOOP` index
+  - `remaining_iterations`: `loop_count` (per-program-position when available; otherwise from executor params; minimum 1)
+- When `pc` reaches `END_LOOP`, it either jumps back to `loop_start_pc + 1` while iterations remain, or pops the loop frame and continues after `END_LOOP`.
+
+### Block -> Brain control-flow config submit (I2C `STATUS_DATA_READY` + `CMD_GET_DATA`)
+
+Some child blocks publish configuration or input events to the Brain via:
+
+- Child asserts `STATUS_DATA_READY` in `REG_STATUS`
+- Brain polls `REG_STATUS`, then issues `CMD_GET_DATA`
+- Child returns a fixed-length payload (by block type)
+
+The Brain interprets the first byte as a **block-originated event ID**, followed by an event-specific payload:
+
+| Event ID | Name | Payload bytes | Layout |
+|---:|---|---:|---|
+| `0x01` | `BRAIN_BLOCK_EVENT_SELECTION_SUBMIT` | 1 | `selection` (uint8) |
+| `0x02` | `BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT` | 1 | `loop_count` (uint8) |
+| `0x03` | `BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT` | 4 | `delay_ms` (uint32 LE) |
+| `0x04` | `BRAIN_BLOCK_EVENT_BUTTON_PRESS` | 1 | `pressed` (uint8, nonzero=true) |
+
+**Per-program-position semantics**:
+- LOOP: `loop_count` is stored per scanned program index (`pc`) based on the current `block_config_manager_get_state_snapshot()` ordering.
+- DELAY: `delay_ms` is stored per scanned program index (`pc`) based on the current `block_config_manager_get_state_snapshot()` ordering.
+- During execution, when the executor hits a `BLOCK_TYPE_LOOP` or `BLOCK_TYPE_DELAY` at a given `pc`, it prefers the stored per-`pc` value; otherwise it falls back to `brain_executor_params_t.loop_count` / `brain_executor_params_t.delay_ms`.
+
+### Scan-Derived Event Map (`block_config_manager`)
+
+The Brain computes a `block_event_map_t` during each I2C scan (`block_config_manager_scan()`), to summarize IF/LOOP boundaries and basic “sequence body” metadata:
+
+- `if_start_count`, `if_end_count`, `loop_start_count`, `loop_end_count`: counts of boundaries found in the scanned topology
+- `sequence_count` + `sequences[]`: an array of `block_sequence_metadata_t` frames for each encountered IF/LOOP start, with:
+  - `sequence_type`: IF or LOOP
+  - `start_index`, `end_index`: indices in the scanned block list
+  - `has_end_boundary`: whether a matching end boundary was detected
+  - `has_input` / `has_output_or_delay` + counts: whether there are input blocks and runnable steps within the sequence body
+
+Today, the executor primarily uses the program array and runtime scans to find matching boundaries; the event map is available for validation and richer execution policies.
+
 ## Block Configuration Manager
 
 ### `block_config_manager_init()`
