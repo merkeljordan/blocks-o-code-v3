@@ -13,7 +13,7 @@ extern void handle_command(uint8_t *buffer, int len);
 static const char *TAG = "I2C_COMM";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x08
+#define MY_ADDRESS      0x11
 #define MY_BLOCK_TYPE   BLOCK_TYPE_UNKNOWN
 
 // ============================================================================
