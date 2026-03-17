@@ -10,11 +10,10 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 | Branch | Status vs main | Notes |
 |--------|----------------|--------|
-| `main` | baseline | Local `main` currently matches `origin/main`. |
-| `origin/brain-stop-button-tft` | **1 ahead, 1 behind** | Stop-button behavior implemented on remote branch; local `brain-stop-button-tft` is behind remote by 1 commit. |
-| `origin/led-strip-behavior` | **2 ahead, 1 behind** | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. |
-| `origin/note-block-firmware` | **2 ahead, 1 behind** | Note block infrastructure in place; implementation to finish. |
-| `origin/protocol-docs-consistency` | **3 ahead, 1 behind** | Protocol/docs/audio/LED sharing work exists on remote branch; not merged into `main`. |
+| `main` | baseline | **Local `main` is behind `origin/main` by 3 commits** (shared components + docs + matrix startup animation removal). Pull/merge before cutting more branches. |
+| `origin/brain-stop-button-tft` | ahead of `main` | Stop-button behavior branch exists and has been kept up-to-date with `main` via merges. |
+| `origin/led-strip-behavior` | ahead of `main` | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. |
+| `origin/note-block-firmware` | ahead of `main` | NOTE block firmware + Brain note broadcast work is on this branch; not merged into `main`. |
 | `origin/control-flow-docs-and-blocks` | **0 ahead, 1 behind** | Branch exists but no unique commits on top of its base. |
 | `origin/music-sequences-behavior` | **0 ahead, 1 behind** | Branch exists but no unique commits on top of its base. |
 
@@ -71,9 +70,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** (a) Align protocol documentation (e.g. `docs/api/firmware-api.md`, `firmware_blocks/include/i2c_protocol.h`, any protocol-specific doc) with code. (b) Change/replace startup (boot) sound (e.g. `bootupsound.wav` / `speaker_play_boot_sound()` in shared audio). Find where components can be shared across all blocks.
 - **Where:** Docs under `docs/`; `firmware_blocks/shared_components/audio/` and block-level `speaker.cpp` / WAV assets.
-- **Branch:** `origin/protocol-docs-consistency` (ahead of `main`) — verify what’s done and merge.
+- **Branch:** **Merged/deleted**: the old `protocol-docs-consistency` remote branch no longer exists; the shared component + doc parts landed on `origin/main`.
 - **Owner:** Jordan
-- **Status:** [ ] Pushed on branch (needs merge to `main`)
+- **Status:** [ ] Done 
 - **How:**
   1. **Protocol docs (Jordan):** Open `docs/api/firmware-api.md` and `firmware_blocks/include/i2c_protocol.h`. Cross-check: every command in the header (e.g. `CMD_PING`, `CMD_SET_LED`, `CMD_PLAY_NOTE`, `CMD_EXECUTE`, …) is described in the doc; register map (REG_WHOAMI, REG_STATUS, …) matches. Update the doc if you add or rename commands. If there’s a separate “protocol” doc in `docs/`, align it with the same source of truth (`i2c_protocol.h`).
   2. **Startup sound:** The boot (startup) sound is played by `speaker_play_boot_sound()` from shared or block-level audio. Find it: grep for `speaker_play_boot_sound` — it’s in `firmware_blocks/shared_components/audio/speaker.cpp` and in each block’s `speaker.cpp`. The actual sound is usually a WAV file (e.g. `bootupsound.wav`) embedded via the build. To *change* the sound: replace that WAV file (same name or update the embed path in CMakeLists.txt / component config) and rebuild. To make it shared: ensure all blocks that need it use the shared component (see `protocol-docs-consistency` branch for how shared audio/LED is set up) so one WAV change affects all blocks.
@@ -214,7 +213,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 |---|------|-----------------|--------|--------|
 | 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [x] Pushed (needs merge) |
 | 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
-| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` | [x] Pushed (needs merge) |
+| 3 | Protocol docs + startup sound | Jordan | merged to `main` | [✓] Done |
 | 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [ ] Not started |
 | 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [ ] Not started |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
