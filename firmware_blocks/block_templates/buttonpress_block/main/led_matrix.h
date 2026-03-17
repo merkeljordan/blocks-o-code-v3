@@ -7,7 +7,6 @@
 esp_err_t led_matrix_init(void);
 
 // Display a startup animation on the LED matrix
-void led_matrix_startup_animation(void);
 
 // Fill all LEDs with the given RGB color (brightness-scaled)
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b);

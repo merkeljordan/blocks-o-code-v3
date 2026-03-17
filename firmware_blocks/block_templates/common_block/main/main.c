@@ -40,7 +40,6 @@ void app_main(void) {
     }
 
     // Show startup animation
-    led_matrix_startup_animation();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

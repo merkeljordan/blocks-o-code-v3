@@ -54,7 +54,6 @@ void app_main(void) {
     }
 
     // Show startup animation
-    led_matrix_startup_animation();
 
     // I2C slave is the Brain-facing interface for this child block.
     ret = i2c_slave_init();

@@ -36,7 +36,6 @@
 esp_err_t led_matrix_init(void);
 
 /* Short boot-time animation shown once after matrix init succeeds. */
-void led_matrix_startup_animation(void);
 
 
 /* ── Low-level primitives (also used by command_handler for raw I2C
