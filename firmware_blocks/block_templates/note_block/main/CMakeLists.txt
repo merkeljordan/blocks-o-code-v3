@@ -5,6 +5,7 @@ idf_component_register(
         "command_handler.c"
         "led_matrix.c"
         "speaker.c"
+        "tft_ui.c"
     INCLUDE_DIRS "." "../.." "../../../include"
-    REQUIRES driver led_strip
+    REQUIRES driver led_strip lvgl esp_lcd espressif__esp_lcd_ili9341 atanisoft__esp_lcd_touch_xpt2046 esp_timer espressif__arduino-esp32
 )

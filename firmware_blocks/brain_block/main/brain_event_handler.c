@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 
 #include "brain_block.h"
+#include "audio_speaker.h"
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
@@ -137,15 +138,30 @@ static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_add
     return false;
 }
 
+static block_type_t get_block_type_by_addr(uint8_t addr)
+{
+    const block_config_state_t *config = block_config_manager_get_state();
+    if (config == NULL) {
+        return BLOCK_TYPE_UNKNOWN;
+    }
+
+    for (int i = 0; i < config->block_count; i++) {
+        const block_config_entry_t *entry = &config->blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+        if (entry->i2c_address == addr) {
+            return entry->block_type;
+        }
+    }
+    return BLOCK_TYPE_UNKNOWN;
+}
+
 static void dispatch_output_action(block_type_t step_type) {
     /*
      * Broadcast execution model:
-     * - When the program hits ANY output "action" step, trigger ALL present output blocks.
-     * - For LED_FLASH steps, push the current executor color_id to every LED_FLASH block
-     *   before broadcasting CMD_EXECUTE.
-     *
-     * This intentionally ignores the previous "PC maps to a specific physical block"
-     * addressing rule.
+     * - Output steps are broadcast to all blocks of the relevant output type.
+     * - Some output types require a pre-exec config push (e.g., LED_FLASH color_id).
      */
     block_config_state_t config_snapshot;
     if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
@@ -156,6 +172,51 @@ static void dispatch_output_action(block_type_t step_type) {
 
     uint8_t block_present = 0;
     uint8_t exec_ok = 0;
+
+    // NOTE: For NOTE steps, broadcast PLAY_NOTE to speaker-capable blocks and play locally on Brain.
+    if (step_type == BLOCK_TYPE_NOTE) {
+        uint8_t played = 0;
+        static const uint32_t k_note_freq_hz[7] = {
+            220U, /* A */
+            247U, /* B (246.94) */
+            262U, /* C (261.63) */
+            294U, /* D (293.66) */
+            330U, /* E (329.63) */
+            349U, /* F (349.32) */
+            392U, /* G */
+        };
+
+        uint8_t note_id = s_executor_params.note_id;
+        if (note_id >= 7) {
+            note_id = 0;
+        }
+
+        for (int i = 0; i < config_snapshot.block_count; i++) {
+            const block_config_entry_t *entry = &config_snapshot.blocks[i];
+            if (!entry->present) {
+                continue;
+            }
+            // Any block type with a speaker should respond to CMD_PLAY_NOTE.
+            if (entry->block_type != BLOCK_TYPE_NOTE &&
+                entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
+                continue;
+            }
+            esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
+            if (play_ret != ESP_OK) {
+                ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
+                         entry->i2c_address, (int)play_ret);
+            } else {
+                played++;
+            }
+        }
+
+        // Also play on the Brain speaker.
+        (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
+
+        ESP_LOGI(TAG, "NOTE broadcast played=%u note_id=%u",
+                 (unsigned)played, (unsigned)note_id);
+        return;
+    }
 
     // Phase 1: push shared config updates (only needed for some step types).
     if (step_type == BLOCK_TYPE_LED_FLASH) {
@@ -366,10 +427,21 @@ static bool process_block_event(uint8_t block_addr,
                                 size_t payload_len) {
     if (event_id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT && payload && payload_len >= 1) {
         uint8_t selection = payload[0];
-        ESP_LOGI(TAG, "Block 0x%02X selection submit: %u", block_addr, selection);
-        esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
-        esp_err_t exec_ret = i2c_execute(block_addr);
-        return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
+        block_type_t type = get_block_type_by_addr(block_addr);
+        ESP_LOGI(TAG, "Block 0x%02X (%s) selection submit: %u",
+                 block_addr, block_type_to_string(type), selection);
+
+        if (type == BLOCK_TYPE_LED_FLASH) {
+            esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
+            esp_err_t exec_ret = i2c_execute(block_addr);
+            return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
+        }
+
+        if (type == BLOCK_TYPE_NOTE) {
+            s_executor_params.note_id = selection;
+            ESP_LOGI(TAG, "Executor note_id updated to %u", (unsigned)s_executor_params.note_id);
+            return true;
+        }
     }
 
     // TODO: support additional block-originated events (e.g., button-press or

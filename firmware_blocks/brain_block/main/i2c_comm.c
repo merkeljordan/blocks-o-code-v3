@@ -261,6 +261,33 @@ esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
 }
 
 // ============================================================================
+// PLAY NOTE (note_id)
+// ============================================================================
+esp_err_t i2c_play_note(uint8_t address, uint8_t note_id) {
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    uint8_t data[2] = {CMD_PLAY_NOTE, note_id};
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, 2, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+    return ret;
+}
+
+// ============================================================================
 // SET LED (RGB)
 // ============================================================================
 esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {

@@ -44,7 +44,12 @@ static void block_event_poll_task(void *arg) {
         const device_registry_t *registry = device_registry_get();
         for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
             const device_entry_t *entry = &registry->devices[i];
-            if (!entry->present || entry->type != BLOCK_TYPE_LED_FLASH) {
+            if (!entry->present) {
+                continue;
+            }
+            // Poll blocks that can emit selection-submit events.
+            if (entry->type != BLOCK_TYPE_LED_FLASH &&
+                entry->type != BLOCK_TYPE_NOTE) {
                 continue;
             }
 

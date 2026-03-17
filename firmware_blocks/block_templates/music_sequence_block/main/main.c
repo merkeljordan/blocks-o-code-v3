@@ -144,6 +144,29 @@ void command_handle(i2c_command_t cmd,
         case CMD_PING:
             break;
 
+        case CMD_PLAY_NOTE:
+            if (g_speaker_ready && rx != NULL && rx_len >= 1) {
+                static const uint32_t k_note_freq_hz[7] = {
+                    220U, /* A */
+                    247U, /* B (246.94) */
+                    262U, /* C (261.63) */
+                    294U, /* D (293.66) */
+                    330U, /* E (329.63) */
+                    349U, /* F (349.32) */
+                    392U, /* G */
+                };
+                uint8_t note_id = rx[0];
+                if (note_id >= 7) {
+                    note_id = 0;
+                }
+
+                g_status_flags |= STATUS_BUSY;
+                g_status_flags &= (uint8_t)~STATUS_ERROR;
+                (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
+                g_status_flags &= (uint8_t)~STATUS_BUSY;
+            }
+            break;
+
         case CMD_GET_STATUS:
             // Brain can poll this to know READY / ERROR / DATA_READY state.
             if (tx && tx_len) {

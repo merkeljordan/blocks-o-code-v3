@@ -9,6 +9,7 @@
 #include "i2c_protocol.h"
 #include "command_handler.h"
 #include "led_matrix.h"
+#include "audio_speaker.h"
 
 static const char *TAG = "CMD_HANDLER";
 
@@ -25,6 +26,7 @@ static uint8_t s_pending_event_value = 0;
 typedef enum {
     ACTION_PREVIEW = 0,
     ACTION_EXECUTE = 1,
+    ACTION_PLAY_NOTE = 2,
 } led_action_type_t;
 
 typedef struct {
@@ -49,6 +51,23 @@ static void command_action_task(void *arg) {
             case ACTION_EXECUTE:
                 led_flash_play_execute(action.value);
                 break;
+            case ACTION_PLAY_NOTE: {
+                static const uint32_t k_note_freq_hz[7] = {
+                    220U, /* A */
+                    247U, /* B (246.94) */
+                    262U, /* C (261.63) */
+                    294U, /* D (293.66) */
+                    330U, /* E (329.63) */
+                    349U, /* F (349.32) */
+                    392U, /* G */
+                };
+                uint8_t note_id = action.value;
+                if (note_id >= 7) {
+                    note_id = 0;
+                }
+                (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
+                break;
+            }
             default:
                 break;
         }
@@ -173,6 +192,15 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
                 current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            }
+            break;
+
+        case CMD_PLAY_NOTE:
+            if (len >= 2 && s_action_queue) {
+                led_action_t action = {.type = ACTION_PLAY_NOTE, .value = buffer[1]};
+                if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
+                    ESP_LOGW(TAG, "Action queue full, dropping PLAY_NOTE");
+                }
             }
             break;
 
