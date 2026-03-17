@@ -11,7 +11,7 @@
 extern void initArduino(void);
 
 #define BLOCK_NAME            "DELAY"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x0D  // I2C address for Delay block
 #define BLOCK_TYPE            BLOCK_TYPE_DELAY
 
 static const char *TAG = "DELAY_BLOCK";

@@ -395,9 +395,9 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
          return err;
      }
  
-     led_strip_clear(led_strip);
-     ESP_LOGI(TAG, "LED Matrix initialized successfully");
-     return ESP_OK;
+    led_strip_clear(led_strip);
+    ESP_LOGI(TAG, "LED Matrix initialized successfully");
+    return ESP_OK;
  }
 
 /* ── Low-level primitives ──────────────────────────────────────────────

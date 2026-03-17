@@ -15,7 +15,7 @@ esp_err_t i2c_slave_init(void);
 void i2c_task(void *arg);
 
 #define BLOCK_NAME            "THEN"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x09  // I2C address for Then block
 #define BLOCK_TYPE            BLOCK_TYPE_THEN
 
 static const char *TAG = "THEN_BLOCK";

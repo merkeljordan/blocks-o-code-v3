@@ -12,6 +12,7 @@
 extern void initArduino(void);
 
 // Forward declarations from other modules
+extern esp_err_t led_matrix_init(void);
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 extern void led_status_task(void *arg);
@@ -52,8 +53,6 @@ void app_main(void) {
         speaker_beep_error();
         return;
     }
-
-    // Show startup animation
 
     // I2C slave is the Brain-facing interface for this child block.
     ret = i2c_slave_init();

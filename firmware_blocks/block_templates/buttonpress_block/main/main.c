@@ -14,7 +14,7 @@ extern void initArduino(void);
 extern void led_status_task(void *arg);
 
 #define BLOCK_NAME            "BUTTON"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x0E  // I2C address for Button block
 #define BLOCK_TYPE            BLOCK_TYPE_BUTTON
 
 static const char *TAG = "BUTTONPRESS_BLOCK";

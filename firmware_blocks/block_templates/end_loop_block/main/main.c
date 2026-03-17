@@ -11,7 +11,7 @@
 extern void initArduino(void);
 
 #define BLOCK_NAME            "END_LOOP"
-#define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
+#define BLOCK_I2C_ADDRESS     0x0C  // I2C address for End Loop block
 #define BLOCK_TYPE            BLOCK_TYPE_END_LOOP
 
 static const char *TAG = "END_LOOP_BLOCK";
