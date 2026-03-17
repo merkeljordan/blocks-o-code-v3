@@ -41,17 +41,29 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ### 2. Implement note block firmware
 
-- **What:** Complete the note block so it responds to I2C (e.g. `CMD_PLAY_NOTE`, `CMD_EXECUTE`) and drives the speaker.
+- **What:** Complete the NOTE block end-to-end: kid selects A–G on TFT (preview), submits selection to Brain, then on NOTE steps the Brain broadcasts the selected note so every speaker-capable block plays it.
 - **Where:** `firmware_blocks/block_templates/note_block/` — `i2c_comm.c` and command handler in `main.c`; `i2c_protocol.h` has `CMD_PLAY_NOTE`.
-- **Branch:** `origin/note-block-firmware` is ahead of `main` (but currently behind by 1 doc commit) — finish there then merge.
-- **Owner:** *TBD — Jordan / Destiny*
-- **Status:** [ ] In progress (infrastructure present)
+- **Branch:** `origin/note-block-firmware` (pushed; needs merge to `main`)
+- **Owner:** **Jordan**
+- **Status:** [x] Implemented + pushed (needs merge to `main`)
 - **How:**
-  1. **Copy the pattern from another output block:** The **LED Color Flash** block and **Music Sequence** block are good references. In `led_color_flash_block/main/command_handler.c` you'll see a `command_handle()` that switches on `cmd` and handles `CMD_EXECUTE`, `CMD_SET_LED`, etc. In `music_sequence_block/main/main.c`, `command_handle()` handles `CMD_EXECUTE` and calls `speaker_play_song()`. The **note** block should do the same for `CMD_PLAY_NOTE` and `CMD_EXECUTE` but play a single note.
-  2. **Note block layout:** In `note_block/main/main.c`, `command_handle()` is currently a stub (empty). Implement it: for `CMD_PLAY_NOTE`, read the note ID from the payload (e.g. first byte) and call whatever speaker/audio API plays that note (see `audio_speaker.h` in the note block or shared audio — e.g. a “play note by ID” or “play frequency” function). For `CMD_EXECUTE`, you can either treat it like “play current note” or map it to the same as `CMD_PLAY_NOTE` with the block’s configured `note_id`.
-  3. **I2C wiring:** In `note_block/main/i2c_comm.c`, the Brain sends commands; the I2C slave receives bytes and calls `command_handle(cmd, ...)`. That file already declares `command_handle` as an extern and calls it — so once you implement `command_handle()` in `main.c`, the Brain’s I2C traffic will reach it. No need to change `i2c_comm.c` unless the note block uses a different register/payload format.
-  4. **Config:** The note block has `g_config.note_id` and `g_config_valid`. When the Brain sends a “set note” style command (or config), update those. When `CMD_PLAY_NOTE` or `CMD_EXECUTE` arrives, use `g_config.note_id` (or the payload) to drive the speaker.
-  5. **Speaker:** Check `note_block/components/audio/` (or shared `firmware_blocks/shared_components/audio/`) for something like `speaker_play_note(uint8_t note_id)` or a tone API. If it doesn’t exist, you may need to add a small API that maps note_id (e.g. 0–6 for A–G) to a frequency and calls the same DAC/PWM path as the boot sound.
+  1. **TFT UI (NOTE block):** `note_block/main/tft_ui.c` provides an LVGL UI like LED Color Flash: tap **A–G** to preview, tap **SUBMIT** to publish the selection to the Brain.
+  2. **Selection submit (child → Brain):** NOTE block sets `STATUS_DATA_READY` only when a selection submit is pending; Brain reads `CMD_GET_DATA` payload `[event_id=0x01, note_id]`.
+  3. **Broadcast on NOTE steps (Brain):** when executor hits a NOTE step, Brain broadcasts `CMD_PLAY_NOTE <note_id>` so **every speaker-capable block** plays it:
+     - NOTE blocks
+     - Music sequence blocks
+     - LED Color Flash block (speaker present)
+     - Brain speaker (plays locally too)
+  4. **Frequency mapping:** note_id 0–6 maps to A–G with frequencies:
+     - A: 220Hz
+     - B: 246.94Hz
+     - C: 261.63Hz
+     - D: 293.66Hz
+     - E: 329.63Hz
+     - F: 349.32Hz
+     - G: 392Hz
+  5. **PC UI preview:** `pc_sim/note_block/` + `docs/LVGL-simulator.md` allow running the NOTE TFT UI in a desktop window (SDL/LVGL) for quick iteration.
+  6. **Deferred:** Standardizing the NOTE block I2C address will be handled on a separate branch.
 
 ---
 
@@ -198,20 +210,20 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ## Summary table
 
-| # | Task | Suggested owner | Branch |
-|---|------|-----------------|--------|
-| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new |
-| 2 | Note block firmware | TBD | `note-block-firmware` |
-| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` |
-| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` |
-| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` |
-| 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` |
-| 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new |
-| 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 |
-| 9 | Update any docs | Jordan | same as #3 or small branch |
-| 10 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | `docs/hardware` |
-| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |
-| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |
+| # | Task | Suggested owner | Branch | Status |
+|---|------|-----------------|--------|--------|
+| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [ ] Pushed (needs merge) |
+| 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
+| 3 | Protocol docs + startup sound | Jordan | `protocol-docs-consistency` | [ ] Pushed (needs merge) |
+| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [ ] Not started |
+| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [ ] Not started |
+| 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
+| 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
+| 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
+| 9 | Update any docs | Jordan | same as #3 or small branch | [ ] Not started |
+| 10 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | `docs/hardware` | [ ] Not started |
+| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) | [ ] Not started |
+| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` | [ ] Not started |
 
 ---
 
