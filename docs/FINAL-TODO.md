@@ -10,13 +10,13 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 | Branch | Status vs main | Notes |
 |--------|----------------|--------|
-| `protocol-docs-consistency` | **2 commits ahead** | Current branch. "updating docs" + shared audio/LED components. Protocol docs + startup sound (startup noise implemented here; no separate branch). |
-| `note-block-firmware` | **2 commits ahead** | Note block infrastructure in place; implementation to finish. |
-| `brain-stop-button-tft` | 0 ahead | Not started. Stop-button feature still needed on TFT. |
-| `control-flow-docs-and-blocks` | 0 ahead | No unique commits; control flow docs/blocks not on a branch. |
-| `music-sequences-behavior` | 0 ahead | No unique commits; music sequence work not on branch. |
-| `led-strip-behavior` | 0 ahead | No unique commits; LED strip behavior not on branch. |
-| `origin/add_pcb_files` | remote only | PCB-related content; many file diffs. Use for GPIO pinout doc location when merged. |
+| `main` | baseline | Local `main` currently matches `origin/main`. |
+| `origin/brain-stop-button-tft` | **1 ahead, 1 behind** | Stop-button behavior implemented on remote branch; local `brain-stop-button-tft` is behind remote by 1 commit. |
+| `origin/led-strip-behavior` | **2 ahead, 1 behind** | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. |
+| `origin/note-block-firmware` | **2 ahead, 1 behind** | Note block infrastructure in place; implementation to finish. |
+| `origin/protocol-docs-consistency` | **3 ahead, 1 behind** | Protocol/docs/audio/LED sharing work exists on remote branch; not merged into `main`. |
+| `origin/control-flow-docs-and-blocks` | **0 ahead, 1 behind** | Branch exists but no unique commits on top of its base. |
+| `origin/music-sequences-behavior` | **0 ahead, 1 behind** | Branch exists but no unique commits on top of its base. |
 
 ---
 
@@ -26,9 +26,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Once Start is pressed, the same button becomes Stop until execution finishes.
 - **Where:** Brain TFT UI — `firmware_blocks/brain_block/main/esp32_lcd_display_v9.c` (Start button, `home_action_event_cb`).
-- **Branch:** `brain-stop-button-tft` exists but has 0 commits ahead of main (not started yet). Implement on this branch or a new one.
+- **Branch:** `origin/brain-stop-button-tft` has the implementation (ahead of `main`). Merge/cherry-pick from there.
 - **Owner:** **Destiny** (TFT / “what you see”).
-- **Status:** [ ] Not started
+- **Status:** [ ] Pushed on branch (needs merge to `main`)
 - **How:**
   1. **One physical button, two behaviors:** The Start button is created in `create_home_screen()` — search for `"Start"` and `create_action_tile(..., "Start", ...)`. Change this single button's label and action depending on whether the Brain is *idle* or *running*.
   2. **Know when we're running:** In `brain_event_handler.h`, `brain_executor_get_context()` returns a struct whose `.state` is `EXECUTOR_RUNNING` when a run is in progress (or `EXECUTOR_IDLE`, `EXECUTOR_DONE`, etc.). Include that header in the display file and call it when handling the button and when updating the button's look.
@@ -43,7 +43,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Complete the note block so it responds to I2C (e.g. `CMD_PLAY_NOTE`, `CMD_EXECUTE`) and drives the speaker.
 - **Where:** `firmware_blocks/block_templates/note_block/` — `i2c_comm.c` and command handler in `main.c`; `i2c_protocol.h` has `CMD_PLAY_NOTE`.
-- **Branch:** `note-block-firmware` (2 commits ahead) — finish on this branch then merge.
+- **Branch:** `origin/note-block-firmware` is ahead of `main` (but currently behind by 1 doc commit) — finish there then merge.
 - **Owner:** *TBD — Jordan / Destiny*
 - **Status:** [ ] In progress (infrastructure present)
 - **How:**
@@ -59,9 +59,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** (a) Align protocol documentation (e.g. `docs/api/firmware-api.md`, `firmware_blocks/include/i2c_protocol.h`, any protocol-specific doc) with code. (b) Change/replace startup (boot) sound (e.g. `bootupsound.wav` / `speaker_play_boot_sound()` in shared audio). Find where components can be shared across all blocks.
 - **Where:** Docs under `docs/`; `firmware_blocks/shared_components/audio/` and block-level `speaker.cpp` / WAV assets.
-- **Branch:** **`protocol-docs-consistency`** (current) — 2 commits already; verify what’s done and finish here.
+- **Branch:** `origin/protocol-docs-consistency` (ahead of `main`) — verify what’s done and merge.
 - **Owner:** Jordan
-- **Status:** [ ] Check branch and complete
+- **Status:** [ ] Pushed on branch (needs merge to `main`)
 - **How:**
   1. **Protocol docs (Jordan):** Open `docs/api/firmware-api.md` and `firmware_blocks/include/i2c_protocol.h`. Cross-check: every command in the header (e.g. `CMD_PING`, `CMD_SET_LED`, `CMD_PLAY_NOTE`, `CMD_EXECUTE`, …) is described in the doc; register map (REG_WHOAMI, REG_STATUS, …) matches. Update the doc if you add or rename commands. If there’s a separate “protocol” doc in `docs/`, align it with the same source of truth (`i2c_protocol.h`).
   2. **Startup sound:** The boot (startup) sound is played by `speaker_play_boot_sound()` from shared or block-level audio. Find it: grep for `speaker_play_boot_sound` — it’s in `firmware_blocks/shared_components/audio/speaker.cpp` and in each block’s `speaker.cpp`. The actual sound is usually a WAV file (e.g. `bootupsound.wav`) embedded via the build. To *change* the sound: replace that WAV file (same name or update the embed path in CMakeLists.txt / component config) and rebuild. To make it shared: ensure all blocks that need it use the shared component (see `protocol-docs-consistency` branch for how shared audio/LED is set up) so one WAV change affects all blocks.
@@ -86,7 +86,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Complete music sequence block behavior and add more songs/assets.
 - **Where:** Music sequence block template and app-side config; audio/song assets.
-- **Branch:** `music-sequences-behavior` has 0 commits ahead — create or reuse branch for this work.
+- **Branch:** `origin/music-sequences-behavior` has no unique commits yet — use it or create a new branch for this work.
 - **Owner:** **Destiny** (speaker / “what you hear”).
 - **Status:** [ ] Not started
 - **How:**
@@ -100,9 +100,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Implement idle behavior (block type → color mapping) and execution mirroring for LED strip, reusing existing `led_strip` driver patterns.
 - **Where:** Brain and/or child block firmware using LED strip; `led_strip` driver / shared LED UX.
-- **Branch:** `led-strip-behavior` has 0 commits ahead — implement on this branch or new one.
+- **Branch:** `origin/led-strip-behavior` has execution mirroring work pushed (ahead of `main`) — merge, then finish idle mapping + polish.
 - **Owner:** **Destiny** (LEDs / peripherals).
-- **Status:** [ ] Not started
+- **Status:** [ ] In progress (mirroring pushed; idle mapping still needed)
 - **How:**
   1. **Existing pieces:** Shared LED UX is in `firmware_blocks/shared_components/led_ux/led_ux.c` — `led_ux_show_startup()`, `led_ux_show_running()`, `led_ux_show_ok()`, `led_ux_show_error()`. These use `led_matrix.h` (e.g. `matrix_fill`, `matrix_show`, `matrix_clear`). The **LED Color Flash** block has a full `led_matrix.c` and `command_handler.c` that drive the strip with patterns. Reuse those patterns: same driver, same “fill/show/clear” style.
   2. **Idle type–color mapping:** When no block is “active”, each block (or the Brain’s strip, if it’s one strip for the whole chain) should show a *color per block type* (e.g. If = blue, Loop = green, Note = yellow). You need a small table: `block_type_t` → RGB or color_id. On idle, either the Brain tells each block “show your type color” or each block’s firmware sets its segment to that color. Where the strip is (Brain vs per-block) decides where this logic lives.
@@ -110,7 +110,35 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ---
 
-### 7. Update any docs
+### 7. Brain broadcasts: make matrix + speaker behave via event handler
+
+- **What:** The Brain block should also function with **matrix** and **speaker** outputs based on the event handler (same “broadcast” path as other peripherals, not one-off demo code paths).
+- **Where:** Brain event handler + whatever “broadcast”/message routing exists in Brain firmware (search around `brain_event_handler.c`, executor tick, and any peripheral dispatch utilities).
+- **Branch:** Create a focused branch (or extend the branch that owns the event-handler/peripheral work).
+- **Owner:** TBD (likely Jordan for event-handler plumbing; Destiny for peripherals UX).
+- **Status:** [ ] Not started
+- **How:**
+  1. **Single source of truth:** Ensure the event handler is the one place that interprets run-state + “current block” and decides what to broadcast (e.g. RUNNING/IDLE/ERROR + current `pc`).
+  2. **Matrix parity:** When the Brain is running, the matrix should reflect the same execution state that the LED strip/mirroring expects (e.g. highlight current step, show running animation, etc.).
+  3. **Speaker parity:** When the Brain broadcasts a “run start / step / done / error” (or similar), the speaker should respond consistently (e.g. startup jingle, tick, completion tone) using the shared audio component if available.
+
+---
+
+### 8. Broadcast mirroring parity across all blocks (matrix + speaker + LED)
+
+- **What:** Broadcasts originating from the Brain should **mirror consistently** on *all* blocks/peripherals that support it (matrix, speaker, LED strip/LED matrix), so behavior feels unified.
+- **Where:** Brain broadcast message format + child-block command handlers (`CMD_EXECUTE` handling, plus any “broadcast”/“set visuals” command), shared `led_ux` / shared audio.
+- **Branch:** Could live with Task #6 (LED mirroring) or as a dedicated “broadcast-parity” branch.
+- **Owner:** TBD
+- **Status:** [ ] Not started
+- **How:**
+  1. **Define expected behavior:** For each broadcast type (idle, running, step highlight, ok/done, error/stop), define what matrix shows, what LEDs show, and what speaker plays.
+  2. **Standardize the transport:** Prefer one shared command/message type that every block can interpret (or a small set) rather than bespoke per-block commands.
+  3. **Implement in each block template:** Ensure each block’s `command_handle()` responds the same way for the shared broadcast(s), even if it’s a minimal/no-op for hardware it doesn’t have.
+
+---
+
+### 9. Update any docs
 
 - **What:** General doc pass: accuracy, links, and consistency (e.g. block inventory, firmware-api, architecture, getting-started).
 - **Where:** `docs/` (all `.md` and related).
@@ -123,11 +151,11 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ---
 
-### 8. GPIO pinout markdown (PCB files dir)
+### 10. GPIO pinout markdown
 
-- **What:** Add a markdown doc that describes GPIO pinouts (e.g. I2C 21/22, TFT, LED, speaker, etc.). Prefer under PCB files directory when available.
-- **Where:** Likely `docs/hardware/` or wherever PCB files live after `origin/add_pcb_files` is merged; `docs/hardware/block-inventory.md` already mentions GPIO 21/22.
-- **Branch:** Add when merging or after `add_pcb_files`; or in main with a note to move if PCB dir is added later.
+- **What:** Add a markdown doc that describes GPIO pinouts (e.g. I2C 21/22, TFT, LED, speaker, etc.).
+- **Where:** `docs/hardware/` (suggested: `docs/hardware/gpio-pinouts.md`); `docs/hardware/block-inventory.md` already mentions GPIO 21/22.
+- **Branch:** Any docs branch, or directly on `main` if you want it immediately available.
 - **Owner:** *TBD — Jordan / Destiny (or hardware owner if different)*
 - **Status:** [ ] Not started
 - **How:**
@@ -136,7 +164,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ---
 
-### 9. Battery percentage on each block’s TFT UI
+### 11. Battery percentage on each block’s TFT UI
 
 - **What:** Show battery percentage on the TFT UI of each child block that has a display (and battery monitoring).
 - **Where:** Child block templates with TFT (e.g. blocks that use a display); `firmware_blocks/block_templates/common_block/components/battery_monitor` if present; each block’s UI code.
@@ -153,7 +181,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 ---
 
-### 10. Control flow blocks TFT UI: block type label + disco animations
+### 12. Control flow blocks TFT UI: block type label + disco animations
 
 - **What:** (a) Each control flow block’s TFT UI should clearly show what kind of block it is (e.g. “If”, “Then”, “End If”, “Loop”, “End Loop”, “Delay”). (b) When that block is executing, the UI should switch to fun disco-style animations (e.g. colors, motion) so execution is visible and engaging.
 - **Where:** Control flow block templates with TFT: `if_block`, `then_block`, `end_if_block`, `loop_block`, `end_loop_block`, `delay_block` under `firmware_blocks/block_templates/`; each block’s display/UI code and execution-state handling (e.g. when Brain sends CMD_EXECUTE or block is “active” in the run).
@@ -178,10 +206,12 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` |
 | 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` |
-| 7 | Update any docs | Jordan | same as #3 or small branch |
-| 8 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | with PCB merge or `docs/hardware` |
-| 9 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |
-| 10 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |
+| 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new |
+| 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 |
+| 9 | Update any docs | Jordan | same as #3 or small branch |
+| 10 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | `docs/hardware` |
+| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |
+| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |
 
 ---
 
