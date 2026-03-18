@@ -57,7 +57,11 @@ esp_err_t status_strip_ensure_ready(const status_strip_config_t *cfg)
     led_strip_config_t strip_config = {
         .strip_gpio_num = cfg->gpio_num,
         .max_leds = cfg->led_count,
+#ifdef LED_STRIP_COLOR_COMPONENT_FMT_GRB
         .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+#else
+        .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+#endif
         .led_model = LED_MODEL_WS2812,
         .flags.invert_out = false,
     };
@@ -103,6 +107,17 @@ void status_strip_fill(uint8_t r, uint8_t g, uint8_t b)
     }
 }
 
+void status_strip_set_pixel(uint16_t idx, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (!status_strip_is_ready() || idx >= s_led_count) {
+        return;
+    }
+
+    s_pixels[idx].r = r;
+    s_pixels[idx].g = g;
+    s_pixels[idx].b = b;
+}
+
 void status_strip_clear(void)
 {
     if (!status_strip_is_ready()) {
@@ -120,6 +135,11 @@ void status_strip_set_brightness(uint8_t brightness)
 uint8_t status_strip_get_brightness(void)
 {
     return s_brightness;
+}
+
+uint16_t status_strip_get_led_count(void)
+{
+    return s_led_count;
 }
 
 esp_err_t status_strip_show(void)

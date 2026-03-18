@@ -7,8 +7,9 @@
 #include "freertos/task.h"
 #include "i2c_protocol.h"
 
-// Forward declaration from command_handler.c
+// Forward declarations from command_handler.c
 extern void handle_command(uint8_t *buffer, int len);
+extern uint8_t command_handler_get_status_flags(void);
 
 static const char *TAG = "I2C_COMM";
 
@@ -26,6 +27,11 @@ static void init_registers(void) {
     registers[REG_STATUS]   = STATUS_READY;   // Status
     registers[REG_FW_MAJOR] = 1;              // Firmware major
     registers[REG_FW_MINOR] = 0;              // Firmware minor
+}
+
+static void refresh_dynamic_registers(void)
+{
+    registers[REG_STATUS] = command_handler_get_status_flags();
 }
 
 // ============================================================================
@@ -77,6 +83,7 @@ void i2c_task(void *arg) {
 
             // Single byte < 0x10 = register read request
             if (len == 1 && buffer[0] < 0x10) {
+                refresh_dynamic_registers();
                 uint8_t reg = buffer[0];
                 uint8_t response = registers[reg];
                 i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));

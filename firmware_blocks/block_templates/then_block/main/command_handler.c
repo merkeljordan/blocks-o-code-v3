@@ -8,6 +8,8 @@
 #include "led_matrix.h"
 #include "status_strip.h"
 
+extern uint8_t then_block_get_status_flags(void);
+
 static const char *TAG = "CMD_HANDLER";
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 16
@@ -115,8 +117,9 @@ void led_status_task(void *arg) {
     ESP_LOGI(TAG, "LED status task started");
 
     while (1) {
+        uint8_t status = then_block_get_status_flags();
         ESP_LOGI(TAG, "Status: %s | LED: RGB(%d,%d,%d) | Brightness: %d%%",
-                 (current_status & STATUS_READY) ? "READY" : "BUSY",
+                 (status & STATUS_BUSY) ? "BUSY" : "READY",
                  led_r, led_g, led_b,
                  (matrix_get_brightness() * 100) / 255);
 

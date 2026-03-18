@@ -7,6 +7,7 @@
 #include "audio_speaker.h"
 #include "led_matrix.h"
 #include "command_handler.h"
+#include "status_strip.h"
 
 extern void initArduino(void);
 
@@ -19,6 +20,13 @@ void i2c_task(void *arg);
 #define BLOCK_TYPE            BLOCK_TYPE_THEN
 
 static const char *TAG = "THEN_BLOCK";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 // ============================================================================
 // CONFIG (no payload for THEN)
@@ -100,6 +108,10 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
+        return;
+    }
+
     switch (cmd) {
         case CMD_PING:
             // Keep it simple: acknowledge by staying READY and play a short beep.
@@ -124,12 +136,14 @@ void command_handle(i2c_command_t cmd,
                 peripherals_error_feedback();
                 break;
             }
+            g_status_flags = STATUS_BUSY;
             peripherals_show_running();
             g_status_flags = STATUS_READY;
             break;
 
         case CMD_RESET:
             config_reset();
+            (void)status_strip_reset(&kStatusStripConfig);
             matrix_clear();
             matrix_show();
             g_status_flags = STATUS_READY;

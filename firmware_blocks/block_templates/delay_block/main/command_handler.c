@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdint.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "i2c_protocol.h"
 
+#include "i2c_protocol.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 
@@ -17,13 +18,20 @@ static const status_strip_config_t kStatusStripConfig = {
     .led_count = STATUS_STRIP_LED_COUNT,
 };
 
-// Module-private state
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t current_status = STATUS_READY;
 
-// ============================================================================
-// COMMAND HANDLER
-// ============================================================================
+static void run_execute_feedback(void)
+{
+    current_status = STATUS_BUSY;
+    matrix_fill(255, 170, 0);
+    matrix_show();
+    vTaskDelay(pdMS_TO_TICKS(120));
+    matrix_clear();
+    matrix_show();
+    current_status = STATUS_READY;
+}
+
 void handle_command(uint8_t *buffer, int len) {
     if (len < 1) {
         return;
@@ -44,12 +52,12 @@ void handle_command(uint8_t *buffer, int len) {
 
     switch (cmd) {
         case CMD_PING:
-            ESP_LOGI(TAG, "  → PING");
+            ESP_LOGI(TAG, "  -> PING");
             current_status = STATUS_READY;
             break;
 
         case CMD_GET_TYPE:
-            ESP_LOGI(TAG, "  → GET_TYPE");
+            ESP_LOGI(TAG, "  -> GET_TYPE");
             break;
 
         case CMD_SET_LED:
@@ -57,42 +65,17 @@ void handle_command(uint8_t *buffer, int len) {
                 led_r = buffer[1];
                 led_g = buffer[2];
                 led_b = buffer[3];
-                ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
+                ESP_LOGI(TAG, "  -> SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
             }
             break;
 
-        case CMD_MATRIX_FILL:
-            if (len >= 4) {
-                uint8_t r = buffer[1];
-                uint8_t g = buffer[2];
-                uint8_t b = buffer[3];
-                ESP_LOGI(TAG, "  → FILL RGB(%d, %d, %d)", r, g, b);
-                matrix_fill(r, g, b);
-                matrix_show();
-            }
-            break;
-
-        case CMD_MATRIX_CLEAR:
-            ESP_LOGI(TAG, "  → CLEAR");
-            matrix_clear();
-            matrix_show();
-            break;
-
-        case CMD_MATRIX_BRIGHTNESS:
-            if (len >= 2) {
-                uint8_t brightness = buffer[1];
-                ESP_LOGI(TAG, "  → BRIGHTNESS %d", brightness);
-                matrix_set_brightness(brightness);
-            }
-            break;
-
-        case CMD_MATRIX_SHOW:
-            ESP_LOGI(TAG, "  → SHOW");
-            matrix_show();
+        case CMD_EXECUTE:
+            ESP_LOGI(TAG, "  -> EXECUTE");
+            run_execute_feedback();
             break;
 
         case CMD_RESET:
-            ESP_LOGI(TAG, "  → RESET");
+            ESP_LOGI(TAG, "  -> RESET");
             led_r = 0;
             led_g = 0;
             led_b = 0;
@@ -103,23 +86,25 @@ void handle_command(uint8_t *buffer, int len) {
             break;
 
         default:
-            ESP_LOGW(TAG, "  → Unknown command: 0x%02X", cmd);
+            ESP_LOGW(TAG, "  -> Unknown command: 0x%02X", cmd);
             break;
     }
 }
 
-// ============================================================================
-// LED STATUS TASK
-// ============================================================================
+uint8_t command_handler_get_status_flags(void)
+{
+    return current_status;
+}
+
 void led_status_task(void *arg) {
     ESP_LOGI(TAG, "LED status task started");
 
     while (1) {
         ESP_LOGI(TAG, "Status: %s | LED: RGB(%d,%d,%d) | Brightness: %d%%",
-                 (current_status & STATUS_READY) ? "READY" : "BUSY",
+                 (current_status & STATUS_BUSY) ? "BUSY" : "READY",
                  led_r, led_g, led_b,
                  (matrix_get_brightness() * 100) / 255);
 
-        vTaskDelay(pdMS_TO_TICKS(10000));  // Every 10 seconds
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 }
