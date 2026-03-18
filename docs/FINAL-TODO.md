@@ -166,12 +166,12 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Add a markdown doc that describes GPIO pinouts (e.g. I2C 21/22, TFT, LED, speaker, etc.).
 - **Where:** `docs/hardware/` (suggested: `docs/hardware/gpio-pinouts.md`); `docs/hardware/block-inventory.md` already mentions GPIO 21/22.
-- **Branch:** Any docs branch, or directly on `main` if you want it immediately available.
-- **Owner:** *TBD — Jordan / Destiny (or hardware owner if different)*
-- **Status:** [ ] Not started
+- **Branch:** `main` (doc + PCB files are now committed directly on main).
+- **Owner:** Jordan 
+- **Status:** [x] Done
 - **How:**
-  1. **Where to put the doc:** Create e.g. `docs/hardware/gpio-pinouts.md`. `docs/hardware/block-inventory.md` already says I2C uses GPIO 21 (SDA) and 22 (SCL). Gather from Jordan/Camilla/Annie: TFT pins (DC, RST, CS, backlight), LED data pin(s), speaker/audio pins, touch pins. Write a short table: pin number, name, function, which block/Brain. If PCB files dir exists later, you can move or copy the doc there.
-  2. **One place as source of truth:** So firmware and PCB folks can both refer to the same doc.
+  1. **GPIO doc created:** `docs/hardware/gpio-pinouts.md` is the single source of truth for ESP32 pin usage across Brain + all child blocks. It documents I2C (21/22), TFT, LED matrix, LED strip, speaker DAC, SPI, touch CS, and status LEDs.
+  2. **Backed by PCB files:** Hardware design zips (`Main_PCB.zip`, `Amplifier.zip`, `ChargingModule.zip`, `VoltageRegulators.zip`) live in `pcb_files/`, with `pcb_files/README.md` explaining contents and pointing back to `gpio-pinouts.md` so firmware and PCB stay in sync.
 
 ---
 
@@ -220,7 +220,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
 | 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
 | 9 | Update any docs | Jordan | same as #3 or small branch | [ ] In progress |
-| 10 | GPIO pinout markdown | Jordan (will gather from Camilla and Annesley) | `docs/hardware` | [ ] Not started |
+| 10 | GPIO pinout markdown | Jordan / hardware owner | `main` (`docs/hardware/gpio-pinouts.md`) | [✓] Done |
 | 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) | [ ] Not started |
 | 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` | [ ] Not started |
 
