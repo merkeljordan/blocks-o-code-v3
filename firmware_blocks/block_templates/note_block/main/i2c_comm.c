@@ -51,6 +51,10 @@ static int is_command_byte(uint8_t b)
         case CMD_GET_STATUS:
         case CMD_GET_EVENT:
         case CMD_CUSTOM_SEQUENCE:
+        case CMD_GET_TYPE:
+        case CMD_GET_DATA:
+        case CMD_EXECUTE:
+        case CMD_RESET:
             return 1;
         default:
             return 0;
