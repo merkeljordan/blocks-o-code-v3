@@ -85,7 +85,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Docs (e.g. `docs/architecture/`, `docs/api/firmware-api.md`); brain executor / event handler; child block templates.
 - **Branch:** No active branch with unique commits. Create branch if needed (e.g. `control-flow-docs-and-blocks`).
 - **Owner:** **Jordan** (validation / execution flow).
-- **Status:** [ ] In Progress
+- **Status:** [x] Done (control-flow infrastructure complete; handoff to Destiny)
 - **How:**
   1. **Execution path:** The Brain runs the program in `brain_event_handler.c`: the executor has a program (array of block types), a program counter (`pc`), and loop stack. It “ticks” and for each step may send I2C commands (e.g. CMD_EXECUTE) to the block at the current position. Control flow means: when the executor hits an **If**, it must decide whether to run the “then” branch (e.g. check button state); for **Loop**, it must repeat a range of program indices; for **Delay**, it must wait then advance. Read `brain_executor_tick()` and the switch on block type to see where to add or extend logic for IF/THEN/END_IF, LOOP/END_LOOP, DELAY.
   2. **Event map:** `block_config_manager` (and the event map) tells the Brain how many IF/LOOP boundaries there are and where they are. The executor uses this to know “loop from pc X to Y” or “if branch from A to B”. Docs: describe this in `docs/architecture/` or `docs/api/firmware-api.md` (e.g. “Control flow execution” subsection: how IF/LOOP/DELAY are interpreted and how the executor advances `pc`).
@@ -214,7 +214,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [x] Pushed (needs merge) |
 | 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
 | 3 | Protocol docs + startup sound | Jordan | merged to `main` | [✓] Done |
-| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [ ] In Progress |
+| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [✓] Done (Passed to Destiny) |
 | 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [ ] Not started |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
 | 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
