@@ -290,6 +290,7 @@ void command_handle(i2c_command_t cmd,
     case CMD_EXECUTE:
         if (!config_is_valid()) {
             peripherals_error_feedback();
+            s_status_flags = STATUS_ERROR;
             break;
         }
         s_status_flags = STATUS_BUSY;
