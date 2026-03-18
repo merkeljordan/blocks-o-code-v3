@@ -40,6 +40,7 @@ extern bool note_block_submit_selection(uint8_t note_id);
 extern bool note_block_submit_sequence(const uint8_t *notes, uint8_t count);
 
 #define TAG "NOTE_UI_V9"
+#define NOTE_BLOCK_MAX_SEQUENCE_LEN 15
 
 #if !defined(NOTE_UI_SIMULATOR)
 /* TFT + touch wiring and runtime config. */
@@ -83,8 +84,7 @@ static lv_obj_t *s_wave_container = NULL;
 static lv_obj_t *s_wave_bars[5] = {0};
 static bool s_custom_mode = false;
 static lv_obj_t *s_sequence_label = NULL;
-static bool s_note_selected[7] = {0};
-static uint8_t s_sequence[14] = {0};
+static uint8_t s_sequence[NOTE_BLOCK_MAX_SEQUENCE_LEN] = {0};
 static uint8_t s_sequence_len = 0;
 
 static const char *note_name(uint8_t note_id);
@@ -92,34 +92,13 @@ static const char *note_name(uint8_t note_id);
 static lv_obj_t *create_mode_screen(void);
 static void sequence_clear(void)
 {
-    for (int i = 0; i < 7; i++) {
-        s_note_selected[i] = false;
-    }
     s_sequence_len = 0;
-}
-
-static void sequence_remove_note(uint8_t note_id)
-{
-    if (note_id >= 7) return;
-    if (!s_note_selected[note_id]) return;
-    s_note_selected[note_id] = false;
-
-    uint8_t w = 0;
-    for (uint8_t r = 0; r < s_sequence_len; r++) {
-        if (s_sequence[r] == note_id) {
-            continue;
-        }
-        s_sequence[w++] = s_sequence[r];
-    }
-    s_sequence_len = w;
 }
 
 static void sequence_append_note(uint8_t note_id)
 {
     if (note_id >= 7) return;
-    if (s_note_selected[note_id]) return;
-    if (s_sequence_len >= 14) return;
-    s_note_selected[note_id] = true;
+    if (s_sequence_len >= NOTE_BLOCK_MAX_SEQUENCE_LEN) return;
     s_sequence[s_sequence_len++] = note_id;
 }
 
@@ -455,11 +434,7 @@ static void note_btn_event_cb(lv_event_t *e)
     s_selected_note = (int8_t)note_id;
 
     if (s_custom_mode) {
-        if (note_id < 7 && s_note_selected[note_id]) {
-            sequence_remove_note(note_id);
-        } else {
-            sequence_append_note(note_id);
-        }
+        sequence_append_note(note_id);
         update_sequence_label();
     }
 

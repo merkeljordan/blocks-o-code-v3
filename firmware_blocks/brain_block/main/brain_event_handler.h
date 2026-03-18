@@ -30,7 +30,7 @@ typedef struct {
     uint8_t color_id;
     uint8_t note_id;
     uint8_t note_seq_len;      // 0 => use note_id, >0 => use note_seq[]
-    uint8_t note_seq[14];      // ordered notes 0..6 (fits in 16-byte event frame)
+    uint8_t note_seq[15];      // ordered notes 0..6 (max sequence length)
     uint8_t music_sequence_id;
     uint16_t loop_count;
     uint32_t delay_ms;

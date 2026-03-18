@@ -38,7 +38,9 @@ static void registry_scan_task(void *arg) {
 static void block_event_poll_task(void *arg) {
     (void)arg;
     uint8_t status = 0;
-    uint8_t payload[16] = {0};
+    // Child blocks can return up to 17 bytes for NOTE sequence events:
+    //   [event_id, count, note0..note14]
+    uint8_t payload[32] = {0};
     uint8_t data_len = 0;
 
     while (1) {
@@ -74,7 +76,14 @@ static void block_event_poll_task(void *arg) {
                 data_len = 0;
                 vTaskDelay(pdMS_TO_TICKS(2));
             }
+            // For NOTE blocks we rely on REG_DATA_LEN being accurate.
+            // If it's invalid (0/too small/too big), avoid falling back to a fixed
+            // read length, otherwise we'd read random bytes (slave returns no payload)
+            // and Brain would parse garbage as an event_id.
             if (data_len < 2 || data_len > sizeof(payload)) {
+                if (entry->type == BLOCK_TYPE_NOTE) {
+                    continue;
+                }
                 data_len = 2;
             }
 
@@ -94,7 +103,9 @@ static void block_event_poll_task(void *arg) {
             }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(120));
+        // Keep polling frequent so NOTE/sequence submissions are picked up
+        // before the next app-triggered runtime START.
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
 }
 

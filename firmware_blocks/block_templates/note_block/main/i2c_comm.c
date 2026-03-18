@@ -93,7 +93,9 @@ void i2c_task(void *arg)
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
 
     uint8_t rx_buf[128];
-    uint8_t tx_buf[16];
+    // NOTE block may return up to 17 bytes for a custom sequence:
+    //   [event_id, count, note0..note14]
+    uint8_t tx_buf[32];
 
     while (1) {
         int len = i2c_slave_read_buffer(I2C_PORT_NUM, rx_buf, sizeof(rx_buf), pdMS_TO_TICKS(100));

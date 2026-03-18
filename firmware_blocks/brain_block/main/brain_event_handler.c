@@ -177,8 +177,36 @@ static void dispatch_output_action(block_type_t step_type) {
     uint8_t block_present = 0;
     uint8_t exec_ok = 0;
 
-    // NOTE: For NOTE steps, broadcast PLAY_NOTE to speaker-capable blocks and play locally on Brain.
+    // NOTE: Prefer executing the child NOTE block's configured playback (CMD_EXECUTE),
+    // so it always plays the exact sequence stored in the NOTE block UI (after SUBMIT).
+    // If no NOTE blocks are present, fall back to the legacy behavior that plays
+    // from Brain-side remembered parameters (CMD_PLAY_NOTE).
     if (step_type == BLOCK_TYPE_NOTE) {
+        uint8_t executed_note_blocks = 0;
+        for (int i = 0; i < config_snapshot.block_count; i++) {
+            const block_config_entry_t *entry = &config_snapshot.blocks[i];
+            if (!entry->present) {
+                continue;
+            }
+            if (entry->block_type != BLOCK_TYPE_NOTE) {
+                continue;
+            }
+
+            esp_err_t exec_ret = i2c_execute(entry->i2c_address);
+            if (exec_ret == ESP_OK) {
+                executed_note_blocks++;
+            } else {
+                ESP_LOGW(TAG, "NOTE CMD_EXECUTE failed addr=0x%02X (ret=%d)",
+                         entry->i2c_address, (int)exec_ret);
+            }
+        }
+
+        if (executed_note_blocks > 0) {
+            ESP_LOGI(TAG, "NOTE executed on %u NOTE block(s)", (unsigned)executed_note_blocks);
+            return;
+        }
+
+        // Legacy fallback: play tones based on Brain-side note parameters.
         uint8_t played = 0;
         static const uint32_t k_note_freq_hz[7] = {
             220U, /* A */
@@ -191,8 +219,8 @@ static void dispatch_output_action(block_type_t step_type) {
         };
 
         uint8_t seq_len = s_executor_params.note_seq_len;
-        if (seq_len > 14) {
-            seq_len = 14;
+        if (seq_len > 15) {
+            seq_len = 15;
         }
 
         if (seq_len == 0) {
@@ -220,10 +248,10 @@ static void dispatch_output_action(block_type_t step_type) {
                 }
             }
 
-            // Also play on the Brain speaker.
+            // Also play on the Brain speaker (only for fallback mode).
             (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
 
-            ESP_LOGI(TAG, "NOTE broadcast played=%u note_id=%u",
+            ESP_LOGI(TAG, "NOTE fallback broadcast played=%u note_id=%u",
                      (unsigned)played, (unsigned)note_id);
         } else {
             for (uint8_t s = 0; s < seq_len; s++) {
@@ -253,9 +281,10 @@ static void dispatch_output_action(block_type_t step_type) {
                 (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
             }
 
-            ESP_LOGI(TAG, "NOTE broadcast played=%u seq_len=%u",
+            ESP_LOGI(TAG, "NOTE fallback broadcast played=%u seq_len=%u",
                      (unsigned)played, (unsigned)seq_len);
         }
+
         return;
     }
 
@@ -486,13 +515,13 @@ static bool process_block_event(uint8_t block_addr,
                 ESP_LOGI(TAG, "Executor note_id updated to %u", (unsigned)s_executor_params.note_id);
             } else {
                 uint8_t count = payload[0];
-                if (count > 14) {
-                    count = 14;
+                if (count > 15) {
+                    count = 15;
                 }
                 if ((size_t)(1 + count) > payload_len) {
                     count = (payload_len > 1) ? (uint8_t)(payload_len - 1) : 0;
-                    if (count > 14) {
-                        count = 14;
+                    if (count > 15) {
+                        count = 15;
                     }
                 }
 

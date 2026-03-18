@@ -446,19 +446,38 @@ static void home_action_event_cb(lv_event_t *e)
 
     if (strcmp(action_name, "Start") == 0) {
         ESP_LOGI(TAG, "Home action pressed: Start");
-        bool handled = brain_event_handle_message("START");
-        if (s_status_label != NULL) {
-            if (handled) {
-                lv_label_set_text(s_status_label, "START requested");
-            } else {
-                const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+        // IMPORTANT: Enqueue success does NOT mean execution started.
+        // We only enqueue when the validation gate is open.
+        if (!brain_event_handler_can_start_execution()) {
+            const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+            if (s_status_label != NULL) {
                 if (validation != NULL && !validation->has_received_validation) {
                     lv_label_set_text(s_status_label, "START blocked: waiting for validation");
                 } else if (validation != NULL && !validation->app_config_valid) {
                     lv_label_set_text(s_status_label, "START blocked: config invalid");
                 } else {
-                    lv_label_set_text(s_status_label, "START rejected: queue/state");
+                    lv_label_set_text(s_status_label, "START blocked: validation gate");
                 }
+            }
+            return;
+        }
+
+        // Extra safety: even with valid config, executor_start() refuses to run when
+        // there are no program blocks loaded from the latest scan.
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        if (cfg == NULL || cfg->block_count == 0) {
+            if (s_status_label != NULL) {
+                lv_label_set_text(s_status_label, "START blocked: no blocks detected");
+            }
+            return;
+        }
+
+        bool handled = brain_event_handle_message("START");
+        if (s_status_label != NULL) {
+            if (handled) {
+                lv_label_set_text(s_status_label, "START requested");
+            } else {
+                lv_label_set_text(s_status_label, "START rejected: queue/state");
             }
         }
         return;

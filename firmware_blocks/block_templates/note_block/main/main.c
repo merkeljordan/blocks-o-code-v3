@@ -20,6 +20,7 @@ extern void i2c_task(void *arg);
 #define BLOCK_NAME         "NOTE"
 #define BLOCK_I2C_ADDRESS  0x0F
 #define BLOCK_TYPE_NOTE_STR "NOTE"
+#define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 
 static const char *TAG = "NOTE_BLOCK";
 
@@ -29,8 +30,8 @@ static const char *TAG = "NOTE_BLOCK";
 typedef struct {
     bool    is_custom_sequence;
     uint8_t note_id; // single note, 0–6
-    uint8_t seq_len; // 0..14 (bounded by event frame size)
-    uint8_t seq[14]; // ordered notes 0..6
+    uint8_t seq_len; // 0..15 (max sequence length)
+    uint8_t seq[NOTE_BLOCK_MAX_SEQUENCE_LEN];  // ordered notes 0..6 (max 15 notes)
 } block_config_t;
 
 static block_config_t s_config;
@@ -39,7 +40,10 @@ static bool s_config_valid = false;
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
 static bool s_pending_event_valid = false;
-static uint8_t s_pending_event_buf[16] = {0};
+// Payload frame format:
+//   [event_id, count, note0..noteN] => (2 + N) bytes total.
+// For max sequence length (N=15) => 17 bytes.
+static uint8_t s_pending_event_buf[20] = {0};
 static uint8_t s_pending_event_len = 0;
 
 uint8_t note_block_get_pending_event_len(void)
@@ -135,10 +139,11 @@ void note_block_preview_note(uint8_t note_id)
 
 bool note_block_submit_selection(uint8_t note_id)
 {
-    // If something is actively running, reject selection submit.
-    if ((s_status_flags & STATUS_BUSY) != 0U) {
-        return false;
-    }
+    // Allow selection updates while BUSY.
+    // If we receive a new selection during playback, we "queue" it via the
+    // pending-event mechanism. The Brain will pick it up as soon as this
+    // block finishes the current CMD_PLAY_NOTE / CMD_EXECUTE action.
+    const bool was_busy = ((s_status_flags & STATUS_BUSY) != 0U);
 
     s_config.is_custom_sequence = false;
     s_config.note_id = note_id;
@@ -150,23 +155,24 @@ bool note_block_submit_selection(uint8_t note_id)
     s_pending_event_buf[1] = note_id;
     s_pending_event_len = 2;
     s_pending_event_valid = true;
-    s_status_flags = STATUS_DATA_READY;
+    if (!was_busy) {
+        s_status_flags = STATUS_DATA_READY;
+    }
     return true;
 }
 
 bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
 {
-    if ((s_status_flags & STATUS_BUSY) != 0U) {
-        return false;
-    }
+    // Allow sequence updates while BUSY (see note_block_submit_selection()).
+    const bool was_busy = ((s_status_flags & STATUS_BUSY) != 0U);
     if (notes == NULL || count == 0) {
         return false;
     }
 
-    // Cap to fit 16-byte event frame: [event_id, count, notes...]
+    // Cap to fit the Brain note event frame: [event_id, count, notes...]
     uint8_t capped = count;
-    if (capped > (uint8_t)14) {
-        capped = 14;
+    if (capped > (uint8_t)NOTE_BLOCK_MAX_SEQUENCE_LEN) {
+        capped = NOTE_BLOCK_MAX_SEQUENCE_LEN;
     }
 
     s_config.is_custom_sequence = true;
@@ -183,7 +189,9 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     }
     s_pending_event_len = (uint8_t)(2 + capped);
     s_pending_event_valid = true;
-    s_status_flags = STATUS_DATA_READY;
+    if (!was_busy) {
+        s_status_flags = STATUS_DATA_READY;
+    }
     return true;
 }
 
