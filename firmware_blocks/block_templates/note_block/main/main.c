@@ -289,15 +289,16 @@ void command_handle(i2c_command_t cmd,
 
     case CMD_GET_DATA:
         // Only return payload when an event is pending.
-        if (!s_pending_event_valid) {
-            break;
-        }
         if (tx && tx_len && rx_len == 0) {
-            memcpy(tx, s_pending_event_buf, s_pending_event_len);
-            *tx_len = s_pending_event_len;
-            s_pending_event_valid = false;
-            s_pending_event_len = 0;
-            s_status_flags = STATUS_READY;
+            portENTER_CRITICAL(&s_pending_event_spinlock);
+            if (s_pending_event_valid) {
+                memcpy(tx, s_pending_event_buf, s_pending_event_len);
+                *tx_len = s_pending_event_len;
+                s_pending_event_valid = false;
+                s_pending_event_len = 0;
+                s_status_flags = STATUS_READY;
+            }
+            portEXIT_CRITICAL(&s_pending_event_spinlock);
         }
         break;
 
