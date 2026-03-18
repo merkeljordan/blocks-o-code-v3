@@ -55,6 +55,7 @@ static int is_command_byte(uint8_t b)
         case CMD_GET_DATA:
         case CMD_EXECUTE:
         case CMD_RESET:
+        case CMD_PLAY_NOTE:
             return 1;
         default:
             return 0;
