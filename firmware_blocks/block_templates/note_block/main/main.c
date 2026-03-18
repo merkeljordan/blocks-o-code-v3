@@ -47,6 +47,20 @@ typedef struct {
 
 static QueueHandle_t s_playback_queue = NULL;
 
+// Forward declarations for helpers and status flags used by note_playback_task().
+static void peripherals_show_running(void);
+static void play_note(uint8_t note_id);
+static uint8_t s_status_flags;
+
+// Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
+#define NOTE_EVENT_SELECTION_SUBMIT 0x01
+static bool s_pending_event_valid = false;
+// Payload frame format:
+//   [event_id, count, note0..noteN] => (2 + N) bytes total.
+// For max sequence length (N=15) => 17 bytes.
+static uint8_t s_pending_event_buf[20] = {0};
+static uint8_t s_pending_event_len = 0;
+
 static void note_playback_task(void *arg)
 {
     playback_cmd_t cmd;
@@ -59,15 +73,6 @@ static void note_playback_task(void *arg)
         }
     }
 }
-
-// Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
-#define NOTE_EVENT_SELECTION_SUBMIT 0x01
-static bool s_pending_event_valid = false;
-// Payload frame format:
-//   [event_id, count, note0..noteN] => (2 + N) bytes total.
-// For max sequence length (N=15) => 17 bytes.
-static uint8_t s_pending_event_buf[20] = {0};
-static uint8_t s_pending_event_len = 0;
 
 uint8_t note_block_get_pending_event_len(void)
 {
