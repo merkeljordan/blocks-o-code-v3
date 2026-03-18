@@ -105,33 +105,17 @@ void i2c_task(void *arg)
 
         ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
 
-        // Treat buffers of only register index bytes specially and reply
-        // with the value of the *last* requested register.
+        // Treat single-byte buffers that contain only a register index
+        // specially and reply with the value of that register.
         refresh_dynamic_registers();
-        if (is_register_index_byte(rx_buf[0])) {
-            bool all_register_indexes = true;
-            for (int i = 1; i < len; i++) {
-                if (!is_register_index_byte(rx_buf[i])) {
-                    all_register_indexes = false;
-                    break;
-                }
-            }
+        if ((len == 1) && is_register_index_byte(rx_buf[0])) {
+            uint8_t reg = rx_buf[0];
+            uint8_t value = s_registers[reg];
 
-            if (all_register_indexes) {
-                uint8_t reg = rx_buf[len - 1];
-                uint8_t value = s_registers[reg];
+            (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
 
-                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
-
-                if (len == 1) {
-                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
-                } else {
-                    ESP_LOGW(TAG,
-                             "Coalesced %d register index byte(s); replied only to last reg 0x%02X -> 0x%02X",
-                             len, reg, value);
-                }
-                continue;
-            }
+            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
+            continue;
         }
 
         size_t tx_len = 0;
