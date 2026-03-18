@@ -112,6 +112,22 @@ typedef enum {
 #define STATUS_DATA_READY   0x08
 
 // ============================================================================
+// BLOCK -> BRAIN EVENT IDs (returned via CMD_GET_DATA when STATUS_DATA_READY set)
+// ============================================================================
+// Payload wire format returned by child on CMD_GET_DATA:
+//   byte0 = event_id
+//   byte1.. = event payload (event-specific)
+#define BRAIN_BLOCK_EVENT_SELECTION_SUBMIT  0x01
+#define BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT 0x02
+#define BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT   0x03
+#define BRAIN_BLOCK_EVENT_BUTTON_PRESS      0x04
+
+#define BRAIN_BLOCK_EVENT_SELECTION_SUBMIT_PAYLOAD_LEN  1
+#define BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT_PAYLOAD_LEN 1
+#define BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN   4
+#define BRAIN_BLOCK_EVENT_BUTTON_PRESS_PAYLOAD_LEN      1
+
+// ============================================================================
 // OPTIONAL UTILITY FUNCTIONS (safe to keep in header)
 // ============================================================================
 

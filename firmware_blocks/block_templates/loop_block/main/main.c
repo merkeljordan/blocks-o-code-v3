@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -32,11 +33,47 @@ static bool g_config_valid = false;
 
 static uint8_t g_status_flags = STATUS_READY;
 
+// ============================================================================
+// BLOCK -> BRAIN EVENT (STATUS_DATA_READY + CMD_GET_DATA)
+// ============================================================================
+static struct {
+    bool has_event;
+    uint8_t event_id;
+    uint8_t payload[8];
+    size_t payload_len;
+} g_pending_event;
+
+static void publish_loop_count_event(uint8_t loop_count)
+{
+    g_pending_event.has_event = true;
+    g_pending_event.event_id = BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT;
+    g_pending_event.payload[0] = loop_count;
+    g_pending_event.payload_len = 1;
+    g_status_flags |= STATUS_DATA_READY;
+}
+
+static void on_local_loop_count_changed(uint8_t loop_count)
+{
+    g_config.loop_count = (loop_count == 0) ? 1 : loop_count;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
+    publish_loop_count_event(g_config.loop_count);
+    speaker_beep_ok();
+}
+
+// Entry point for TFT/UI code running on this block:
+// call this when the user picks a new loop count.
+void loop_block_set_loop_count_from_ui(uint8_t loop_count)
+{
+    on_local_loop_count_changed(loop_count);
+}
+
 static void config_reset(void)
 {
     g_config.loop_count = 1;
     g_config_valid = true;
     g_status_flags = STATUS_READY;
+    publish_loop_count_event(g_config.loop_count);
 }
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
@@ -106,12 +143,23 @@ void command_handle(i2c_command_t cmd,
                 g_config.loop_count = (rx[0] == 0) ? 1 : rx[0];
                 g_config_valid = true;
                 g_status_flags = STATUS_READY;
+                publish_loop_count_event(g_config.loop_count);
             }
             break;
 
         case CMD_GET_DATA:
-            if (tx && tx_len) {
-                *tx_len = config_get_payload(tx, 16);
+            if (tx && tx_len && g_pending_event.has_event) {
+                // tx[0] = event_id, tx[1..] = payload
+                tx[0] = g_pending_event.event_id;
+                if (g_pending_event.payload_len > 0) {
+                    memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+                }
+                *tx_len = 1 + g_pending_event.payload_len;
+
+                // Clear DATA_READY after Brain consumes the event.
+                g_pending_event.has_event = false;
+                g_pending_event.payload_len = 0;
+                g_status_flags &= (uint8_t)~STATUS_DATA_READY;
             }
             break;
 
