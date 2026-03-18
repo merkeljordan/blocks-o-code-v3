@@ -280,6 +280,24 @@ static void open_mode_screen(void)
     lv_screen_load_anim(s_mode_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
 }
 
+static void back_to_intro_event_cb(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if (s_intro_screen == NULL) {
+        s_intro_screen = create_intro_screen();
+    }
+    lv_screen_load_anim(s_intro_screen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 250, 0, false);
+}
+
+static void back_to_mode_event_cb(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if (s_mode_screen == NULL) {
+        s_mode_screen = create_mode_screen();
+    }
+    lv_screen_load_anim(s_mode_screen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 250, 0, false);
+}
+
 static void open_picker_screen(void)
 {
     if (s_picker_screen == NULL) {
@@ -292,6 +310,13 @@ static void open_picker_screen(void)
             lv_label_set_text(s_status_label, "Custom mode: tap notes to build a sequence.");
         } else {
             lv_label_set_text(s_status_label, "Tap A-G to preview, then SUBMIT.");
+        }
+    }
+    if (s_sequence_label) {
+        if (s_custom_mode) {
+            lv_obj_clear_flag(s_sequence_label, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_sequence_label, LV_OBJ_FLAG_HIDDEN);
         }
     }
     update_sequence_label();
@@ -331,6 +356,21 @@ static lv_obj_t *create_mode_screen(void)
     lv_label_set_text(subtitle, "Single note or a sequence?");
     lv_obj_set_style_text_color(subtitle, lv_color_hex(0xFFE88A), 0);
     lv_obj_align(subtitle, LV_ALIGN_TOP_MID, 0, 44);
+
+    // Back arrow (to Intro)
+    lv_obj_t *back_btn = lv_button_create(scr);
+    lv_obj_set_size(back_btn, 36, 28);
+    lv_obj_align(back_btn, LV_ALIGN_TOP_LEFT, 8, 8);
+    lv_obj_set_style_radius(back_btn, 10, 0);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(0xDDDDDD), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(back_btn, 2, 0);
+    lv_obj_set_style_border_color(back_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(back_btn, back_to_intro_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *back_label = lv_label_create(back_btn);
+    lv_label_set_text(back_label, "<");
+    lv_obj_set_style_text_color(back_label, lv_color_hex(0x0F0F23), 0);
+    lv_obj_center(back_label);
 
     lv_obj_t *single_btn = lv_button_create(scr);
     lv_obj_set_size(single_btn, 200, 64);
@@ -507,13 +547,28 @@ static lv_obj_t *create_picker_screen(void)
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 8);
 
+    // Back arrow (to Mode)
+    lv_obj_t *back_btn = lv_button_create(scr);
+    lv_obj_set_size(back_btn, 36, 28);
+    lv_obj_align(back_btn, LV_ALIGN_TOP_LEFT, 8, 8);
+    lv_obj_set_style_radius(back_btn, 10, 0);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_color(back_btn, lv_color_hex(0xDDDDDD), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(back_btn, 2, 0);
+    lv_obj_set_style_border_color(back_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(back_btn, back_to_mode_event_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *back_label = lv_label_create(back_btn);
+    lv_label_set_text(back_label, "<");
+    lv_obj_set_style_text_color(back_label, lv_color_hex(0x0F0F23), 0);
+    lv_obj_center(back_label);
+
     s_status_label = lv_label_create(scr);
     lv_label_set_text(s_status_label, "Tap A-G to preview, then SUBMIT.");
     lv_obj_set_width(s_status_label, 220);
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xFFE88A), 0);
     lv_obj_set_style_text_align(s_status_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 30);
+    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 34);
 
     s_sequence_label = lv_label_create(scr);
     lv_label_set_text(s_sequence_label, "");
@@ -521,7 +576,8 @@ static lv_obj_t *create_picker_screen(void)
     lv_label_set_long_mode(s_sequence_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(s_sequence_label, lv_color_hex(0xC7C7FF), 0);
     lv_obj_set_style_text_align(s_sequence_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_sequence_label, LV_ALIGN_TOP_MID, 0, 52);
+    lv_obj_align(s_sequence_label, LV_ALIGN_TOP_MID, 0, 66);
+    lv_obj_add_flag(s_sequence_label, LV_OBJ_FLAG_HIDDEN);
 
     // Little "sound wave" animation (hidden until a note is tapped).
     s_wave_container = lv_obj_create(scr);
@@ -545,7 +601,7 @@ static lv_obj_t *create_picker_screen(void)
     }
 
     // Layout: 3 columns; A B C / D E F / G centered
-    const lv_coord_t x0 = 12, y0 = 96, dx = 76, dy = 52;
+    const lv_coord_t x0 = 12, y0 = 84, dx = 76, dy = 52;
     create_note_key(scr, "A", x0 + dx * 0, y0 + dy * 0, lv_color_hex(0xFFB3BA), 0);
     create_note_key(scr, "B", x0 + dx * 1, y0 + dy * 0, lv_color_hex(0xFFDFBA), 1);
     create_note_key(scr, "C", x0 + dx * 2, y0 + dy * 0, lv_color_hex(0xFFFFBA), 2);
@@ -556,7 +612,7 @@ static lv_obj_t *create_picker_screen(void)
 
     lv_obj_t *submit_btn = lv_button_create(scr);
     lv_obj_set_size(submit_btn, 180, 40);
-    lv_obj_align(submit_btn, LV_ALIGN_BOTTOM_MID, 0, -6);
+    lv_obj_align(submit_btn, LV_ALIGN_BOTTOM_MID, 0, -14);
     lv_obj_set_style_radius(submit_btn, 14, 0);
     lv_obj_set_style_bg_color(submit_btn, lv_color_hex(0x7CF29A), 0);
     lv_obj_set_style_bg_color(submit_btn, lv_color_hex(0x4ED86F), LV_STATE_PRESSED);

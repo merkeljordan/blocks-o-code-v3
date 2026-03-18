@@ -30,6 +30,19 @@ bool note_block_submit_selection(uint8_t note_id)
     return true;
 }
 
+bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
+{
+    static const char *k_names[7] = {"A", "B", "C", "D", "E", "F", "G"};
+    printf("[sim] submit sequence (count=%u): ", (unsigned)count);
+    for (uint8_t i = 0; i < count; i++) {
+        uint8_t id = notes ? notes[i] : 255;
+        const char *name = (id < 7) ? k_names[id] : "?";
+        printf("%s%s", name, (i + 1 < count) ? " " : "");
+    }
+    printf("\n");
+    return true;
+}
+
 int main(void)
 {
     lv_init();
