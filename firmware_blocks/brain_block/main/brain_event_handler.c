@@ -5,6 +5,10 @@
 #include "esp_timer.h"
 #include <stdlib.h>
 
+#if defined(_WIN32) && !defined(strcasecmp)
+#define strcasecmp _stricmp
+#endif
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -186,35 +190,72 @@ static void dispatch_output_action(block_type_t step_type) {
             392U, /* G */
         };
 
-        uint8_t note_id = s_executor_params.note_id;
-        if (note_id >= 7) {
-            note_id = 0;
+        uint8_t seq_len = s_executor_params.note_seq_len;
+        if (seq_len > 14) {
+            seq_len = 14;
         }
 
-        for (int i = 0; i < config_snapshot.block_count; i++) {
-            const block_config_entry_t *entry = &config_snapshot.blocks[i];
-            if (!entry->present) {
-                continue;
+        if (seq_len == 0) {
+            uint8_t note_id = s_executor_params.note_id;
+            if (note_id >= 7) {
+                note_id = 0;
             }
-            // Any block type with a speaker should respond to CMD_PLAY_NOTE.
-            if (entry->block_type != BLOCK_TYPE_NOTE &&
-                entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
-                continue;
+
+            for (int i = 0; i < config_snapshot.block_count; i++) {
+                const block_config_entry_t *entry = &config_snapshot.blocks[i];
+                if (!entry->present) {
+                    continue;
+                }
+                // Any block type with a speaker should respond to CMD_PLAY_NOTE.
+                if (entry->block_type != BLOCK_TYPE_NOTE &&
+                    entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
+                    continue;
+                }
+                esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
+                if (play_ret != ESP_OK) {
+                    ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
+                             entry->i2c_address, (int)play_ret);
+                } else {
+                    played++;
+                }
             }
-            esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
-            if (play_ret != ESP_OK) {
-                ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
-                         entry->i2c_address, (int)play_ret);
-            } else {
-                played++;
+
+            // Also play on the Brain speaker.
+            (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
+
+            ESP_LOGI(TAG, "NOTE broadcast played=%u note_id=%u",
+                     (unsigned)played, (unsigned)note_id);
+        } else {
+            for (uint8_t s = 0; s < seq_len; s++) {
+                uint8_t note_id = s_executor_params.note_seq[s];
+                if (note_id >= 7) {
+                    note_id = 0;
+                }
+
+                for (int i = 0; i < config_snapshot.block_count; i++) {
+                    const block_config_entry_t *entry = &config_snapshot.blocks[i];
+                    if (!entry->present) {
+                        continue;
+                    }
+                    if (entry->block_type != BLOCK_TYPE_NOTE &&
+                        entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
+                        continue;
+                    }
+                    esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
+                    if (play_ret != ESP_OK) {
+                        ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
+                                 entry->i2c_address, (int)play_ret);
+                    } else {
+                        played++;
+                    }
+                }
+
+                (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
             }
+
+            ESP_LOGI(TAG, "NOTE broadcast played=%u seq_len=%u",
+                     (unsigned)played, (unsigned)seq_len);
         }
-
-        // Also play on the Brain speaker.
-        (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
-
-        ESP_LOGI(TAG, "NOTE broadcast played=%u note_id=%u",
-                 (unsigned)played, (unsigned)note_id);
         return;
     }
 
@@ -426,20 +467,45 @@ static bool process_block_event(uint8_t block_addr,
                                 const uint8_t *payload,
                                 size_t payload_len) {
     if (event_id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT && payload && payload_len >= 1) {
-        uint8_t selection = payload[0];
         block_type_t type = get_block_type_by_addr(block_addr);
-        ESP_LOGI(TAG, "Block 0x%02X (%s) selection submit: %u",
-                 block_addr, block_type_to_string(type), selection);
+        ESP_LOGI(TAG, "Block 0x%02X (%s) selection submit (len=%u)",
+                 block_addr, block_type_to_string(type), (unsigned)payload_len);
 
         if (type == BLOCK_TYPE_LED_FLASH) {
+            uint8_t selection = payload[0];
             esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
             esp_err_t exec_ret = i2c_execute(block_addr);
             return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
         }
 
         if (type == BLOCK_TYPE_NOTE) {
-            s_executor_params.note_id = selection;
-            ESP_LOGI(TAG, "Executor note_id updated to %u", (unsigned)s_executor_params.note_id);
+            if (payload_len == 1) {
+                uint8_t note_id = payload[0];
+                s_executor_params.note_seq_len = 0;
+                s_executor_params.note_id = note_id;
+                ESP_LOGI(TAG, "Executor note_id updated to %u", (unsigned)s_executor_params.note_id);
+            } else {
+                uint8_t count = payload[0];
+                if (count > 14) {
+                    count = 14;
+                }
+                if ((size_t)(1 + count) > payload_len) {
+                    count = (payload_len > 1) ? (uint8_t)(payload_len - 1) : 0;
+                    if (count > 14) {
+                        count = 14;
+                    }
+                }
+
+                s_executor_params.note_seq_len = count;
+                for (uint8_t i = 0; i < count; i++) {
+                    s_executor_params.note_seq[i] = (uint8_t)(payload[1 + i] % 7);
+                }
+                // Keep note_id in sync with the last note for any legacy paths/logs.
+                if (count > 0) {
+                    s_executor_params.note_id = s_executor_params.note_seq[count - 1];
+                }
+                ESP_LOGI(TAG, "Executor note sequence updated len=%u", (unsigned)count);
+            }
             return true;
         }
     }

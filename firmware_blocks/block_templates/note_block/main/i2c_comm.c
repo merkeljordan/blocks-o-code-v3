@@ -17,6 +17,7 @@ extern void command_handle(i2c_command_t cmd,
                            uint8_t *tx,
                            size_t *tx_len);
 extern uint8_t note_block_get_status_flags(void);
+extern uint8_t note_block_get_pending_event_len(void);
 
 static const char *TAG = "NOTE_BLOCK";
 
@@ -33,11 +34,13 @@ static void init_registers(void)
     s_registers[REG_STATUS]   = STATUS_READY;
     s_registers[REG_FW_MAJOR] = 1;
     s_registers[REG_FW_MINOR] = 0;
+    s_registers[REG_DATA_LEN] = 0;
 }
 
 static void refresh_dynamic_registers(void)
 {
     s_registers[REG_STATUS] = note_block_get_status_flags();
+    s_registers[REG_DATA_LEN] = note_block_get_pending_event_len();
 }
 
 static bool is_register_index_byte(uint8_t v)

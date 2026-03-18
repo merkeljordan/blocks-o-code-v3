@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "lvgl.h"
 
@@ -36,6 +37,7 @@
 // Implemented in main.c
 extern void note_block_preview_note(uint8_t note_id);
 extern bool note_block_submit_selection(uint8_t note_id);
+extern bool note_block_submit_sequence(const uint8_t *notes, uint8_t count);
 
 #define TAG "NOTE_UI_V9"
 
@@ -73,11 +75,80 @@ static bool s_ui_started = false;
 #endif
 
 static lv_obj_t *s_intro_screen = NULL;
+static lv_obj_t *s_mode_screen = NULL;
 static lv_obj_t *s_picker_screen = NULL;
 static lv_obj_t *s_status_label = NULL;
 static int8_t s_selected_note = -1; // 0..6
 static lv_obj_t *s_wave_container = NULL;
 static lv_obj_t *s_wave_bars[5] = {0};
+static bool s_custom_mode = false;
+static lv_obj_t *s_sequence_label = NULL;
+static bool s_note_selected[7] = {0};
+static uint8_t s_sequence[14] = {0};
+static uint8_t s_sequence_len = 0;
+
+static const char *note_name(uint8_t note_id);
+
+static lv_obj_t *create_mode_screen(void);
+static void sequence_clear(void)
+{
+    for (int i = 0; i < 7; i++) {
+        s_note_selected[i] = false;
+    }
+    s_sequence_len = 0;
+}
+
+static void sequence_remove_note(uint8_t note_id)
+{
+    if (note_id >= 7) return;
+    if (!s_note_selected[note_id]) return;
+    s_note_selected[note_id] = false;
+
+    uint8_t w = 0;
+    for (uint8_t r = 0; r < s_sequence_len; r++) {
+        if (s_sequence[r] == note_id) {
+            continue;
+        }
+        s_sequence[w++] = s_sequence[r];
+    }
+    s_sequence_len = w;
+}
+
+static void sequence_append_note(uint8_t note_id)
+{
+    if (note_id >= 7) return;
+    if (s_note_selected[note_id]) return;
+    if (s_sequence_len >= 14) return;
+    s_note_selected[note_id] = true;
+    s_sequence[s_sequence_len++] = note_id;
+}
+
+static void update_sequence_label(void)
+{
+    if (s_sequence_label == NULL) {
+        return;
+    }
+    if (!s_custom_mode) {
+        lv_label_set_text(s_sequence_label, "");
+        return;
+    }
+    if (s_sequence_len == 0) {
+        lv_label_set_text(s_sequence_label, "Sequence: (tap notes)");
+        return;
+    }
+
+    char buf[96];
+    size_t pos = 0;
+    pos += (size_t)snprintf(buf + pos, sizeof(buf) - pos, "Sequence: ");
+    for (uint8_t i = 0; i < s_sequence_len; i++) {
+        if (pos >= sizeof(buf)) break;
+        pos += (size_t)snprintf(buf + pos, sizeof(buf) - pos, "%s%s",
+                                note_name(s_sequence[i]),
+                                (i + 1 < s_sequence_len) ? " \x1E " : "");
+    }
+    buf[sizeof(buf) - 1] = '\0';
+    lv_label_set_text(s_sequence_label, buf);
+}
 
 static void anim_obj_y(void *obj, int32_t value)
 {
@@ -201,22 +272,97 @@ static const char *note_name(uint8_t note_id)
 static lv_obj_t *create_intro_screen(void);
 static lv_obj_t *create_picker_screen(void);
 
+static void open_mode_screen(void)
+{
+    if (s_mode_screen == NULL) {
+        s_mode_screen = create_mode_screen();
+    }
+    lv_screen_load_anim(s_mode_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
+}
+
 static void open_picker_screen(void)
 {
     if (s_picker_screen == NULL) {
         s_picker_screen = create_picker_screen();
     }
     s_selected_note = -1;
+    sequence_clear();
     if (s_status_label) {
-        lv_label_set_text(s_status_label, "Tap A-G to preview, then SUBMIT.");
+        if (s_custom_mode) {
+            lv_label_set_text(s_status_label, "Custom mode: tap notes to build a sequence.");
+        } else {
+            lv_label_set_text(s_status_label, "Tap A-G to preview, then SUBMIT.");
+        }
     }
+    update_sequence_label();
     lv_screen_load_anim(s_picker_screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
 }
 
 static void start_btn_event_cb(lv_event_t *e)
 {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    open_mode_screen();
+}
+
+static void mode_choose_event_cb(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    const bool custom = (bool)(uintptr_t)lv_event_get_user_data(e);
+    s_custom_mode = custom;
     open_picker_screen();
+}
+
+static lv_obj_t *create_mode_screen(void)
+{
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_border_width(scr, 0, 0);
+    lv_obj_set_style_radius(scr, 0, 0);
+    lv_obj_set_style_pad_all(scr, 0, 0);
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
+    lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+
+    lv_obj_t *title = lv_label_create(scr);
+    lv_label_set_text(title, "Pick a Mode");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 18);
+
+    lv_obj_t *subtitle = lv_label_create(scr);
+    lv_label_set_text(subtitle, "Single note or a sequence?");
+    lv_obj_set_style_text_color(subtitle, lv_color_hex(0xFFE88A), 0);
+    lv_obj_align(subtitle, LV_ALIGN_TOP_MID, 0, 44);
+
+    lv_obj_t *single_btn = lv_button_create(scr);
+    lv_obj_set_size(single_btn, 200, 64);
+    lv_obj_align(single_btn, LV_ALIGN_CENTER, 0, -10);
+    lv_obj_set_style_radius(single_btn, 18, 0);
+    lv_obj_set_style_bg_color(single_btn, lv_color_hex(0x7CF29A), 0);
+    lv_obj_set_style_bg_color(single_btn, lv_color_hex(0x4ED86F), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(single_btn, 3, 0);
+    lv_obj_set_style_border_color(single_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(single_btn, mode_choose_event_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)0);
+
+    lv_obj_t *single_label = lv_label_create(single_btn);
+    lv_label_set_text(single_label, "Single Note");
+    lv_obj_set_style_text_color(single_label, lv_color_hex(0x0F0F23), 0);
+    lv_obj_center(single_label);
+
+    lv_obj_t *seq_btn = lv_button_create(scr);
+    lv_obj_set_size(seq_btn, 200, 64);
+    lv_obj_align(seq_btn, LV_ALIGN_CENTER, 0, 74);
+    lv_obj_set_style_radius(seq_btn, 18, 0);
+    lv_obj_set_style_bg_color(seq_btn, lv_color_hex(0xD7BAFF), 0);
+    lv_obj_set_style_bg_color(seq_btn, lv_color_hex(0xB38BFF), LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(seq_btn, 3, 0);
+    lv_obj_set_style_border_color(seq_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_add_event_cb(seq_btn, mode_choose_event_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)1);
+
+    lv_obj_t *seq_label = lv_label_create(seq_btn);
+    lv_label_set_text(seq_label, "Sequence");
+    lv_obj_set_style_text_color(seq_label, lv_color_hex(0x0F0F23), 0);
+    lv_obj_center(seq_label);
+
+    return scr;
 }
 
 static lv_obj_t *create_intro_screen(void)
@@ -268,8 +414,21 @@ static void note_btn_event_cb(lv_event_t *e)
     const uint8_t note_id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
     s_selected_note = (int8_t)note_id;
 
+    if (s_custom_mode) {
+        if (note_id < 7 && s_note_selected[note_id]) {
+            sequence_remove_note(note_id);
+        } else {
+            sequence_append_note(note_id);
+        }
+        update_sequence_label();
+    }
+
     if (s_status_label) {
-        lv_label_set_text_fmt(s_status_label, "Selected %s. Tap SUBMIT to send.", note_name(note_id));
+        if (!s_custom_mode) {
+            lv_label_set_text_fmt(s_status_label, "Selected %s. Tap SUBMIT to send.", note_name(note_id));
+        } else {
+            lv_label_set_text_fmt(s_status_label, "Tapped %s. Build a sequence, then SUBMIT.", note_name(note_id));
+        }
     }
 
     animate_button_bounce(btn, 5);
@@ -305,19 +464,31 @@ static void submit_btn_event_cb(lv_event_t *e)
 {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    if (s_selected_note < 0 || s_selected_note > 6) {
-        if (s_status_label) lv_label_set_text(s_status_label, "Pick A–G first!");
-        return;
+    bool ok = false;
+    if (!s_custom_mode) {
+        if (s_selected_note < 0 || s_selected_note > 6) {
+            if (s_status_label) lv_label_set_text(s_status_label, "Pick A–G first!");
+            return;
+        }
+        ok = note_block_submit_selection((uint8_t)s_selected_note);
+    } else {
+        if (s_sequence_len == 0) {
+            if (s_status_label) lv_label_set_text(s_status_label, "Tap one or more notes first!");
+            return;
+        }
+        ok = note_block_submit_sequence(s_sequence, s_sequence_len);
     }
-
-    bool ok = note_block_submit_selection((uint8_t)s_selected_note);
     if (!ok) {
         if (s_status_label) lv_label_set_text(s_status_label, "Busy, try again.");
         return;
     }
 
     if (s_status_label) {
-        lv_label_set_text_fmt(s_status_label, "Submitted %s", note_name((uint8_t)s_selected_note));
+        if (!s_custom_mode) {
+            lv_label_set_text_fmt(s_status_label, "Submitted %s", note_name((uint8_t)s_selected_note));
+        } else {
+            lv_label_set_text_fmt(s_status_label, "Submitted sequence (%u)", (unsigned)s_sequence_len);
+        }
     }
 }
 
@@ -344,6 +515,14 @@ static lv_obj_t *create_picker_screen(void)
     lv_obj_set_style_text_align(s_status_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 30);
 
+    s_sequence_label = lv_label_create(scr);
+    lv_label_set_text(s_sequence_label, "");
+    lv_obj_set_width(s_sequence_label, 228);
+    lv_label_set_long_mode(s_sequence_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_color(s_sequence_label, lv_color_hex(0xC7C7FF), 0);
+    lv_obj_set_style_text_align(s_sequence_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_sequence_label, LV_ALIGN_TOP_MID, 0, 52);
+
     // Little "sound wave" animation (hidden until a note is tapped).
     s_wave_container = lv_obj_create(scr);
     lv_obj_set_size(s_wave_container, 120, 48);
@@ -366,7 +545,7 @@ static lv_obj_t *create_picker_screen(void)
     }
 
     // Layout: 3 columns; A B C / D E F / G centered
-    const lv_coord_t x0 = 12, y0 = 70, dx = 76, dy = 52;
+    const lv_coord_t x0 = 12, y0 = 96, dx = 76, dy = 52;
     create_note_key(scr, "A", x0 + dx * 0, y0 + dy * 0, lv_color_hex(0xFFB3BA), 0);
     create_note_key(scr, "B", x0 + dx * 1, y0 + dy * 0, lv_color_hex(0xFFDFBA), 1);
     create_note_key(scr, "C", x0 + dx * 2, y0 + dy * 0, lv_color_hex(0xFFFFBA), 2);

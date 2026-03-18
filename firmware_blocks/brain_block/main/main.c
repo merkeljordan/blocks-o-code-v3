@@ -38,7 +38,8 @@ static void registry_scan_task(void *arg) {
 static void block_event_poll_task(void *arg) {
     (void)arg;
     uint8_t status = 0;
-    uint8_t payload[2] = {0};
+    uint8_t payload[16] = {0};
+    uint8_t data_len = 0;
 
     while (1) {
         const device_registry_t *registry = device_registry_get();
@@ -61,12 +62,32 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
-            if (i2c_get_data(entry->address, payload, sizeof(payload)) == ESP_OK) {
-                // payload[0] = event_id, payload[1] = event value (selection digit)
-                bool queued = brain_event_handle_block_event(entry->address, payload[0], &payload[1], 1);
+            // Read how many bytes the child will return for CMD_GET_DATA.
+            data_len = 0;
+            // REG_DATA_LEN is optional; retry a couple times to avoid falling back
+            // to the legacy 2-byte read for sequence events.
+            for (int attempt = 0; attempt < 3; attempt++) {
+                if (i2c_read_reg(entry->address, REG_DATA_LEN, &data_len, 1) == ESP_OK &&
+                    data_len >= 2 && data_len <= sizeof(payload)) {
+                    break;
+                }
+                data_len = 0;
+                vTaskDelay(pdMS_TO_TICKS(2));
+            }
+            if (data_len < 2 || data_len > sizeof(payload)) {
+                data_len = 2;
+            }
+
+            if (i2c_get_data(entry->address, payload, data_len) == ESP_OK) {
+                // payload[0] = event_id, remaining bytes are event payload.
+                size_t event_payload_len = (data_len >= 1) ? (size_t)(data_len - 1) : 0U;
+                bool queued = brain_event_handle_block_event(entry->address,
+                                                            payload[0],
+                                                            (event_payload_len > 0) ? &payload[1] : NULL,
+                                                            event_payload_len);
                 if (!queued) {
-                    ESP_LOGW(TAG, "Failed to enqueue block event from 0x%02X (id=0x%02X, val=%u)",
-                             entry->address, payload[0], payload[1]);
+                    ESP_LOGW(TAG, "Failed to enqueue block event from 0x%02X (id=0x%02X, len=%u)",
+                             entry->address, payload[0], (unsigned)event_payload_len);
                 }
             } else {
                 ESP_LOGW(TAG, "CMD_GET_DATA failed for 0x%02X while STATUS_DATA_READY set", entry->address);

@@ -24,10 +24,13 @@ extern void i2c_task(void *arg);
 static const char *TAG = "NOTE_BLOCK";
 
 // ============================================================================
-// CONFIG (payload: note_id)
+// CONFIG (payload: single note or custom sequence)
 // ============================================================================
 typedef struct {
-    uint8_t note_id; // 0–6 demo notes mapping
+    bool    is_custom_sequence;
+    uint8_t note_id; // single note, 0–6
+    uint8_t seq_len; // 0..14 (bounded by event frame size)
+    uint8_t seq[14]; // ordered notes 0..6
 } block_config_t;
 
 static block_config_t s_config;
@@ -36,14 +39,20 @@ static bool s_config_valid = false;
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
 static bool s_pending_event_valid = false;
-static uint8_t s_pending_event_id = 0;
-static uint8_t s_pending_event_value = 0;
+static uint8_t s_pending_event_buf[16] = {0};
+static uint8_t s_pending_event_len = 0;
+
+uint8_t note_block_get_pending_event_len(void)
+{
+    return s_pending_event_valid ? s_pending_event_len : 0U;
+}
 
 static void config_reset(void)
 {
     memset(&s_config, 0, sizeof(s_config));
     s_config_valid = false;
     s_pending_event_valid = false;
+    s_pending_event_len = 0;
 }
 
 static bool config_is_valid(void)
@@ -96,9 +105,7 @@ static void peripherals_ok_feedback(void)
 
 static void peripherals_show_running(void)
 {
-    // Simple visual: briefly fill the matrix to indicate activity.
-    matrix_fill(0, 0, 255);
-    matrix_show();
+    // No matrix activity indicator.
 }
 
 // ============================================================================
@@ -133,12 +140,48 @@ bool note_block_submit_selection(uint8_t note_id)
         return false;
     }
 
+    s_config.is_custom_sequence = false;
     s_config.note_id = note_id;
+    s_config.seq_len = 0;
     s_config_valid = true;
 
     // Publish selection-submit event for Brain orchestration.
-    s_pending_event_id = NOTE_EVENT_SELECTION_SUBMIT;
-    s_pending_event_value = note_id;
+    s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
+    s_pending_event_buf[1] = note_id;
+    s_pending_event_len = 2;
+    s_pending_event_valid = true;
+    s_status_flags = STATUS_DATA_READY;
+    return true;
+}
+
+bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
+{
+    if ((s_status_flags & STATUS_BUSY) != 0U) {
+        return false;
+    }
+    if (notes == NULL || count == 0) {
+        return false;
+    }
+
+    // Cap to fit 16-byte event frame: [event_id, count, notes...]
+    uint8_t capped = count;
+    if (capped > (uint8_t)14) {
+        capped = 14;
+    }
+
+    s_config.is_custom_sequence = true;
+    s_config.seq_len = capped;
+    for (uint8_t i = 0; i < capped; i++) {
+        s_config.seq[i] = (uint8_t)(notes[i] % 7);
+    }
+    s_config_valid = true;
+
+    s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
+    s_pending_event_buf[1] = capped;
+    for (uint8_t i = 0; i < capped; i++) {
+        s_pending_event_buf[2 + i] = s_config.seq[i];
+    }
+    s_pending_event_len = (uint8_t)(2 + capped);
     s_pending_event_valid = true;
     s_status_flags = STATUS_DATA_READY;
     return true;
@@ -193,10 +236,10 @@ void command_handle(i2c_command_t cmd,
             break;
         }
         if (tx && tx_len && rx_len == 0) {
-            tx[0] = s_pending_event_id;
-            tx[1] = s_pending_event_value;
-            *tx_len = 2;
+            memcpy(tx, s_pending_event_buf, s_pending_event_len);
+            *tx_len = s_pending_event_len;
             s_pending_event_valid = false;
+            s_pending_event_len = 0;
             s_status_flags = STATUS_READY;
         }
         break;
@@ -208,7 +251,13 @@ void command_handle(i2c_command_t cmd,
         }
         s_status_flags = STATUS_BUSY;
         peripherals_show_running();
-        play_note(s_config.note_id);
+        if (s_config.is_custom_sequence && s_config.seq_len > 0) {
+            for (uint8_t i = 0; i < s_config.seq_len; i++) {
+                play_note(s_config.seq[i]);
+            }
+        } else {
+            play_note(s_config.note_id);
+        }
         s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
         break;
 

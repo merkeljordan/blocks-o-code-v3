@@ -23,6 +23,9 @@
 #define REG_FW_MAJOR    0x02    // 1 byte (optional, for later)
 #define REG_FW_MINOR    0x03    // 1 byte (optional, for later)
 #define REG_CAPS        0x04    // 1 byte (optional, for later)
+// Optional: length of CMD_GET_DATA event frame when STATUS_DATA_READY is set.
+// 0 when no event is pending.
+#define REG_DATA_LEN    0x05    // 1 byte: 0..16
 
 // Optional: keep for legacy/one-off features (if you already use it)
 #define CMD_OLED_TEXT   0xF1
