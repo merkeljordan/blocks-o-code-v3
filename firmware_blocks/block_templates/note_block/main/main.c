@@ -151,9 +151,11 @@ bool note_block_submit_selection(uint8_t note_id)
     s_config_valid = true;
 
     // Publish selection-submit event for Brain orchestration.
+    // Use the standard frame: [event_id, count, note0..noteN].
     s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
-    s_pending_event_buf[1] = note_id;
-    s_pending_event_len = 2;
+    s_pending_event_buf[1] = 1;       // single selected note
+    s_pending_event_buf[2] = note_id; // note0
+    s_pending_event_len = 3;
     s_pending_event_valid = true;
     if (!was_busy) {
         s_status_flags = STATUS_DATA_READY;
