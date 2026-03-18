@@ -37,6 +37,26 @@ static void init_registers(void)
     s_registers[REG_DATA_LEN] = 0;
 }
 
+/**
+ * @brief Returns nonzero if the provided byte corresponds to a valid
+ *        i2c_command_t value.
+ *
+ * This is used to disambiguate 1-byte writes that could otherwise be
+ * interpreted as either a command ID or a register index.
+ */
+static int is_command_byte(uint8_t b)
+{
+    switch ((i2c_command_t)b) {
+        case CMD_PING:
+        case CMD_GET_STATUS:
+        case CMD_GET_EVENT:
+        case CMD_CUSTOM_SEQUENCE:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 static void refresh_dynamic_registers(void)
 {
     s_registers[REG_STATUS] = note_block_get_status_flags();
@@ -108,7 +128,7 @@ void i2c_task(void *arg)
         // Treat single-byte buffers that contain only a register index
         // specially and reply with the value of that register.
         refresh_dynamic_registers();
-        if ((len == 1) && is_register_index_byte(rx_buf[0])) {
+        if ((len == 1) && is_register_index_byte(rx_buf[0]) && !is_command_byte(rx_buf[0])) {
             uint8_t reg = rx_buf[0];
             uint8_t value = s_registers[reg];
 
