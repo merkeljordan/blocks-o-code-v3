@@ -35,7 +35,7 @@ Pin assignments below are taken from the PCB schematic (see the labeled net name
 | 27   | TFT_CS      | TFT display chip select | Net label: `TFT_CS`. |
 | 32   | TFT_LED     | TFT backlight control | Net label: `TFT_LED`. |
 | 26   | T_CS        | Touch controller chip select | Net label: `T_CS`. (Touch controller likely shares SPI with TFT.) |
-| TBD  | TOUCH_IRQ   | Touch controller interrupt | Not shown in the provided schematic snippet. |
+| 36   | TOUCH_IRQ   | Touch controller interrupt | Wired to XPT2046 IRQ net. |
 | 18   | MCU_SCLK    | SPI clock | Net label: `MCU_SCLK`. |
 | 19   | MCU_MISO    | SPI MISO | Net label: `MCU_MISO`. |
 | 23   | MCU_MOSI    | SPI MOSI | Net label: `MCU_MOSI`. |

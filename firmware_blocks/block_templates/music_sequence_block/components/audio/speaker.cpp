@@ -159,31 +159,11 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot sound");
-
-    // Reader parses embedded WAV and becomes the active sample source.
-    WAVFileReader reader(bootupsound_wav_start, bootupsound_wav_end);
-    reader.setGain(volume_to_gain(s_volume_percent));
-
-    // Convert data length into rough playback duration.
-    int data_bytes = reader.getDataBytes();
-    int bytes_per_sec = reader.sampleRate() * 4; // 16-bit stereo => 4 bytes/frame
-    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 /
-                                      (bytes_per_sec ? bytes_per_sec : 1));
-
-    // Add margin so buffered data drains fully before switching back to silence.
-    duration_ms += 300;
-
-    s_dac->setSampleSource(&reader);
-    delay_ms(duration_ms);
-
-    // Return to idle source after playback window.
-    s_dac->setSampleSource(&s_silence);
-
-    // Short settle delay so in-flight frame reads complete.
-    delay_ms(50);
-
-    ESP_LOGI(TAG, "Boot sound finished");
+    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
+    // "do do do" startup noise.
+    (void)speaker_play_tone(440, 80);
+    (void)speaker_play_tone(660, 80);
+    (void)speaker_play_tone(880, 120);
     return ESP_OK;
 }
 
