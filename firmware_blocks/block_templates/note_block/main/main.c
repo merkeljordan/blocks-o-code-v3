@@ -251,7 +251,10 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
     case CMD_PING:
-        s_status_flags = STATUS_READY;
+        // Do not clear STATUS_DATA_READY while an event is pending.
+        if (!(s_pending_event_valid && (s_status_flags == STATUS_DATA_READY))) {
+            s_status_flags = STATUS_READY;
+        }
         break;
 
     case CMD_GET_TYPE:
