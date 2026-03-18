@@ -150,6 +150,14 @@ void i2c_task(void *arg)
 
         command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
 
+        if (tx_len > sizeof(tx_buf)) {
+            ESP_LOGE(TAG,
+                     "command_handle() attempted to set tx_len=%u (max %u); dropping response",
+                     (unsigned)tx_len,
+                     (unsigned)sizeof(tx_buf));
+            continue;
+        }
+
         if (tx_len > 0U) {
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
             ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
