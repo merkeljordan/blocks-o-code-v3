@@ -38,6 +38,9 @@ typedef struct {
 static block_config_t s_config;
 static bool s_config_valid = false;
 
+// Spinlock protecting pending-event shared state accessed from multiple tasks/cores.
+static portMUX_TYPE s_pending_event_spinlock = portMUX_INITIALIZER_UNLOCKED;
+
 // ============================================================================
 // ASYNCHRONOUS NOTE PLAYBACK
 // ============================================================================
@@ -180,11 +183,13 @@ bool note_block_submit_selection(uint8_t note_id)
 
     // Publish selection-submit event for Brain orchestration.
     // Use the standard frame: [event_id, count, note0..noteN].
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
     s_pending_event_buf[1] = 1;       // single selected note
     s_pending_event_buf[2] = note_id; // note0
     s_pending_event_len = 3;
     s_pending_event_valid = true;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
         // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
         s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
@@ -214,6 +219,7 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     }
     s_config_valid = true;
 
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
     s_pending_event_buf[1] = capped;
     for (uint8_t i = 0; i < capped; i++) {
@@ -221,6 +227,7 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     }
     s_pending_event_len = (uint8_t)(2 + capped);
     s_pending_event_valid = true;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
         // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
         s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
