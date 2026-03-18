@@ -53,7 +53,7 @@ static QueueHandle_t s_playback_queue = NULL;
 // Forward declarations for helpers and status flags used by note_playback_task().
 static void peripherals_show_running(void);
 static void play_note(uint8_t note_id);
-static uint8_t s_status_flags;
+static uint8_t s_status_flags = STATUS_READY;
 
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
@@ -107,7 +107,6 @@ static size_t config_get_payload(uint8_t *out, size_t max_len)
 // ============================================================================
 // STATUS FLAGS (exposed to i2c_comm register map)
 // ============================================================================
-static uint8_t s_status_flags = STATUS_READY;
 
 uint8_t note_block_get_status_flags(void)
 {
