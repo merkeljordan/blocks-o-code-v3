@@ -72,22 +72,34 @@ static void note_playback_task(void *arg)
         if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
             peripherals_show_running();
             play_note(cmd.note_id);
+            portENTER_CRITICAL(&s_pending_event_spinlock);
             s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            portEXIT_CRITICAL(&s_pending_event_spinlock);
         }
     }
 }
 
 uint8_t note_block_get_pending_event_len(void)
 {
-    return s_pending_event_valid ? s_pending_event_len : 0U;
+    uint8_t len = 0U;
+
+    portENTER_CRITICAL(&s_pending_event_spinlock);
+    if (s_pending_event_valid) {
+        len = s_pending_event_len;
+    }
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
+
+    return len;
 }
 
 static void config_reset(void)
 {
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     memset(&s_config, 0, sizeof(s_config));
     s_config_valid = false;
     s_pending_event_valid = false;
     s_pending_event_len = 0;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
 }
 
 static bool config_is_valid(void)
