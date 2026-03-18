@@ -158,7 +158,9 @@ bool note_block_submit_selection(uint8_t note_id)
     s_pending_event_len = 3;
     s_pending_event_valid = true;
     if (!was_busy) {
-        s_status_flags = STATUS_DATA_READY;
+        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
+        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
+        s_status_flags |= STATUS_DATA_READY;
     }
     return true;
 }
@@ -192,7 +194,9 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     s_pending_event_len = (uint8_t)(2 + capped);
     s_pending_event_valid = true;
     if (!was_busy) {
-        s_status_flags = STATUS_DATA_READY;
+        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
+        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
+        s_status_flags |= STATUS_DATA_READY;
     }
     return true;
 }
