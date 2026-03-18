@@ -113,7 +113,33 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Brain and/or child block firmware using LED strip; `led_strip` driver / shared LED UX.
 - **Branch:** `origin/led-strip-behavior` has execution mirroring work pushed (ahead of `main`) — merge, then finish idle mapping + polish.
 - **Owner:** **Destiny** (LEDs / peripherals).
-- **Status:** [ ] In progress (mirroring pushed; idle mapping still needed)
+- **Status:** [x] Implemented
+- **What was completed:**
+  1. Added idle type-color mapping across the system:
+     - `BRAIN` = red
+     - `IF` / `THEN` / `END_IF` = green
+     - `LOOP` / `END_LOOP` = blue
+     - `DELAY` = orange
+     - `BUTTON` = magenta
+     - `NOTE` = yellow
+     - `MUSIC_SEQ` = cyan/teal
+     - `LED_FLASH` = purple
+  2. Brain now renders a local LED strip “program map”:
+     - before scan: solid red fallback
+     - after scan: one strip segment per block in the built program
+     - while executing: current block segment is highlighted
+  3. Child blocks were updated to accept shared `CMD_MATRIX_*` strip commands so Brain-driven mirroring works consistently.
+  4. `led_color_flash_block` was polished further:
+     - idle/data-ready = solid type color
+     - busy/executing = status strip mirrors the live local matrix animation output
+     - error = red
+  5. Added inline comment blocks in Brain and child firmware to explain the execution-mirroring flow.
+  6. Fixed shared `status_strip` compatibility so it works with both `led_strip` API variants used in this repo.
+- **How I did it:**
+  1. Brain-side mirroring is driven from executor state and `pc`, mapping the active step to a highlighted segment on the Brain strip and child strips.
+  2. Child strips render their idle color through the shared `status_strip` component.
+  3. During execution, `led_color_flash_block` switches from solid status color to local-output mirroring while `STATUS_BUSY` is active.
+  4. Shared strip rendering uses the existing fill / brightness / show flow rather than a new LED pipeline.
 - **How:**
   1. **Existing pieces:** Shared LED UX is in `firmware_blocks/shared_components/led_ux/led_ux.c` — `led_ux_show_startup()`, `led_ux_show_running()`, `led_ux_show_ok()`, `led_ux_show_error()`. These use `led_matrix.h` (e.g. `matrix_fill`, `matrix_show`, `matrix_clear`). The **LED Color Flash** block has a full `led_matrix.c` and `command_handler.c` that drive the strip with patterns. Reuse those patterns: same driver, same “fill/show/clear” style.
   2. **Idle type–color mapping:** When no block is “active”, each block (or the Brain’s strip, if it’s one strip for the whole chain) should show a *color per block type* (e.g. If = blue, Loop = green, Note = yellow). You need a small table: `block_type_t` → RGB or color_id. On idle, either the Brain tells each block “show your type color” or each block’s firmware sets its segment to that color. Where the strip is (Brain vs per-block) decides where this logic lives.
