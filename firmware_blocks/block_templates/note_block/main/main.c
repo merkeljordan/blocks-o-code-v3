@@ -3,6 +3,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -36,6 +37,28 @@ typedef struct {
 
 static block_config_t s_config;
 static bool s_config_valid = false;
+
+// ============================================================================
+// ASYNCHRONOUS NOTE PLAYBACK
+// ============================================================================
+typedef struct {
+    uint8_t note_id;
+} playback_cmd_t;
+
+static QueueHandle_t s_playback_queue = NULL;
+
+static void note_playback_task(void *arg)
+{
+    playback_cmd_t cmd;
+
+    for (;;) {
+        if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+            peripherals_show_running();
+            play_note(cmd.note_id);
+            s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+        }
+    }
+}
 
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
@@ -235,10 +258,16 @@ void command_handle(i2c_command_t cmd,
 
     case CMD_PLAY_NOTE:
         if (rx && rx_len >= 1) {
-            s_status_flags = STATUS_BUSY;
-            peripherals_show_running();
-            play_note(rx[0]);
-            s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            if (s_playback_queue != NULL) {
+                playback_cmd_t cmd_play = { .note_id = rx[0] };
+                if (xQueueSendToBack(s_playback_queue, &cmd_play, 0) == pdPASS) {
+                    s_status_flags = STATUS_BUSY;
+                } else {
+                    s_status_flags = STATUS_ERROR;
+                }
+            } else {
+                s_status_flags = STATUS_ERROR;
+            }
         } else {
             s_status_flags = STATUS_ERROR;
         }
@@ -318,12 +347,20 @@ void app_main(void)
         return;
     }
 
+    s_playback_queue = xQueueCreate(4, sizeof(playback_cmd_t));
+    if (s_playback_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create playback queue!");
+        peripherals_error_feedback();
+        return;
+    }
+
     vTaskDelay(pdMS_TO_TICKS(200));
     ESP_LOGI(TAG, "Block ready and waiting for commands");
 
     // Start TFT UI (runs on Core 1) and keep I2C on Core 0.
     tft_ui_start();
 
+    xTaskCreatePinnedToCore(note_playback_task, "note_playback", 4096, NULL, 4, NULL, 1);
     xTaskCreatePinnedToCore(i2c_task, "i2c", 4096, NULL, 5, NULL, 0);
     ESP_LOGI(TAG, "Tasks started");
 }
