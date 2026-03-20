@@ -15,7 +15,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | `origin/led-strip-behavior` | ahead of `main` | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. It’s currently **behind `origin/main` by ~2 commits**. |
 | `origin/note-block-firmware` | ahead of `main` | NOTE block firmware + Brain note broadcast work is on this branch; not merged into `main`. It’s currently **behind `origin/main` by ~8 commits**. |
 | `origin/control-flow-docs-and-blocks` | ahead of `main` | Branch exists with control flow buildout work; not merged into `main`. |
-| `origin/music-sequences-behavior` | ahead of `main` | Branch exists; no feature work yet, but it’s tracking `origin/music-sequences-behavior` and can be used as the base for Task #5. |
+| `origin/music-sequences-behavior` | ahead of `main` | Music sequence block behavior, simulator support, and expanded song catalog are implemented on this branch; needs merge to `main`. |
 
 ---
 
@@ -99,7 +99,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Music sequence block template and app-side config; audio/song assets.
 - **Branch:** `origin/music-sequences-behavior` has no unique commits yet — use it or create a new branch for this work.
 - **Owner:** **Destiny** (speaker / “what you hear”).
-- **Status:** [ ] Not started
+- **Status:** [x] Implemented + pushed (needs merge to `main`)
 - **How:**
   1. **Where the block lives:** `firmware_blocks/block_templates/music_sequence_block/`. Main logic: `main/main.c` has `command_handle()` which on `CMD_EXECUTE` calls `speaker_play_song()`. The TFT UI is in `main/tft_ui.c` (song selection, etc.). Audio/songs are in the block's `components/audio/` or similar — look for WAV files or song IDs.
   2. **Finish behavior:** Ensure that when the Brain sends CMD_EXECUTE (and any config command for "which song"), the block plays the selected song from start to finish and reports ready again. Match the pattern of the LED Color Flash block: config → submit selection → Brain later sends CMD_EXECUTE to all blocks; music block should play one full song per CMD_EXECUTE.
@@ -241,7 +241,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
 | 3 | Protocol docs + startup sound | Jordan | merged to `main` | [✓] Done |
 | 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [✓] Done (Passed to Destiny) |
-| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [ ] Not started |
+| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [x] Pushed (needs merge) |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
 | 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
 | 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
