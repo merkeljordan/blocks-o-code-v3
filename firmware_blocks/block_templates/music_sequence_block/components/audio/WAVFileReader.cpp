@@ -189,10 +189,15 @@ void WAVFileReader::getFrames(Frame_t *frames, int number_frames)
         if (m_num_channels == 1) {
             right = left;
         }
-        // If stereo input, read explicit right sample.
+        // If stereo input, read explicit right sample, then downmix so the
+        // single on-board DAC hears the full song instead of only one side.
         else {
             memcpy(&right, m_data + m_pos, sizeof(int16_t));
             m_pos += (int)sizeof(int16_t);
+
+            int32_t mixed = ((int32_t)left + (int32_t)right) / 2;
+            left = (int16_t)mixed;
+            right = (int16_t)mixed;
         }
 
         // Apply user volume/gain before converting to unsigned DAC format.

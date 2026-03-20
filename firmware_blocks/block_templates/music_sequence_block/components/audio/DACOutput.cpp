@@ -121,3 +121,13 @@ void DACOutput::start(SampleSource *sample_generator)
                             &m_i2sWriterTaskHandle,
                             AUDIO_WRITER_CORE_ID);
 }
+
+void DACOutput::setSampleSource(SampleSource *source)
+{
+    if (source == nullptr) {
+        return;
+    }
+
+    m_sample_generator = source;
+    i2s_set_sample_rates(I2S_NUM_0, (uint32_t)source->sampleRate());
+}

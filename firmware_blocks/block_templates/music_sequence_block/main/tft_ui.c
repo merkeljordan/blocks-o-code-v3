@@ -852,7 +852,6 @@ static void preview_task(void *arg)
         state_lock();
         s_is_playing = true;
         state_unlock();
-        gui_refresh_from_state();
 
         {
             esp_err_t err = speaker_play_song(idx);
@@ -866,8 +865,6 @@ static void preview_task(void *arg)
             }
             state_unlock();
         }
-
-        gui_refresh_from_state();
     }
 }
 
@@ -1117,7 +1114,9 @@ void tft_ui_set_playback_state(const music_playback_state_t *state)
     state_lock();
     s_is_playing = state->is_playing;
     state_unlock();
+#if defined(MUSIC_SEQ_UI_SIMULATOR)
     gui_refresh_from_state();
+#endif
 }
 
 void tft_ui_set_status_message(const char *msg)
@@ -1125,5 +1124,7 @@ void tft_ui_set_status_message(const char *msg)
     state_lock();
     copy_text_safe(s_status_text, sizeof(s_status_text), msg);
     state_unlock();
+#if defined(MUSIC_SEQ_UI_SIMULATOR)
     gui_refresh_from_state();
+#endif
 }
