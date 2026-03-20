@@ -29,10 +29,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// Linker symbols generated from EMBED_FILES (bootupsound.wav).
-extern const uint8_t bootupsound_wav_start[] asm("_binary_bootupsound_wav_start");
-extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
-
 extern "C" {
 
 static const char *TAG = "AUDIO";
@@ -159,11 +155,7 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
-    // "do do do" startup noise.
-    (void)speaker_play_tone(440, 80);
-    (void)speaker_play_tone(660, 80);
-    (void)speaker_play_tone(880, 120);
+    ESP_LOGI(TAG, "Boot sound disabled for music block");
     return ESP_OK;
 }
 

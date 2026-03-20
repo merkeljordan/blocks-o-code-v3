@@ -28,9 +28,63 @@
 #define SCOPE_TONE_HZ    1000
 #define SCOPE_TONE_MS    5000
 
-// Linker symbols from EMBED_FILES "audio/babyshark.wav".
+// Linker symbols from main/CMakeLists.txt EMBED_FILES.
+extern const uint8_t espresso_wav_start[] asm("_binary_espresso_wav_start");
+extern const uint8_t espresso_wav_end[]   asm("_binary_espresso_wav_end");
+extern const uint8_t birds_of_a_feather_wav_start[] asm("_binary_birds_of_a_feather_wav_start");
+extern const uint8_t birds_of_a_feather_wav_end[]   asm("_binary_birds_of_a_feather_wav_end");
+extern const uint8_t beat_it_wav_start[] asm("_binary_beat_it_wav_start");
+extern const uint8_t beat_it_wav_end[]   asm("_binary_beat_it_wav_end");
+extern const uint8_t hakuna_matata_wav_start[] asm("_binary_hakuna_matata_wav_start");
+extern const uint8_t hakuna_matata_wav_end[]   asm("_binary_hakuna_matata_wav_end");
 extern const uint8_t babyshark_wav_start[] asm("_binary_babyshark_wav_start");
 extern const uint8_t babyshark_wav_end[]   asm("_binary_babyshark_wav_end");
+
+typedef struct {
+    const char *name;
+    music_age_range_t age_range;
+    const uint8_t *wav_start;
+    const uint8_t *wav_end;
+    bool embedded;
+} embedded_song_t;
+
+static const embedded_song_t k_song_catalog[] = {
+    {
+        .name = "Espresso",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = espresso_wav_start,
+        .wav_end = espresso_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Birds of a Feather",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = birds_of_a_feather_wav_start,
+        .wav_end = birds_of_a_feather_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Beat It",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = beat_it_wav_start,
+        .wav_end = beat_it_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Hakuna Matata",
+        .age_range = MUSIC_AGE_RANGE_5_TO_7,
+        .wav_start = hakuna_matata_wav_start,
+        .wav_end = hakuna_matata_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Baby Shark",
+        .age_range = MUSIC_AGE_RANGE_2_TO_4,
+        .wav_start = babyshark_wav_start,
+        .wav_end = babyshark_wav_end,
+        .embedded = true,
+    },
+};
 
 // --------------------------------------------------------------------------
 // delay_ms
@@ -50,7 +104,7 @@ static void delay_ms(uint32_t ms)
 // Called by: UI code (`tft_ui.c`) to show pagination/count.
 size_t speaker_get_song_count(void)
 {
-    return 1;
+    return sizeof(k_song_catalog) / sizeof(k_song_catalog[0]);
 }
 
 // --------------------------------------------------------------------------
@@ -59,7 +113,34 @@ size_t speaker_get_song_count(void)
 // Called by: UI code (`tft_ui.c`) to display current song name.
 const char *speaker_get_song_name(size_t index)
 {
-    return (index == 0) ? "Baby Shark" : "???";
+    if (index >= speaker_get_song_count()) {
+        return "Unknown Song";
+    }
+    return k_song_catalog[index].name;
+}
+
+music_age_range_t speaker_get_song_age_range(size_t index)
+{
+    if (index >= speaker_get_song_count()) {
+        return MUSIC_AGE_RANGE_ALL;
+    }
+    return k_song_catalog[index].age_range;
+}
+
+const char *speaker_get_age_range_label(music_age_range_t age_range)
+{
+    switch (age_range) {
+        case MUSIC_AGE_RANGE_ALL:
+            return "All Ages";
+        case MUSIC_AGE_RANGE_2_TO_4:
+            return "Ages 2-4";
+        case MUSIC_AGE_RANGE_5_TO_7:
+            return "Ages 5-7";
+        case MUSIC_AGE_RANGE_8_PLUS:
+            return "Ages 8+";
+        default:
+            return "Ages ?";
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -73,11 +154,24 @@ esp_err_t speaker_play_song(size_t index)
     (void)index;
     return speaker_play_tone(SCOPE_TONE_HZ, SCOPE_TONE_MS);
 #else
-    if (index != 0) {
+    const embedded_song_t *song = NULL;
+    size_t len = 0;
+
+    if (index >= speaker_get_song_count()) {
         return ESP_ERR_INVALID_ARG;
     }
-    size_t len = (size_t)(babyshark_wav_end - babyshark_wav_start);
-    return speaker_play_wav(babyshark_wav_start, len);
+
+    song = &k_song_catalog[index];
+    if (!song->embedded || song->wav_start == NULL || song->wav_end == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    len = (size_t)(song->wav_end - song->wav_start);
+    if (len == 0U) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    return speaker_play_wav(song->wav_start, len);
 #endif
 }
 

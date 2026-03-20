@@ -73,9 +73,18 @@ typedef struct {
     uint16_t gap_ms;
 } music_step_t;
 
+typedef enum {
+    MUSIC_AGE_RANGE_ALL = 0,
+    MUSIC_AGE_RANGE_2_TO_4,
+    MUSIC_AGE_RANGE_5_TO_7,
+    MUSIC_AGE_RANGE_8_PLUS,
+    MUSIC_AGE_RANGE_COUNT
+} music_age_range_t;
+
 typedef struct {
     uint8_t song_id;
     const char *name;
+    music_age_range_t age_range;
 } song_info_t;
 
 /* -------------------------------------------------------------------------- */

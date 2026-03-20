@@ -10,7 +10,24 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if defined(MUSIC_SEQ_UI_SIMULATOR)
+typedef int esp_err_t;
+
+#ifndef ESP_OK
+#define ESP_OK 0
+#endif
+
+#ifndef ESP_FAIL
+#define ESP_FAIL (-1)
+#endif
+
+#ifndef ESP_ERR_NO_MEM
+#define ESP_ERR_NO_MEM (-2)
+#endif
+#else
 #include "esp_err.h"
+#endif
+
 #include "music_sequence_types.h"
 
 #ifdef __cplusplus
