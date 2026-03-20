@@ -19,13 +19,11 @@ This module now uses a **WAV + I2S DAC** audio path (not the older PWM-only path
 
 ## Playback Modes
 
-1. **Boot feedback**
-   - `speaker_play_boot_sound()` plays embedded `bootupsound.wav`.
-2. **Song playback**
+1. **Song playback**
    - `speaker_play_song(index)` resolves song asset and calls `speaker_play_wav(...)`.
-3. **Tone playback (utility)**
+2. **Tone playback (utility)**
    - `speaker_play_tone(freq, ms)` for beeps and note-based sequences.
-4. **Sequence playback (legacy-compatible APIs)**
+3. **Sequence playback (legacy-compatible APIs)**
    - `speaker_play_step(...)`
    - `speaker_play_sequence(...)`
 
@@ -38,15 +36,26 @@ Playback helpers are currently synchronous/blocking at call site. To keep UI res
 
 ## Song Catalog
 
-The current template ships with one example song:
+The current 4 MB hardware catalog is:
 
-- `main/audio/babyshark.wav`
+- `Espresso` -> backed by `main/audio/espresso.wav`, `Ages 8+`
+- `Birds of a Feather` -> backed by `main/audio/birds_of_a_feather.wav`, `Ages 8+`
+- `Beat It` -> backed by `main/audio/beat_it.wav`, `Ages 8+`
+- `Hakuna Matata` -> backed by `main/audio/hakuna_matata.wav`, `Ages 5-7`
+- `Baby Shark` -> backed by `main/audio/babyshark.wav`, `Ages 2-4`
 
-To add songs:
+The UI can filter the catalog by age range:
+
+- `All Ages`
+- `Ages 2-4`
+- `Ages 5-7`
+- `Ages 8+`
+
+To change songs:
 
 1. Add WAV assets under `main/audio/`.
 2. Embed via `main/CMakeLists.txt` `EMBED_FILES`.
-3. Extend `speaker_get_song_count()`, `speaker_get_song_name()`, and `speaker_play_song()` in `main/speaker_music.c`.
+3. Update the shared catalog in `main/speaker_music.c` and the matching simulator catalog in `pc_sim/music_sequence_block/main.c`.
 
 ## Brain Integration Notes
 
@@ -61,6 +70,11 @@ So the intended child flow is:
 2. Kid confirms with `Select`
 3. Brain triggers with `CMD_EXECUTE`
 
-## Known Gap
+## Status Semantics
 
-This template’s I2C runtime in `main/main.c` is currently a transport stub. Replace with active I2C slave RX logic to complete Brain->Music execution in hardware.
+- `STATUS_DATA_READY` means a confirmed song selection is available
+- `STATUS_BUSY` means playback is in progress
+- `STATUS_READY` means the block is idle
+- `STATUS_ERROR` is reserved for init/playback failures
+
+After a successful `CMD_EXECUTE`, the block returns to ready and keeps the current selection valid for the next execute.

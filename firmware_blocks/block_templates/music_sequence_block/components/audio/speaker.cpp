@@ -29,10 +29,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-// Linker symbols generated from EMBED_FILES (bootupsound.wav).
-extern const uint8_t bootupsound_wav_start[] asm("_binary_bootupsound_wav_start");
-extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
-
 extern "C" {
 
 static const char *TAG = "AUDIO";
@@ -159,31 +155,7 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot sound");
-
-    // Reader parses embedded WAV and becomes the active sample source.
-    WAVFileReader reader(bootupsound_wav_start, bootupsound_wav_end);
-    reader.setGain(volume_to_gain(s_volume_percent));
-
-    // Convert data length into rough playback duration.
-    int data_bytes = reader.getDataBytes();
-    int bytes_per_sec = reader.sampleRate() * 4; // 16-bit stereo => 4 bytes/frame
-    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 /
-                                      (bytes_per_sec ? bytes_per_sec : 1));
-
-    // Add margin so buffered data drains fully before switching back to silence.
-    duration_ms += 300;
-
-    s_dac->setSampleSource(&reader);
-    delay_ms(duration_ms);
-
-    // Return to idle source after playback window.
-    s_dac->setSampleSource(&s_silence);
-
-    // Short settle delay so in-flight frame reads complete.
-    delay_ms(50);
-
-    ESP_LOGI(TAG, "Boot sound finished");
+    ESP_LOGI(TAG, "Boot sound disabled for music block");
     return ESP_OK;
 }
 
