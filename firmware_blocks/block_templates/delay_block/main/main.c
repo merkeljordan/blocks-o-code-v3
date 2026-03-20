@@ -9,6 +9,14 @@
 #include "led_matrix.h"
 #include "command_handler.h"
 
+#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
+#include "tft_ui.h"
+#else
+static inline void tft_ui_start(void) {}
+static inline void tft_ui_trigger_execute(void) {}
+static inline void tft_ui_set_idle(void) {}
+#endif
+
 extern void initArduino(void);
 
 // I2C slave transport implemented in i2c_comm.c
@@ -103,6 +111,8 @@ static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
 static void peripherals_show_running(void)
 {
+    tft_ui_trigger_execute();
+
     // Simple "running" indication: brief amber flash on the matrix.
     matrix_fill(64, 32, 0);
     matrix_show();
@@ -187,6 +197,7 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_RESET:
             config_reset();
+            tft_ui_set_idle();
             matrix_clear();
             matrix_show();
             g_status_flags = STATUS_READY;
@@ -221,6 +232,8 @@ void app_main(void) {
 
     // Show startup animation
     led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

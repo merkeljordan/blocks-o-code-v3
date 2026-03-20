@@ -1,0 +1,12 @@
+## IDF Component Manager manifest for the delay_block project.
+dependencies:
+  idf:
+    version: ">=5.0.0"
+  espressif/arduino-esp32:
+    version: "^3.1.0"
+  lvgl/lvgl:
+    version: "~9.2.0"
+  espressif/esp_lcd_ili9341:
+    version: "*"
+  atanisoft/esp_lcd_touch_xpt2046:
+    version: "~1.0.0"
