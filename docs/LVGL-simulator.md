@@ -1,36 +1,107 @@
-# LVGL Simulator
+## Block UI Simulator (LVGL + SDL on Windows)
 
-This branch includes a desktop LVGL simulator for the music sequence block so you can preview the UI without flashing hardware.
+This repo can run **LVGL-based block UIs** in a desktop window using **SDL2** (no ESP32 flash needed).
 
-## Prereqs
+### How simulators are organized in this repo
 
-On macOS:
+- **Each simulator lives in**: `pc_sim/<block_name>/`
+- **Each simulator builds to**: `build/<block_name>_sim/`
 
-```bash
-xcode-select --install
-brew install cmake sdl2 pkg-config
+The simulator window should match the physical TFT resolution for 1:1 layout (often **240×320**).
+
+---
+
+## One-time setup (Windows, PowerShell)
+
+### Install vcpkg + SDL2
+
+```powershell
+cd $env:USERPROFILE
+
+git clone https://github.com/microsoft/vcpkg.git
+& ".\vcpkg\bootstrap-vcpkg.bat"
+
+.\vcpkg\vcpkg install sdl2:x64-windows
 ```
 
-## Music Sequence Block
+---
 
-From the repo root:
+## Build + run
 
-```bash
-cmake -S pc_sim/music_sequence_block -B build/music_sequence_block_sim \
-  -DCMAKE_PREFIX_PATH="$(brew --prefix)"
-cmake --build build/music_sequence_block_sim
-./build/music_sequence_block_sim/music_sequence_block_sim
+From your cloned repo root (the folder containing `pc_sim/`), replace `<block_name>` with the simulator folder name under `pc_sim/`.
+
+### Configure (first time, or after changing CMake)
+
+```powershell
+cmake -S pc_sim\<block_name> -B build\<block_name>_sim -A x64 `
+  -DCMAKE_TOOLCHAIN_FILE="$env:USERPROFILE\vcpkg\scripts\buildsystems\vcpkg.cmake"
 ```
 
-The simulator:
+### Build
 
-- opens a 240x320 window to match the physical TFT
-- uses the real `music_sequence_block/main/tft_ui.c`
-- plays the real WAV files from `firmware_blocks/block_templates/music_sequence_block/main/audio/`
-- lets you test both the UI flow and desktop preview audio before flashing hardware
+```powershell
+cmake --build build\<block_name>_sim --config Release
+```
 
-## Notes
+### Run
 
-- `Play` is still local preview only.
-- `Select` is the submit/confirm action that marks the current song ready for Brain-side execution.
-- The simulator is for UI iteration; firmware audio and I2C behavior are still validated in the real block firmware.
+```powershell
+& ".\build\<block_name>_sim\Release\<block_name>_sim.exe"
+```
+
+---
+
+## When do I need to rebuild?
+
+- If you change any `.c/.h` used by the simulator, **rebuild** (the build is incremental).
+- If you change `pc_sim/<block_name>/CMakeLists.txt` or `pc_sim/<block_name>/lv_conf.h`, run **Configure** again, then **Build**.
+
+---
+
+## Troubleshooting
+
+### “Manually-specified variables were not used by the project: CMAKE_TOOLCHAIN_FILE”
+
+This usually means the build folder was configured earlier without vcpkg. Delete it and re-configure:
+
+```powershell
+Remove-Item -Recurse -Force build\<block_name>_sim
+cmake -S pc_sim\<block_name> -B build\<block_name>_sim -A x64 `
+  -DCMAKE_TOOLCHAIN_FILE="$env:USERPROFILE\vcpkg\scripts\buildsystems\vcpkg.cmake"
+```
+
+### PowerShell says the `.exe` “is not recognized”
+
+Run it with the call operator:
+
+```powershell
+& ".\build\<block_name>_sim\Release\<block_name>_sim.exe"
+```
+
+---
+
+## Adding a new block simulator (template)
+
+Create a new folder:
+
+- `pc_sim/<block_name>/`
+
+Minimum files:
+
+- `pc_sim/<block_name>/CMakeLists.txt`
+  - Finds SDL2
+  - Builds LVGL (from the repo’s LVGL source) as a subdirectory
+  - Builds an executable named `<block_name>_sim`
+  - Defines a macro like `NOTE_UI_SIMULATOR=1` (or similar) so your embedded UI file can compile without ESP-IDF/FreeRTOS includes
+- `pc_sim/<block_name>/main.c`
+  - `lv_init()`
+  - `lv_sdl_window_create(<hor>, <ver>)`
+  - create mouse/keyboard
+  - call your block’s `*_ui_start()` (or a UI init function)
+  - loop `lv_timer_handler()` + `lv_tick_inc(...)`
+- `pc_sim/<block_name>/lv_conf.h`
+  - `#define LV_USE_SDL 1`
+  - enable the fonts/widgets your UI uses
+
+Tip: keep “UI-only” code (screen creation, styles, callbacks) in files that can be compiled for both targets, and guard hardware bring-up with `#if !defined(<SIMULATOR_MACRO>)`.
+

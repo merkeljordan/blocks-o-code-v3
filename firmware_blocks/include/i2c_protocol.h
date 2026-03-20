@@ -23,6 +23,11 @@
 #define REG_FW_MAJOR    0x02    // 1 byte (optional, for later)
 #define REG_FW_MINOR    0x03    // 1 byte (optional, for later)
 #define REG_CAPS        0x04    // 1 byte (optional, for later)
+// Optional: length of CMD_GET_DATA event frame when STATUS_DATA_READY is set.
+// 0 when no event is pending.
+// NOTE: For NOTE block sequences we support up to 15 notes:
+//   payload = [event_id, count, note0..note14] => 17 bytes total.
+#define REG_DATA_LEN    0x05    // 1 byte: 0..32
 
 // Optional: keep for legacy/one-off features (if you already use it)
 #define CMD_OLED_TEXT   0xF1

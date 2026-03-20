@@ -64,20 +64,11 @@ esp_err_t speaker_stop(void) {
 esp_err_t speaker_play_boot_sound(void) {
     if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
 
-    ESP_LOGI(TAG, "Playing boot sound");
-    WAVFileReader reader(bootupsound_wav_start, bootupsound_wav_end);
-
-    int data_bytes = reader.getDataBytes();
-    int bytes_per_sec = reader.sampleRate() * 4; // stereo 16-bit = 4 bytes/frame
-    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 / (bytes_per_sec ? bytes_per_sec : 1));
-    duration_ms += 300;
-
-    s_dac->setSampleSource(&reader);
-    delay_ms(duration_ms);
-    s_dac->setSampleSource(&s_silence);
-    delay_ms(50); // let writer task finish any in-flight getFrames call
-
-    ESP_LOGI(TAG, "Boot sound finished");
+    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
+    // "do do do" startup noise.
+    (void)speaker_play_tone(440, 80);
+    (void)speaker_play_tone(660, 80);
+    (void)speaker_play_tone(880, 120);
     return ESP_OK;
 }
 

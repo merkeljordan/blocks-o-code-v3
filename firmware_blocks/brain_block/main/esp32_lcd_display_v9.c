@@ -446,19 +446,51 @@ static void home_action_event_cb(lv_event_t *e)
 
     if (strcmp(action_name, "Start") == 0) {
         ESP_LOGI(TAG, "Home action pressed: Start");
-        bool handled = brain_event_handle_message("START");
-        if (s_status_label != NULL) {
-            if (handled) {
-                lv_label_set_text(s_status_label, "START requested");
-            } else {
-                const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+        // IMPORTANT: Enqueue success does NOT mean execution started.
+        // We only enqueue when the validation gate is open.
+        if (!brain_event_handler_can_start_execution()) {
+            const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+            if (s_status_label != NULL) {
                 if (validation != NULL && !validation->has_received_validation) {
                     lv_label_set_text(s_status_label, "START blocked: waiting for validation");
                 } else if (validation != NULL && !validation->app_config_valid) {
                     lv_label_set_text(s_status_label, "START blocked: config invalid");
                 } else {
-                    lv_label_set_text(s_status_label, "START rejected: queue/state");
+                    lv_label_set_text(s_status_label, "START blocked: validation gate");
                 }
+            }
+            return;
+        }
+
+        // Extra safety: even with valid config, executor_start() refuses to run when
+        // there are no program blocks loaded from the latest scan.
+        const block_config_state_t *cfg = block_config_manager_get_state();
+        if (cfg == NULL || cfg->block_count == 0) {
+            if (s_status_label != NULL) {
+                lv_label_set_text(s_status_label, "START blocked: no blocks detected");
+            }
+            return;
+        }
+
+        bool handled = brain_event_handle_message("START");
+        if (s_status_label != NULL) {
+            if (handled) {
+                lv_label_set_text(s_status_label, "START requested");
+            } else {
+                lv_label_set_text(s_status_label, "START rejected: queue/state");
+            }
+        }
+        return;
+    }
+
+    if (strcmp(action_name, "Stop") == 0) {
+        ESP_LOGI(TAG, "Home action pressed: Stop");
+        bool handled = brain_event_handle_message("STOP");
+        if (s_status_label != NULL) {
+            if (handled) {
+                lv_label_set_text(s_status_label, "STOP requested");
+            } else {
+                lv_label_set_text(s_status_label, "STOP rejected: queue/state");
             }
         }
         return;
@@ -901,10 +933,13 @@ static lv_obj_t *create_home_screen(void)
     lv_obj_set_flex_align(action_grid, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
 
     /* Keep two rows of actions:
-     * row 1: Start spans the old Start + Blocks space
-     * row 2: Scan spans the old Settings + Scan space */
+     * row 1: Start + Stop (side by side)
+     * row 2: Scan spans the full width */
     lv_obj_t *start_btn = create_action_tile(action_grid, LV_SYMBOL_PLAY, "Start", UI_COLOR_SUCCESS);
-    lv_obj_set_width(start_btn, LV_PCT(100));
+    lv_obj_set_width(start_btn, LV_PCT(48));
+
+    lv_obj_t *stop_btn = create_action_tile(action_grid, LV_SYMBOL_STOP, "Stop", UI_COLOR_ALERT);
+    lv_obj_set_width(stop_btn, LV_PCT(48));
 
     lv_obj_t *scan_btn = create_action_tile(action_grid, LV_SYMBOL_REFRESH, "Scan", UI_COLOR_WARN);
     lv_obj_set_width(scan_btn, LV_PCT(100));

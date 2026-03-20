@@ -110,9 +110,24 @@ All child blocks include:
 ## I2C Address Range
 
 - **0x08 - 0x15**: Reserved for child blocks
-- **0x08**: Child Block 1 (LED Matrix - example implementation)
-- **0x09**: Child Block 2 (OLED Display - example implementation)
-- **0x0A - 0x15**: Available for other child blocks
+
+### Default I2C addresses per template
+
+These are the default slave addresses used by the firmware templates (see each
+block's `i2c_comm.c` for the authoritative value):
+
+| Block Type        | Address |
+|-------------------|---------|
+| LED_FLASH         | 0x08    |
+| THEN              | 0x09    |
+| END_IF            | 0x0A    |
+| LOOP              | 0x0B    |
+| END_LOOP          | 0x0C    |
+| DELAY             | 0x0D    |
+| BUTTON            | 0x0E    |
+| NOTE              | 0x0F    |
+| IF                | 0x10    |
+| MUSIC_SEQ         | 0x12    |
 
 ## Block Templates
 

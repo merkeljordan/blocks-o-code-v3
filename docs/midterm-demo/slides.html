@@ -57,7 +57,7 @@ body {
     radial-gradient(ellipse 35% 35% at 5% 95%,  rgba(0,170,255,.08) 0%, transparent 70%),
     var(--bg);
 }
-#slide-8, #slide-9 {
+#slide-8, #slide-9, #slide-10, #slide-11 {
   background:
     radial-gradient(ellipse 60% 50% at 5% 5%,   rgba(255,31,122,.14) 0%, transparent 70%),
     radial-gradient(ellipse 40% 40% at 95% 95%, rgba(192,68,255,.09) 0%, transparent 70%),
@@ -176,12 +176,12 @@ table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
 
 .mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; color: var(--muted); }
 
-/* ── Slide 9 progressive flow ─────────────────────────────── */
-#slide-9 .flow-step {
+/* ── Execution Flow progressive reveal (Slide 11) ─────────── */
+#slide-11 .flow-step {
   opacity: 0;
   transition: opacity .35s ease-out;
 }
-#slide-9 .flow-step.visible {
+#slide-11 .flow-step.visible {
   opacity: 1;
 }
 
@@ -894,9 +894,103 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 9 — DEMO EXECUTION FLOW
+     SLIDE 9 — SCENARIO 1 (BRAIN → LED COLOR FLASH)
 ════════════════════════════════════════════════════════════ -->
 <div class="slide" id="slide-9">
+  <div class="slide-header">
+    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+    <h2 class="slide-title">Scenario 1 — <span>Brain → LED Color Flash</span></h2>
+  </div>
+  <div class="content">
+    <div class="row" style="gap:32px;align-items:stretch">
+      <div class="col">
+        <div class="card">
+          <div class="card-title" style="color:var(--pink)">Program &amp; Hardware</div>
+          <ul class="checklist">
+            <li><strong>Physical program:</strong> Brain Block snapped to one LED Color Flash block</li>
+            <li><strong>On-block configuration:</strong> Use the LED block's TFT keypad to pick and submit a flash pattern before running</li>
+            <li><strong>Detection:</strong> Brain scans I2C, reads <span class="mono">REG_WHOAMI</span>, and builds a 2-block configuration</li>
+            <li><strong>App view:</strong> Flutter app receives <span class="mono">block_config</span> JSON, validates, and shows "VALID"</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:var(--border)">
+          <div class="card-title" style="color:var(--muted)">What the video shows</div>
+          <ul class="checklist">
+            <li>Blocks being snapped together and the Brain detecting the LED Color Flash block</li>
+            <li>App UI updating to show a valid 2-block sequence</li>
+            <li>Tapping <strong>Execute</strong> on the Brain's TFT</li>
+            <li>LED matrix + addressable LEDs playing the programmed flash pattern</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="border-color:var(--pink);height:100%;display:flex;flex-direction:column;gap:18px">
+          <div class="card-title" style="color:var(--pink)">Block Chain — Scenario 1</div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:20px">
+            <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
+            <div style="text-align:center;font-size:12px;color:var(--dim);font-weight:600">↓ I2C</div>
+            <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,31,122,.18),rgba(192,68,255,.10));border-radius:9px;border-left:5px solid var(--pink);font-weight:700;color:#ff80b0">💡 LED Color Flash</div>
+          </div>
+          <div style="margin-top:auto;padding:12px 14px;background:#0d1a16;border-radius:10px;border:1px solid rgba(0,221,106,.3);font-size:14px;color:#9fa8da">
+            <strong style="color:var(--green)">End-to-end path:</strong> I2C scan → JSON over TCP → "VALID" in app → <span class="mono">CMD_EXECUTE</span> → LEDs flash.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 10 — SCENARIO 2 (BRAIN → MUSIC SEQUENCE)
+════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-10">
+  <div class="slide-header">
+    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+    <h2 class="slide-title">Scenario 2 — <span>Brain → Music Sequence</span></h2>
+  </div>
+  <div class="content">
+    <div class="row" style="gap:32px;align-items:stretch">
+      <div class="col">
+        <div class="card">
+          <div class="card-title" style="color:var(--pink)">Program &amp; Hardware</div>
+          <ul class="checklist">
+            <li><strong>Physical program:</strong> Brain Block snapped to one Music Sequence block</li>
+            <li><strong>On-block configuration:</strong> Use the Music Sequence block's TFT UI to choose and submit a music sequence before running</li>
+            <li><strong>Detection:</strong> Brain re-scans the I2C bus, detects the Music Sequence block, and updates its configuration</li>
+            <li><strong>App view:</strong> App receives updated JSON, validates, and shows a 2-block "VALID" chain</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:var(--border)">
+          <div class="card-title" style="color:var(--muted)">What the video shows</div>
+          <ul class="checklist">
+            <li>Swapping from the LED block to the Music Sequence block</li>
+            <li>App UI updating to reflect the new block type</li>
+            <li>Tapping <strong>Execute</strong> on the Brain's TFT</li>
+            <li>Speaker playing the programmed melody while LEDs reflect activity</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card" style="border-color:var(--purple);height:100%;display:flex;flex-direction:column;gap:18px">
+          <div class="card-title" style="color:var(--purple)">Block Chain — Scenario 2</div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:20px">
+            <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(255,122,0,.18),rgba(255,214,0,.10));border-radius:9px;border-left:5px solid var(--orange);font-weight:700;color:var(--yellow)">🧠 Brain Block</div>
+            <div style="text-align:center;font-size:12px;color:var(--dim);font-weight:600">↓ I2C</div>
+            <div style="padding:12px 18px;background:linear-gradient(90deg,rgba(192,68,255,.18),rgba(255,31,122,.10));border-radius:9px;border-left:5px solid var(--purple);font-weight:700;color:#d580ff">🎵 Music Sequence</div>
+          </div>
+          <div style="margin-top:auto;padding:12px 14px;background:#0d1a16;border-radius:10px;border:1px solid rgba(0,221,106,.3);font-size:14px;color:#9fa8da">
+            <strong style="color:var(--green)">Same pipeline, different output:</strong> physical blocks → JSON → app validation → <span class="mono">CMD_EXECUTE</span> → audio through the speaker.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SLIDE 11 — DEMO EXECUTION FLOW
+════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-11">
   <div class="slide-header">
     <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
     <h2 class="slide-title">End-to-End <span>Execution Flow</span></h2>
@@ -998,9 +1092,9 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 10 — ENGINEERING SPECS OVERVIEW
+     SLIDE 12 — ENGINEERING SPECS OVERVIEW
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-10">
+<div class="slide" id="slide-12">
   <div class="slide-header">
     <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
     <h2 class="slide-title">Three <span>Engineering Specifications</span></h2>
@@ -1047,9 +1141,9 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 11 — SPEC 1
+     SLIDE 13 — SPEC 1
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-11">
+<div class="slide" id="slide-13">
   <div class="slide-header">
     <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
     <h2 class="slide-title">Spec 1 — <span>LED Color Preview Latency</span></h2>
@@ -1113,9 +1207,9 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 12 — SPEC 2
+     SLIDE 14 — SPEC 2
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-12">
+<div class="slide" id="slide-14">
   <div class="slide-header">
     <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
     <h2 class="slide-title">Spec 2 — <span>Config-Change-to-App Latency</span></h2>
@@ -1191,9 +1285,9 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 13 — SPEC 3
+     SLIDE 15 — SPEC 3
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-13">
+<div class="slide" id="slide-15">
   <div class="slide-header">
     <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
     <h2 class="slide-title">Spec 3 — <span>I2C Rise Time</span></h2>
@@ -1257,9 +1351,9 @@ h3.good { color: #80ffb0; }
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
-     SLIDE 14 — CLOSING
+     SLIDE 16 — CLOSING
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-14">
+<div class="slide" id="slide-16">
   <div class="slide-header">
     <span class="section-tag tag-close">Closing</span>
     <h2 class="slide-title">What We Built &amp; <span>What's Next</span></h2>
@@ -1315,7 +1409,7 @@ h3.good { color: #80ffb0; }
 </div>
 
 <script>
-const TOTAL = 14;
+const TOTAL = 16;
 let current = 1;
 
 // Slide 9 flow state
@@ -1355,7 +1449,7 @@ function show(n) {
   document.getElementById('progress-fill').style.width = (n / TOTAL * 100) + '%';
   current = n;
 
-  if (current === 9) {
+  if (current === 11) {
     // Start slide 9 with the first step visible
     slide9Step = 1;
     updateSlide9Steps();
@@ -1365,14 +1459,14 @@ function show(n) {
 }
 
 function goNext() {
-  if (current === 9) {
+  if (current === 11) {
     if (revealNextOnSlide9()) return;
   }
   show(current + 1);
 }
 
 function goPrev() {
-  if (current === 9 && slide9Step > 1) {
+  if (current === 11 && slide9Step > 1) {
     slide9Step = Math.max(1, slide9Step - 1);
     updateSlide9Steps();
     return;
