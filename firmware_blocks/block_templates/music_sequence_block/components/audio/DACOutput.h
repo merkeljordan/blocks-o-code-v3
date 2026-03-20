@@ -29,7 +29,7 @@ public:
     /* Called by: speaker_play_wav(), speaker_play_tone(), speaker_stop()
      * Swaps active sample source consumed by i2sWriterTask.
      */
-    void setSampleSource(SampleSource *source) { m_sample_generator = source; }
+    void setSampleSource(SampleSource *source);
 
     /* Friend task entrypoint declared in DACOutput.cpp. */
     friend void i2sWriterTask(void *param);

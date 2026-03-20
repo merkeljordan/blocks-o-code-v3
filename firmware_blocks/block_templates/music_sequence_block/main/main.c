@@ -85,7 +85,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(30);
+    speaker_set_volume(25);
     g_speaker_ready = true;
 }
 
