@@ -6,7 +6,7 @@ set(EXTRA_COMPONENT_DIRS "components")
 
 # Make shared components (like battery_monitor) visible to this template
 list(APPEND EXTRA_COMPONENT_DIRS
-    ${CMAKE_CURRENT_LIST_DIR}/../../shared
+    ${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
