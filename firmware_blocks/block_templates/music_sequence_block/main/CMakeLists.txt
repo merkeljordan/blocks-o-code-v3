@@ -18,6 +18,7 @@ idf_component_register(
         espressif__esp_lcd_ili9341
         atanisoft__esp_lcd_touch_xpt2046
         audio
+        battery_monitor
     # Songs are embedded in flash and exposed as linker symbols.
     # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
