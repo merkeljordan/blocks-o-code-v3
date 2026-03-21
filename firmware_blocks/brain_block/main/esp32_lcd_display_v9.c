@@ -961,7 +961,7 @@ static lv_obj_t *create_home_screen(void)
     s_status_label = lv_label_create(status_panel);
     lv_label_set_text(s_status_label, "Tap a button to start!");
     lv_obj_set_width(s_status_label, BRAIN_LCD_H_RES - 56);
-    lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_CLIP);
+    lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_color(s_status_label, UI_COLOR_TEXT_PRIMARY, 0);
     lv_obj_align(s_status_label, LV_ALIGN_LEFT_MID, 0, 0);
 
