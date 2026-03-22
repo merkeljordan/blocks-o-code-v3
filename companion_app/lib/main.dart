@@ -10,9 +10,11 @@ import 'models/block_configuration.dart';
 import 'models/configuration_rules.dart';
 import 'services/block_config_parser.dart';
 import 'services/configuration_validator.dart';
-import 'services/config_latency_metrics.dart';
 import 'models/block_type.dart';
 import 'widgets/block_3d_visualizer.dart';
+
+const bool kOfflineMode =
+    bool.fromEnvironment('COMPANION_OFFLINE_MODE', defaultValue: false);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,13 +82,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   final BlockConfigParser _configParser = BlockConfigParser();
   final ConfigurationValidator _configValidator = ConfigurationValidator();
   BlockConfiguration? _currentConfiguration;
+  BlockConfiguration? _offlineBaseConfiguration;
   List<RuleViolation> _configViolations = [];
-  final ConfigLatencyCalculator _configLatencyCalculator =
-      ConfigLatencyCalculator();
-  ConfigLatencyMetrics? _configLatencyMetrics;
-  bool _hasLastValidationResult = false;
-  bool _lastConfigIsValid = false;
-  int _lastConfigErrorCount = 0;
   
   // Heartbeat mechanism
   Timer? _heartbeatTimer;
@@ -135,6 +132,18 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _handleGetStarted() {
+    if (kOfflineMode) {
+      setState(() {
+        isConnected = false;
+        _isReconnecting = false;
+        _reconnectionAttempts = 0;
+        connectionStatus = 'Offline mode: using fake config (no WiFi/TCP)';
+      });
+      _navigateToScreen(ScreenType.blockConfig);
+      unawaited(_loadOfflineBaseConfiguration('assets/sample_block_config.json'));
+      return;
+    }
+
     // Start server if needed; otherwise just navigate without interrupting it.
     if (!_isServerRunning) {
       _setupTCPServerAndConnect();
@@ -156,6 +165,155 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         connectionStatus = 'Failed to load fake config: $e';
       });
     }
+  }
+
+  Future<void> _loadOfflineBaseConfiguration(String assetPath) async {
+    try {
+      final jsonString = await rootBundle.loadString(assetPath);
+      final config = _configParser.parseConfig(jsonString);
+      if (config == null) {
+        throw StateError('Failed to parse block configuration from $assetPath');
+      }
+
+      final violations = _configValidator.validate(config);
+
+      setState(() {
+        _currentConfiguration = config;
+        _offlineBaseConfiguration = config;
+        _configViolations = violations;
+        connectionStatus = 'Offline mode: loaded fake config from $assetPath';
+        _lastHeartbeatTime = DateTime.now();
+      });
+    } catch (e) {
+      setState(() {
+        connectionStatus = 'Offline mode: failed to load fake config: $e';
+      });
+    }
+  }
+
+  void _applyLocalBlockConfiguration(
+    BlockConfiguration config, {
+    required String statusText,
+  }) {
+    final violations = _configValidator.validate(config);
+    setState(() {
+      _currentConfiguration = config;
+      _configViolations = violations;
+      connectionStatus = statusText;
+      _lastHeartbeatTime = DateTime.now();
+    });
+  }
+
+  void _offlineAddBlock() {
+    final current = _currentConfiguration;
+    if (current == null) return;
+    final blocks = List<BlockInfo>.from(current.blocks);
+    final last = blocks.isNotEmpty ? blocks.last : null;
+
+    final type = last?.blockType ?? BlockType.brainBlock;
+    final nextAddr = (last?.i2cAddress ?? 0) + 1;
+    final nextIndex = blocks.length;
+
+    final blockId =
+        'BLOCK_${nextAddr.toRadixString(16).toUpperCase().padLeft(2, '0')}';
+
+    final whoami = WhoAmIData(
+      blockType: type.identifier,
+      blockId: blockId,
+      firmwareVersion: '1.0.0',
+      capabilities: const [],
+    );
+
+    blocks.add(
+      BlockInfo(
+        index: nextIndex,
+        i2cAddress: nextAddr,
+        whoami: whoami,
+        connectionOrder: nextIndex,
+        blockType: type,
+      ),
+    );
+
+    // Reindex sequentially so validation and rendering stay consistent.
+    final reindexed = <BlockInfo>[];
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      reindexed.add(
+        BlockInfo(
+          index: i,
+          i2cAddress: b.i2cAddress,
+          whoami: b.whoami,
+          connectionOrder: i,
+          blockType: b.blockType ?? type,
+        ),
+      );
+    }
+
+    _applyLocalBlockConfiguration(
+      BlockConfiguration(
+        totalBlocks: reindexed.length,
+        blocks: reindexed,
+        errors: current.errors,
+        timestamp: DateTime.now(),
+        originalFirmwareBlockCount: reindexed.length,
+        hasSyntheticBrainBlock: current.hasSyntheticBrainBlock,
+      ),
+      statusText: 'Offline mode: added block (${reindexed.length})',
+    );
+  }
+
+  void _offlineRemoveBlock() {
+    final current = _currentConfiguration;
+    if (current == null) return;
+    if (current.blocks.length <= 1) return;
+
+    final blocks = List<BlockInfo>.from(current.blocks);
+    blocks.removeLast();
+
+    final type = blocks.last.blockType ?? BlockType.brainBlock;
+
+    // Reindex sequentially after removal.
+    final reindexed = <BlockInfo>[];
+    for (var i = 0; i < blocks.length; i++) {
+      final b = blocks[i];
+      reindexed.add(
+        BlockInfo(
+          index: i,
+          i2cAddress: b.i2cAddress,
+          whoami: b.whoami,
+          connectionOrder: i,
+          blockType: b.blockType ?? type,
+        ),
+      );
+    }
+
+    _applyLocalBlockConfiguration(
+      BlockConfiguration(
+        totalBlocks: reindexed.length,
+        blocks: reindexed,
+        errors: current.errors,
+        timestamp: DateTime.now(),
+        originalFirmwareBlockCount: reindexed.length,
+        hasSyntheticBrainBlock: current.hasSyntheticBrainBlock,
+      ),
+      statusText: 'Offline mode: removed block (${reindexed.length})',
+    );
+  }
+
+  void _offlineResetBlocks() {
+    final base = _offlineBaseConfiguration;
+    if (base == null) return;
+    _applyLocalBlockConfiguration(
+      BlockConfiguration(
+        totalBlocks: base.totalBlocks,
+        blocks: List<BlockInfo>.from(base.blocks),
+        errors: base.errors,
+        timestamp: DateTime.now(),
+        originalFirmwareBlockCount: base.originalFirmwareBlockCount,
+        hasSyntheticBrainBlock: base.hasSyntheticBrainBlock,
+      ),
+      statusText: 'Offline mode: reset config',
+    );
   }
 
   void _navigateToScreen(ScreenType screen) {
@@ -194,7 +352,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         _currentConfiguration = null;
         _configViolations = [];
         connectionStatus = 'Server stopped';
-        _configLatencyMetrics = null;
       });
     } catch (e) {
       setState(() {
@@ -256,9 +413,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       _reconnectionAttempts = 0;
       _lastHeartbeatTime = DateTime.now();
     });
-
-    // Proactively publish latest validation state on each connect/reconnect.
-    _publishValidationForCurrentConfig(trigger: 'reconnect');
     
     // Start heartbeat mechanism
     _startHeartbeat();
@@ -306,12 +460,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   }
 
   void _processMessage(String message) {
-    if (message.contains('NAK:NEED_VALIDATION') ||
-        message.contains('NAK:INVALID_CONFIG')) {
-      _handleValidationRequestFromBrain(message);
-      return;
-    }
-
     try {
       // Try to parse as JSON
       final json = jsonDecode(message) as Map<String, dynamic>;
@@ -327,49 +475,16 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       
       // Check if it's a block configuration message
       if (json.containsKey('type') && json['type'] == 'block_config') {
-        final receiveTsMs = DateTime.now().millisecondsSinceEpoch;
         final config = _configParser.parseConfig(message);
         if (config != null) {
           // Validate configuration
           final violations = _configValidator.validate(config);
-          final errorCount = violations.where((v) => v.severity == Severity.error).length;
-          final isValid = errorCount == 0;
-          _hasLastValidationResult = true;
-          _lastConfigIsValid = isValid;
-          _lastConfigErrorCount = errorCount;
-          final brainDetectToSendMs =
-              _configLatencyCalculator.brainDetectToSend(config);
-          _sendConfigValidationEvent(
-            isValid: isValid,
-            errorCount: errorCount,
-            trigger: 'block_config_update',
-          );
+          
           setState(() {
             _currentConfiguration = config;
             _configViolations = violations;
-            _configLatencyMetrics = ConfigLatencyMetrics(
-              brainDetectToSendMs: brainDetectToSendMs,
-            );
-            connectionStatus = 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
+            connectionStatus = 'Block config: ${config.totalBlocks} block(s), ${violations.where((v) => v.severity == Severity.error).length} error(s)';
             _lastHeartbeatTime = DateTime.now();
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            final renderTsMs = DateTime.now().millisecondsSinceEpoch;
-            final appReceiveToRenderMs = renderTsMs - receiveTsMs;
-            final metrics = _configLatencyMetrics;
-            final estimatedDetectToRenderMs =
-                _configLatencyCalculator.estimatedDetectToRender(
-              brainDetectToSendMs: metrics?.brainDetectToSendMs,
-              appReceiveToRenderMs: appReceiveToRenderMs,
-            );
-            setState(() {
-              _configLatencyMetrics = (metrics ?? const ConfigLatencyMetrics())
-                  .copyWith(
-                appReceiveToRenderMs: appReceiveToRenderMs,
-                estimatedDetectToRenderMs: estimatedDetectToRenderMs,
-              );
-            });
           });
         } else {
           setState(() {
@@ -435,72 +550,6 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       // Connection might be lost
       _attemptReconnection();
     }
-  }
-
-  bool _sendConfigValidationEvent({
-    required bool isValid,
-    required int errorCount,
-    required String trigger,
-  }) {
-    final client = _clientSocket;
-    if (client == null || !isConnected) {
-      debugPrint('[ValidationTx] skip trigger=$trigger connected=$isConnected client=${client != null}');
-      return false;
-    }
-
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final validationEvent = jsonEncode({
-      'type': 'config_validation',
-      'is_valid': isValid,
-      'error_count': errorCount,
-      'timestamp': timestamp,
-    });
-
-    try {
-      client.write('$validationEvent\n');
-      debugPrint('[ValidationTx] sent trigger=$trigger is_valid=$isValid error_count=$errorCount ts=$timestamp connected=$isConnected');
-      return true;
-    } catch (e) {
-      debugPrint('[ValidationTx] failed trigger=$trigger error=$e');
-      // Reconnection path handles retries.
-      return false;
-    }
-  }
-
-  void _publishValidationForCurrentConfig({required String trigger}) {
-    final config = _currentConfiguration;
-
-    bool isValid = false;
-    int errorCount = 1;
-    List<RuleViolation>? violations;
-
-    if (config != null) {
-      violations = _configValidator.validate(config);
-      errorCount = violations.where((v) => v.severity == Severity.error).length;
-      isValid = errorCount == 0;
-    }
-
-    final bool sent = _sendConfigValidationEvent(
-      isValid: isValid,
-      errorCount: errorCount,
-      trigger: trigger,
-    );
-
-    setState(() {
-      if (violations != null) {
-        _configViolations = violations;
-      }
-      connectionStatus = sent
-          ? 'Validation sent (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)'
-          : 'Validation skipped/failed (trigger=$trigger, ${isValid ? "valid" : "invalid"}, errors: $errorCount)';
-      if (sent) {
-        _lastHeartbeatTime = DateTime.now();
-      }
-    });
-  }
-
-  void _handleValidationRequestFromBrain(String _) {
-    _publishValidationForCurrentConfig(trigger: 'brain_request');
   }
 
   // Heartbeat mechanism
@@ -790,8 +839,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           receivedTelemetry: _receivedTelemetry,
           currentConfiguration: _currentConfiguration,
           configViolations: _configViolations,
-          configLatencyMetrics: _configLatencyMetrics,
           onLoadFakeConfig: (path) => _loadFakeConfiguration(path),
+          onOfflineAddBlock: kOfflineMode ? _offlineAddBlock : null,
+          onOfflineRemoveBlock: kOfflineMode ? _offlineRemoveBlock : null,
+          onOfflineResetBlocks: kOfflineMode ? _offlineResetBlocks : null,
         );
         break;
       case ScreenType.settings:
@@ -2223,8 +2274,10 @@ class BlockConfigScreen extends StatelessWidget {
   final List<BlockTelemetry> receivedTelemetry;
   final BlockConfiguration? currentConfiguration;
   final List<RuleViolation> configViolations;
-  final ConfigLatencyMetrics? configLatencyMetrics;
   final Function(String)? onLoadFakeConfig;
+  final VoidCallback? onOfflineAddBlock;
+  final VoidCallback? onOfflineRemoveBlock;
+  final VoidCallback? onOfflineResetBlocks;
 
   const BlockConfigScreen({
     super.key,
@@ -2240,8 +2293,10 @@ class BlockConfigScreen extends StatelessWidget {
     this.receivedTelemetry = const [],
     this.currentConfiguration,
     this.configViolations = const [],
-    this.configLatencyMetrics,
     this.onLoadFakeConfig,
+    this.onOfflineAddBlock,
+    this.onOfflineRemoveBlock,
+    this.onOfflineResetBlocks,
   });
 
   @override
@@ -2412,6 +2467,76 @@ class BlockConfigScreen extends StatelessWidget {
                                   ),
                                 ),
                               ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Offline Block Controls (dev bypass mode, no WiFi/TCP).
+                    if (kOfflineMode) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.primary.withOpacity(0.3),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.extension,
+                                    color: colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Offline Block Controls',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: currentConfiguration != null
+                                        ? onOfflineAddBlock
+                                        : null,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Add Block'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: (currentConfiguration != null &&
+                                                currentConfiguration!.blocks.length >
+                                                    1)
+                                            ? onOfflineRemoveBlock
+                                            : null,
+                                    icon: const Icon(Icons.remove),
+                                    label: const Text('Remove Block'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: onOfflineResetBlocks,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Reset'),
+                              ),
                             ),
                           ],
                         ),
@@ -2618,10 +2743,6 @@ class BlockConfigScreen extends StatelessWidget {
                               );
                             },
                           ),
-                          if (configLatencyMetrics != null) ...[
-                            const SizedBox(height: 12),
-                            _buildLatencyMetrics(theme, colorScheme),
-                          ],
                         ],
                       ),
                     ),
@@ -2631,59 +2752,6 @@ class BlockConfigScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildLatencyMetrics(ThemeData theme, ColorScheme colorScheme) {
-    final metrics = configLatencyMetrics!;
-    final brainSegment = metrics.brainDetectToSendMs;
-    final appSegment = metrics.appReceiveToRenderMs;
-    final estimated = metrics.estimatedDetectToRenderMs;
-
-    String valueOrPending(int? ms) => ms == null ? 'pending...' : '${ms} ms';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.primary.withOpacity(0.4),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Config Latency',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Brain detect -> send: ${valueOrPending(brainSegment)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-            ),
-          ),
-          Text(
-            'App receive -> render: ${valueOrPending(appSegment)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-            ),
-          ),
-          Text(
-            'Estimated detect -> render: ${valueOrPending(estimated)}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-            ),
-          ),
-        ],
       ),
     );
   }
