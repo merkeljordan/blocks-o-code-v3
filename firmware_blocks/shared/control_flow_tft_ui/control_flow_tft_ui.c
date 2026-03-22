@@ -2,20 +2,24 @@
 
 #include <stdio.h>
 #include <string.h>
-
-#define CONTROL_FLOW_ANIM_PERIOD_MS 95U
-#define CONTROL_FLOW_ANIM_TICKS     16U
-#define CONTROL_FLOW_CONFETTI_COUNT 8U
-
-#if LV_FONT_MONTSERRAT_28
-#define CONTROL_FLOW_TITLE_FONT (&lv_font_montserrat_28)
-#elif LV_FONT_MONTSERRAT_24
-#define CONTROL_FLOW_TITLE_FONT (&lv_font_montserrat_24)
-#elif LV_FONT_MONTSERRAT_16
-#define CONTROL_FLOW_TITLE_FONT (&lv_font_montserrat_16)
-#else
-#define CONTROL_FLOW_TITLE_FONT LV_FONT_DEFAULT
+#if defined(ESP_PLATFORM)
+#include "esp_heap_caps.h"
 #endif
+
+LV_FONT_DECLARE(mochi_boom_28);
+LV_FONT_DECLARE(mochi_boom_34);
+
+#define CONTROL_FLOW_ANIM_PERIOD_MS 70U
+#define CONTROL_FLOW_ANIM_TICKS     28U
+#define CONTROL_FLOW_SCREEN_W       240
+#define CONTROL_FLOW_SCREEN_H       320
+#define CONTROL_FLOW_CARD_IDLE_X    14
+#define CONTROL_FLOW_CARD_IDLE_Y    14
+#define CONTROL_FLOW_CARD_IDLE_W    212
+#define CONTROL_FLOW_CARD_IDLE_H    160
+#define CONTROL_FLOW_DISCO_GIF_SCALE 256U
+
+#define CONTROL_FLOW_TITLE_FONT (&mochi_boom_34)
 
 typedef struct {
     uint8_t r;
@@ -25,17 +29,20 @@ typedef struct {
 
 static lv_obj_t *s_screen;
 static lv_obj_t *s_card;
+static lv_obj_t *s_control_card;
 static lv_obj_t *s_status_label;
+static lv_obj_t *s_running_status_label;
 static lv_obj_t *s_title_label;
 static lv_obj_t *s_value_label;
 static lv_obj_t *s_preview_button;
 static lv_obj_t *s_submit_button;
 static lv_obj_t *s_minus_button;
 static lv_obj_t *s_plus_button;
-static lv_obj_t *s_confetti[CONTROL_FLOW_CONFETTI_COUNT];
+static lv_obj_t *s_running_gif;
 static lv_timer_t *s_anim_timer;
 static lv_timer_t *s_state_timer;
 static control_flow_ui_config_t s_cfg;
+static bool s_running_gif_loaded;
 static uint32_t s_current_value;
 static uint32_t s_anim_tick;
 static bool s_running;
@@ -43,18 +50,19 @@ static volatile bool s_pending_execute;
 static volatile bool s_pending_idle;
 static volatile bool s_pending_value_refresh;
 
-static const uint32_t k_party_palette[] = {
-    0xFF5D8Fu,
-    0xF97316u,
-    0xFDE047u,
-    0x2DD4BFu,
-    0x60A5FAu,
-    0xA78BFAu,
-};
+#if LV_USE_GIF
+extern const uint8_t discoball_gif_start[] asm("_binary_discoball_gif_start");
+extern const uint8_t discoball_gif_end[] asm("_binary_discoball_gif_end");
+static lv_image_dsc_t s_discoball_gif_src;
+#endif
 
 static void set_button_palette(lv_obj_t *button, uint32_t color);
 static void set_preview_button_visible(bool visible);
 static void start_running_state(void);
+#if LV_USE_GIF
+static bool gif_has_valid_signature(const uint8_t *data, size_t len);
+static void gif_get_dimensions(const uint8_t *data, size_t len, uint16_t *w, uint16_t *h);
+#endif
 
 static uint32_t clamp_value(uint32_t value)
 {
@@ -90,13 +98,6 @@ static uint32_t blend_hex(uint32_t a, uint32_t b, uint8_t amount)
     uint32_t g = ((uint32_t)rgb_a.g * inv + (uint32_t)rgb_b.g * amount) / 255u;
     uint32_t b_out = ((uint32_t)rgb_a.b * inv + (uint32_t)rgb_b.b * amount) / 255u;
     return (r << 16) | (g << 8) | b_out;
-}
-
-static uint32_t party_color(uint32_t phase, uint32_t offset, uint8_t accent_mix)
-{
-    uint32_t count = sizeof(k_party_palette) / sizeof(k_party_palette[0]);
-    uint32_t base = k_party_palette[(phase + offset) % count];
-    return blend_hex(base, s_cfg.accent_color, accent_mix);
 }
 
 static void set_label_text(lv_obj_t *label, const char *text)
@@ -139,25 +140,40 @@ static void apply_idle_palette(void)
     lv_obj_set_style_bg_color(s_card, lv_color_hex(card_bg), 0);
     lv_obj_set_style_bg_grad_color(s_card, lv_color_hex(card_grad), 0);
     lv_obj_set_style_bg_grad_dir(s_card, LV_GRAD_DIR_VER, 0);
+    lv_obj_set_style_bg_opa(s_card, LV_OPA_COVER, 0);
+    lv_obj_set_pos(s_card, CONTROL_FLOW_CARD_IDLE_X, CONTROL_FLOW_CARD_IDLE_Y);
+    lv_obj_set_size(s_card, CONTROL_FLOW_CARD_IDLE_W, CONTROL_FLOW_CARD_IDLE_H);
+    lv_obj_set_style_radius(s_card, 28, 0);
+    lv_obj_set_style_clip_corner(s_card, false, 0);
     lv_obj_set_style_shadow_color(s_card, lv_color_hex(accent), 0);
     lv_obj_set_style_shadow_width(s_card, 24, 0);
+    lv_obj_set_style_shadow_opa(s_card, LV_OPA_40, 0);
     lv_obj_set_style_border_color(s_card, lv_color_hex(blend_hex(0xFFFFFFu, accent, 128u)), 0);
     lv_obj_set_style_border_width(s_card, 2, 0);
+    lv_obj_set_style_border_opa(s_card, LV_OPA_COVER, 0);
     lv_obj_set_style_translate_x(s_card, 0, 0);
     lv_obj_set_style_translate_y(s_card, 0, 0);
 
     lv_obj_set_style_text_color(s_title_label, lv_color_hex(0xF8FAFCu), 0);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xD4DCE8u), 0);
+    if (s_running_status_label != NULL) {
+        lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(s_running_status_label, lv_color_hex(0xF8FAFCu), 0);
+    }
     if (s_value_label != NULL) {
         lv_obj_set_style_text_color(s_value_label, lv_color_hex(0xF8FAFCu), 0);
     }
-
-    for (uint32_t i = 0; i < CONTROL_FLOW_CONFETTI_COUNT; i++) {
-        if (s_confetti[i] != NULL) {
-            lv_obj_add_flag(s_confetti[i], LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_size(s_confetti[i], 10, 10);
-            lv_obj_set_style_radius(s_confetti[i], LV_RADIUS_CIRCLE, 0);
-        }
+    if (s_control_card != NULL) {
+        lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_status_label != NULL) {
+        lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_running_gif != NULL) {
+        lv_obj_add_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
+#if LV_USE_GIF
+        lv_gif_pause(s_running_gif);
+#endif
     }
 
     if (s_preview_button != NULL) {
@@ -213,70 +229,39 @@ static void set_preview_button_visible(bool visible)
     }
 }
 
+#if LV_USE_GIF
+static bool gif_has_valid_signature(const uint8_t *data, size_t len)
+{
+    if (data == NULL || len < 6U) {
+        return false;
+    }
+
+    return ((memcmp(data, "GIF87a", 6) == 0) || (memcmp(data, "GIF89a", 6) == 0));
+}
+
+static void gif_get_dimensions(const uint8_t *data, size_t len, uint16_t *w, uint16_t *h)
+{
+    if (w != NULL) {
+        *w = 0;
+    }
+    if (h != NULL) {
+        *h = 0;
+    }
+    if (data == NULL || len < 10U || w == NULL || h == NULL) {
+        return;
+    }
+
+    *w = (uint16_t)data[6] | ((uint16_t)data[7] << 8);
+    *h = (uint16_t)data[8] | ((uint16_t)data[9] << 8);
+}
+#endif
+
 static void update_idle_status(void)
 {
     if (s_cfg.supports_value) {
         set_status_text("Adjust, submit, or preview the run.");
     } else {
         set_status_text("Preview the run-state animation.");
-    }
-}
-
-static void animate_running_frame(void)
-{
-    static const int16_t k_confetti_x[CONTROL_FLOW_CONFETTI_COUNT] = {18, 170, 36, 148, 22, 176, 58, 128};
-    static const int16_t k_confetti_y[CONTROL_FLOW_CONFETTI_COUNT] = {18, 24, 48, 54, 114, 106, 132, 120};
-    static const uint8_t k_confetti_size[CONTROL_FLOW_CONFETTI_COUNT] = {10, 8, 12, 9, 11, 8, 10, 9};
-    uint32_t phase = s_anim_tick % 6U;
-    uint32_t bg_a = party_color(phase, 0U, 20u);
-    uint32_t bg_b = party_color(phase, 2U, 16u);
-    uint32_t card_a = party_color(phase, 1U, 72u);
-    uint32_t card_b = party_color(phase, 3U, 84u);
-    uint32_t pulse = party_color(phase, 4U, 48u);
-    uint32_t text_flash = party_color(phase, 5U, 34u);
-    lv_opa_t accent_opa = (phase & 1U) ? LV_OPA_90 : LV_OPA_50;
-
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(blend_hex(0x06070Eu, bg_a, 96u)), 0);
-    lv_obj_set_style_bg_grad_color(s_screen, lv_color_hex(blend_hex(0x131A2Bu, bg_b, 132u)), 0);
-    lv_obj_set_style_bg_grad_dir(s_screen, LV_GRAD_DIR_VER, 0);
-
-    lv_obj_set_style_bg_color(s_card, lv_color_hex(blend_hex(0x151B2Du, card_a, 108u)), 0);
-    lv_obj_set_style_bg_grad_color(s_card, lv_color_hex(blend_hex(card_b, 0xFFFFFFu, 24u)), 0);
-    lv_obj_set_style_bg_grad_dir(s_card, LV_GRAD_DIR_VER, 0);
-    lv_obj_set_style_shadow_color(s_card, lv_color_hex(pulse), 0);
-    lv_obj_set_style_shadow_width(s_card, 26 + (int32_t)((phase % 3U) * 6U), 0);
-    lv_obj_set_style_border_color(s_card, lv_color_hex(text_flash), 0);
-    lv_obj_set_style_border_width(s_card, 2 + (int32_t)(phase % 2U), 0);
-    lv_obj_set_style_translate_x(s_card, 0, 0);
-    lv_obj_set_style_translate_y(s_card, 0, 0);
-    lv_obj_set_style_translate_y(s_title_label, 0, 0);
-    lv_obj_set_style_text_color(s_title_label, lv_color_hex(blend_hex(0xFFFFFFu, text_flash, 96u)), 0);
-    lv_obj_set_style_text_color(s_status_label, lv_color_hex(blend_hex(0xF8FAFCu, pulse, 72u)), 0);
-    if (s_value_label != NULL) {
-        lv_obj_set_style_text_color(s_value_label, lv_color_hex(blend_hex(0xFFFFFFu, card_b, 90u)), 0);
-    }
-
-    if (s_submit_button != NULL) {
-        set_button_palette(s_submit_button, party_color(phase, 3U, 48u));
-        lv_obj_set_style_shadow_color(s_submit_button, lv_color_hex(party_color(phase, 5U, 30u)), 0);
-        lv_obj_set_style_shadow_width(s_submit_button, 16 + (int32_t)(((phase + 2U) % 6U) * 2U), 0);
-    }
-
-    for (uint32_t i = 0; i < CONTROL_FLOW_CONFETTI_COUNT; i++) {
-        lv_obj_t *dot = s_confetti[i];
-        if (dot == NULL) {
-            continue;
-        }
-
-        uint32_t color = party_color(phase, i, (uint8_t)(20U + i * 12U));
-        lv_obj_clear_flag(dot, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_pos(dot, k_confetti_x[i], k_confetti_y[i]);
-        lv_obj_set_size(dot, k_confetti_size[i], k_confetti_size[i]);
-        lv_obj_set_style_bg_color(dot, lv_color_hex(color), 0);
-        lv_obj_set_style_bg_opa(dot, accent_opa, 0);
-        lv_obj_set_style_shadow_color(dot, lv_color_hex(color), 0);
-        lv_obj_set_style_shadow_width(dot, 8 + (int32_t)(i % 2U) * 4, 0);
-        lv_obj_set_style_radius(dot, ((i & 1U) == 0U) ? LV_RADIUS_CIRCLE : 4, 0);
     }
 }
 
@@ -288,7 +273,6 @@ static void running_timer_cb(lv_timer_t *timer)
         return;
     }
 
-    animate_running_frame();
     s_anim_tick++;
     if (s_anim_tick >= CONTROL_FLOW_ANIM_TICKS) {
         control_flow_tft_ui_set_idle();
@@ -305,7 +289,24 @@ static void apply_idle_state(void)
     }
 
     apply_idle_palette();
+    if (s_title_label != NULL) {
+        lv_obj_clear_flag(s_title_label, LV_OBJ_FLAG_HIDDEN);
+    }
     lv_obj_set_style_translate_y(s_title_label, 0, 0);
+    lv_obj_set_style_translate_y(s_status_label, 0, 0);
+    if (s_status_label != NULL) {
+        lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_running_status_label != NULL) {
+        lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_translate_y(s_running_status_label, 0, 0);
+    }
+    if (s_control_card != NULL) {
+        lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_card != NULL) {
+        lv_obj_clear_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+    }
     update_value_label();
     update_idle_status();
     set_preview_button_visible(true);
@@ -351,8 +352,36 @@ static void start_running_state(void)
 {
     s_running = true;
     s_anim_tick = 0;
-    set_status_text("Disco time! Block is running!");
-    set_preview_button_visible(false);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x000000u), 0);
+    lv_obj_set_style_bg_grad_color(s_screen, lv_color_hex(0x000000u), 0);
+    lv_obj_set_style_bg_grad_dir(s_screen, LV_GRAD_DIR_VER, 0);
+    if (s_card != NULL) {
+        lv_obj_add_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_running_status_label != NULL) {
+        lv_label_set_text(s_running_status_label,
+                          s_running_gif_loaded ? "Disco time! Block is running!"
+                                               : "Disco GIF failed to load");
+        lv_obj_clear_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(s_running_status_label, lv_color_hex(0xFFFFFFu), 0);
+        lv_obj_set_style_translate_y(s_running_status_label, 0, 0);
+    }
+    if (s_control_card != NULL) {
+        lv_obj_add_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        set_preview_button_visible(false);
+    }
+#if LV_USE_GIF
+    if (s_running_gif != NULL) {
+        lv_obj_move_background(s_running_gif);
+        lv_obj_clear_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
+        lv_gif_restart(s_running_gif);
+        lv_gif_resume(s_running_gif);
+    }
+#endif
+    if (s_running_status_label != NULL) {
+        lv_obj_move_foreground(s_running_status_label);
+    }
 
     if (s_anim_timer == NULL) {
         s_anim_timer = lv_timer_create(running_timer_cb, CONTROL_FLOW_ANIM_PERIOD_MS, NULL);
@@ -360,8 +389,9 @@ static void start_running_state(void)
         lv_timer_set_period(s_anim_timer, CONTROL_FLOW_ANIM_PERIOD_MS);
         lv_timer_resume(s_anim_timer);
     }
+    lv_timer_reset(s_anim_timer);
+    lv_timer_ready(s_anim_timer);
 
-    animate_running_frame();
 }
 
 static void preview_button_cb(lv_event_t *event)
@@ -429,6 +459,7 @@ static lv_obj_t *create_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w
     lv_obj_t *button = lv_button_create(parent);
     lv_obj_set_size(button, w, h);
     lv_obj_set_pos(button, x, y);
+    lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(button, 18, 0);
     lv_obj_set_style_border_width(button, 0, 0);
     lv_obj_set_style_shadow_width(button, 14, 0);
@@ -451,22 +482,23 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_cfg = *cfg;
     s_current_value = s_cfg.default_value;
     s_running = false;
+    s_running_gif_loaded = false;
     s_anim_tick = 0;
     s_pending_execute = false;
     s_pending_idle = false;
     s_pending_value_refresh = false;
     s_screen = NULL;
     s_card = NULL;
+    s_control_card = NULL;
     s_status_label = NULL;
+    s_running_status_label = NULL;
     s_title_label = NULL;
     s_value_label = NULL;
     s_preview_button = NULL;
     s_submit_button = NULL;
     s_minus_button = NULL;
     s_plus_button = NULL;
-    for (uint32_t i = 0; i < CONTROL_FLOW_CONFETTI_COUNT; i++) {
-        s_confetti[i] = NULL;
-    }
+    s_running_gif = NULL;
 
     if (s_cfg.supports_value) {
         s_current_value = clamp_value(s_current_value);
@@ -484,6 +516,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(s_screen);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
 
     s_card = lv_obj_create(s_screen);
     lv_obj_set_size(s_card, 212, 160);
@@ -493,10 +526,11 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_set_style_pad_all(s_card, 0, 0);
     lv_obj_set_style_shadow_width(s_card, 24, 0);
     lv_obj_set_style_shadow_opa(s_card, LV_OPA_40, 0);
+    lv_obj_clear_flag(s_card, LV_OBJ_FLAG_SCROLLABLE);
     s_title_label = lv_label_create(s_card);
     lv_label_set_text(s_title_label, (s_cfg.title != NULL) ? s_cfg.title : "BLOCK");
     lv_obj_set_width(s_title_label, 180);
-    lv_obj_set_pos(s_title_label, 16, 24);
+    lv_obj_set_pos(s_title_label, 16, 34);
     lv_obj_set_style_text_align(s_title_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_font(s_title_label, CONTROL_FLOW_TITLE_FONT, 0);
 
@@ -508,52 +542,107 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xD4DCE8u), 0);
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_WRAP);
 
-    for (uint32_t i = 0; i < CONTROL_FLOW_CONFETTI_COUNT; i++) {
-        s_confetti[i] = lv_obj_create(s_card);
-        lv_obj_set_size(s_confetti[i], 10, 10);
-        lv_obj_set_style_radius(s_confetti[i], LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_border_width(s_confetti[i], 0, 0);
-        lv_obj_set_style_shadow_width(s_confetti[i], 12, 0);
-        lv_obj_add_flag(s_confetti[i], LV_OBJ_FLAG_HIDDEN);
+    s_running_status_label = lv_label_create(s_screen);
+    lv_obj_set_width(s_running_status_label, 224);
+    lv_obj_set_pos(s_running_status_label, 8, 188);
+    lv_obj_set_style_text_align(s_running_status_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(s_running_status_label, &mochi_boom_28, 0);
+    lv_obj_set_style_text_color(s_running_status_label, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_text_opa(s_running_status_label, LV_OPA_COVER, 0);
+    lv_label_set_long_mode(s_running_status_label, LV_LABEL_LONG_WRAP);
+    lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
+
+#if LV_USE_GIF
+    size_t gif_size = (size_t)(discoball_gif_end - discoball_gif_start);
+    bool gif_sig_ok = gif_has_valid_signature(discoball_gif_start, gif_size);
+    uint16_t gif_w = 0;
+    uint16_t gif_h = 0;
+    gif_get_dimensions(discoball_gif_start, gif_size, &gif_w, &gif_h);
+    uint32_t decode_est_bytes = (uint32_t)gif_w * (uint32_t)gif_h * 5U;
+    printf("[control_flow_tft_ui] GIF bytes=%u signature_ok=%s wh=%ux%u decode_est=%uB\n",
+           (unsigned)gif_size,
+           gif_sig_ok ? "true" : "false",
+           (unsigned)gif_w,
+           (unsigned)gif_h,
+           (unsigned)decode_est_bytes);
+#if defined(ESP_PLATFORM)
+    printf("[control_flow_tft_ui] heap free=%uB largest=%uB\n",
+           (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#endif
+
+    memset(&s_discoball_gif_src, 0, sizeof(s_discoball_gif_src));
+    s_discoball_gif_src.header.magic = LV_IMAGE_HEADER_MAGIC;
+    s_discoball_gif_src.header.cf = LV_COLOR_FORMAT_RAW;
+    s_discoball_gif_src.data = discoball_gif_start;
+    s_discoball_gif_src.data_size = (uint32_t)gif_size;
+
+    s_running_gif = lv_gif_create(s_screen);
+    lv_obj_set_size(s_running_gif, CONTROL_FLOW_SCREEN_W, CONTROL_FLOW_SCREEN_H);
+    lv_obj_set_pos(s_running_gif, 0, 0);
+    lv_obj_move_background(s_running_gif);
+    if ((gif_size > 0U) && gif_sig_ok) {
+        lv_gif_set_src(s_running_gif, &s_discoball_gif_src);
+    } else {
+        printf("[control_flow_tft_ui] GIF rejected before decode (invalid bytes/signature)\n");
     }
+    s_running_gif_loaded = ((gif_size > 0U) && gif_sig_ok && (lv_image_get_src(s_running_gif) != NULL));
+    printf("[control_flow_tft_ui] GIF load_result=%s\n", s_running_gif_loaded ? "success" : "failed");
+    lv_image_set_scale(s_running_gif, CONTROL_FLOW_DISCO_GIF_SCALE);
+    lv_image_set_inner_align(s_running_gif, LV_IMAGE_ALIGN_CENTER);
+    lv_image_set_antialias(s_running_gif, true);
+    lv_obj_add_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_running_gif, LV_OBJ_FLAG_SCROLLABLE);
+#else
+    s_running_gif = NULL;
+    s_running_gif_loaded = false;
+#endif
+
+    lv_obj_move_foreground(s_title_label);
+    lv_obj_move_foreground(s_status_label);
+    lv_obj_move_foreground(s_running_status_label);
 
     if (s_cfg.supports_value) {
-        lv_obj_t *control_card = lv_obj_create(s_screen);
-        lv_obj_set_size(control_card, 212, 118);
-        lv_obj_set_pos(control_card, 14, 188);
-        lv_obj_set_style_radius(control_card, 24, 0);
-        lv_obj_set_style_bg_color(control_card, lv_color_hex(0x101728u), 0);
-        lv_obj_set_style_bg_grad_color(control_card, lv_color_hex(0x17213Au), 0);
-        lv_obj_set_style_bg_grad_dir(control_card, LV_GRAD_DIR_VER, 0);
-        lv_obj_set_style_border_width(control_card, 1, 0);
-        lv_obj_set_style_border_color(control_card, lv_color_hex(0x24324Du), 0);
+        s_control_card = lv_obj_create(s_screen);
+        lv_obj_set_size(s_control_card, 212, 118);
+        lv_obj_set_pos(s_control_card, 14, 188);
+        lv_obj_set_style_radius(s_control_card, 24, 0);
+        lv_obj_set_style_bg_color(s_control_card, lv_color_hex(0x101728u), 0);
+        lv_obj_set_style_bg_grad_color(s_control_card, lv_color_hex(0x17213Au), 0);
+        lv_obj_set_style_bg_grad_dir(s_control_card, LV_GRAD_DIR_VER, 0);
+        lv_obj_set_style_border_width(s_control_card, 1, 0);
+        lv_obj_set_style_border_color(s_control_card, lv_color_hex(0x24324Du), 0);
+        lv_obj_set_style_pad_all(s_control_card, 0, 0);
+        lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_SCROLLABLE);
 
-        s_minus_button = create_button(control_card, 18, 16, 42, 38, "-");
-        s_plus_button = create_button(control_card, 152, 16, 42, 38, "+");
+        s_minus_button = create_button(s_control_card, 18, 16, 42, 38, "-");
+        s_plus_button = create_button(s_control_card, 152, 16, 42, 38, "+");
         set_button_palette(s_minus_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
         set_button_palette(s_plus_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
         lv_obj_add_event_cb(s_minus_button, minus_button_cb, LV_EVENT_CLICKED, NULL);
         lv_obj_add_event_cb(s_plus_button, plus_button_cb, LV_EVENT_CLICKED, NULL);
 
-        s_value_label = lv_label_create(control_card);
+        s_value_label = lv_label_create(s_control_card);
         lv_obj_set_width(s_value_label, 88);
         lv_obj_set_pos(s_value_label, 62, 20);
         lv_obj_set_style_text_align(s_value_label, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_style_text_font(s_value_label, LV_FONT_DEFAULT, 0);
         lv_obj_set_style_text_color(s_value_label, lv_color_hex(0xF8FAFCu), 0);
 
-        s_preview_button = create_button(control_card, 18, 68, 84, 34, "Preview");
-        s_submit_button = create_button(control_card, 110, 68, 84, 34, "Submit");
+        s_preview_button = create_button(s_control_card, 18, 68, 84, 34, "Preview");
+        s_submit_button = create_button(s_control_card, 110, 68, 84, 34, "Submit");
         set_button_palette(s_preview_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 70u));
         set_button_palette(s_submit_button, s_cfg.accent_color);
         lv_obj_add_event_cb(s_preview_button, preview_button_cb, LV_EVENT_CLICKED, NULL);
         lv_obj_add_event_cb(s_submit_button, submit_button_cb, LV_EVENT_CLICKED, NULL);
     } else {
+        s_control_card = NULL;
         s_value_label = NULL;
         s_minus_button = NULL;
         s_plus_button = NULL;
         s_submit_button = NULL;
         s_preview_button = create_button(s_screen, 26, 228, 188, 56, "Preview Run");
+        lv_obj_clear_flag(s_preview_button, LV_OBJ_FLAG_SCROLLABLE);
         set_button_palette(s_preview_button, s_cfg.accent_color);
         lv_obj_add_event_cb(s_preview_button, preview_button_cb, LV_EVENT_CLICKED, NULL);
     }
