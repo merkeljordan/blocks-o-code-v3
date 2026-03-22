@@ -11,11 +11,11 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | Branch | Status vs main | Notes |
 |--------|----------------|--------|
 | `main` | baseline | Local `main` matches `origin/main`. |
-| `origin/brain-stop-button-tft` | ahead of `main` | Stop-button behavior branch exists; currently **behind `origin/main` by ~10 commits**, so merge `main` in before finishing/merging. |
+| `origin/brain-stop-button-tft-final` | on track with `main` | Stop-button behavior branch exists; currently **behind `origin/main` by ~10 commits**, so merge `main` in before finishing/merging. |
 | `origin/led-strip-behavior` | ahead of `main` | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. It’s currently **behind `origin/main` by ~2 commits**. |
 | `origin/note-block-firmware` | ahead of `main` | NOTE block firmware + Brain note broadcast work is on this branch; not merged into `main`. It’s currently **behind `origin/main` by ~8 commits**. |
 | `origin/control-flow-docs-and-blocks` | ahead of `main` | Branch exists with control flow buildout work; not merged into `main`. |
-| `origin/music-sequences-behavior` | ahead of `main` | Music sequence block behavior, simulator support, and expanded song catalog are implemented on this branch; needs merge to `main`. |
+| `origin/music-sequences-behavior` | on track with `main` | Music sequence block behavior, simulator support, and expanded song catalog are implemented on this branch; merged into `main`. |
 
 ---
 
@@ -27,7 +27,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Brain TFT UI — `firmware_blocks/brain_block/main/esp32_lcd_display_v9.c` (Start button, `home_action_event_cb`).
 - **Branch:** `origin/brain-stop-button-tft` has the implementation (ahead of `main`). Merge/cherry-pick from there.
 - **Owner:** **Destiny** (TFT / “what you see”).
-- **Status:** [ ] Pushed on branch (needs merge to `main`)
+- **Status:** [X] In progress (needs merge to `main`)
 - **How:**
   1. **One physical button, two behaviors:** The Start button is created in `create_home_screen()` — search for `"Start"` and `create_action_tile(..., "Start", ...)`. Change this single button's label and action depending on whether the Brain is *idle* or *running*.
   2. **Know when we're running:** In `brain_event_handler.h`, `brain_executor_get_context()` returns a struct whose `.state` is `EXECUTOR_RUNNING` when a run is in progress (or `EXECUTOR_IDLE`, `EXECUTOR_DONE`, etc.). Include that header in the display file and call it when handling the button and when updating the button's look.
@@ -99,7 +99,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Music sequence block template and app-side config; audio/song assets.
 - **Branch:** `origin/music-sequences-behavior` has no unique commits yet — use it or create a new branch for this work.
 - **Owner:** **Destiny** (speaker / “what you hear”).
-- **Status:** [x] Implemented + pushed (needs merge to `main`)
+- **Status:** [x] Implemented + pushed (merged to `main`)
 - **How:**
   1. **Where the block lives:** `firmware_blocks/block_templates/music_sequence_block/`. Main logic: `main/main.c` has `command_handle()` which on `CMD_EXECUTE` calls `speaker_play_song()`. The TFT UI is in `main/tft_ui.c` (song selection, etc.). Audio/songs are in the block's `components/audio/` or similar — look for WAV files or song IDs.
   2. **Finish behavior:** Ensure that when the Brain sends CMD_EXECUTE (and any config command for "which song"), the block plays the selected song from start to finish and reports ready again. Match the pattern of the LED Color Flash block: config → submit selection → Brain later sends CMD_EXECUTE to all blocks; music block should play one full song per CMD_EXECUTE.
@@ -113,7 +113,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Brain and/or child block firmware using LED strip; `led_strip` driver / shared LED UX.
 - **Branch:** `origin/led-strip-behavior` has execution mirroring work pushed (ahead of `main`) — merge, then finish idle mapping + polish.
 - **Owner:** **Destiny** (LEDs / peripherals).
-- **Status:** [x] Implemented
+- **Status:** [x] In progress + needs to be applied to updated control flow block logic ( needs merge to `main`)
 - **What was completed:**
   1. Added idle type-color mapping across the system:
      - `BRAIN` = red
@@ -207,7 +207,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Child block templates with TFT (e.g. blocks that use a display); `firmware_blocks/block_templates/common_block/components/battery_monitor` if present; each block’s UI code.
 - **Branch:** New branch (e.g. `block-tft-battery`) or add to a block-UI branch if one exists.
 - **Owner:** **Destiny** (displays / peripherals).
-- **Status:** [ ] Not started
+- **Status:** [X] Implemented + merged to `main` Done
 - **How:**
   1. **Which blocks have a TFT:** Only **LED Color Flash** and **Music Sequence** have a TFT (`main/tft_ui.c`). Add a small battery % label (e.g. corner) in each block's UI. Other blocks have no TFT yet.
   2. **Where battery data comes from:** Check `common_block/components/battery_monitor`. You need an API like `battery_monitor_get_percent()`. If not implemented, stub it (e.g. return 100) so the UI can be built; Jordan/hardware can help with real ADC wiring later.
@@ -224,7 +224,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Control flow block templates with TFT: `if_block`, `then_block`, `end_if_block`, `loop_block`, `end_loop_block`, `delay_block` under `firmware_blocks/block_templates/`; each block’s display/UI code and execution-state handling (e.g. when Brain sends CMD_EXECUTE or block is “active” in the run).
 - **Branch:** Same as #4 (`control-flow-docs-and-blocks`) or a dedicated branch (e.g. `control-flow-block-tft-ui`). Coordinates with execution behavior from #4.
 - **Owner:** **Destiny** (displays / “what you see”).
-- **Status:** [ ] Not started
+- **Status:** [X] In progress (will then merge `led-strip-behavior` into `main`) 
 - **How:**
   1. **Which blocks have a TFT today:** Control flow blocks (if, then, end_if, loop, end_loop, delay) currently use **LED matrix** only (see their `main.c`: `led_matrix_init()`, `led_matrix_startup_animation()`). So either (a) add a small TFT to those blocks later and show the label + disco there, or (b) for now use the **LED matrix** to show the block type (e.g. scrolling "LOOP" or a color) and disco = animations on the matrix (like `led_ux_show_running()` but fancier).
   2. **Block type label:** Each control flow block's `main.c` already has `BLOCK_NAME` (e.g. "LOOP", "IF"). If using TFT: add a small display driver and draw that string on screen (reference: `led_color_flash_block/main/tft_ui.c` for LVGL + display init). If using LED matrix only: drive the matrix to show the text or a distinct pattern per block type (see `led_matrix.c` / pattern helpers in LED Color Flash block).
@@ -237,18 +237,18 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 | # | Task | Suggested owner | Branch | Status |
 |---|------|-----------------|--------|--------|
-| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft` or new | [x] Pushed (needs merge) |
+| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft-final` or new | [✓] Done (merged to `main`) |
 | 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
 | 3 | Protocol docs + startup sound | Jordan | merged to `main` | [✓] Done |
 | 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [✓] Done (Passed to Destiny) |
-| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` | [x] Pushed (needs merge) |
+| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` |  [✓] Done (merged to `main`) |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
 | 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
 | 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
 | 9 | Update any docs | Jordan | same as #3 or small branch | [ ] In progress |
 | 10 | GPIO pinout markdown | Jordan / hardware owner | `main` (`docs/hardware/gpio-pinouts.md`) | [✓] Done |
-| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) | [ ] Not started |
-| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` | [ ] Not started |
+| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |  [✓] Done (merged to `main`) | On MSQ + LCF Blocks
+| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |  [] In progress (plan to merge into `led-strip-behavior`)|
 
 ---
 
