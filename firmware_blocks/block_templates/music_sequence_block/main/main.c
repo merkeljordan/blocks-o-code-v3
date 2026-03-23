@@ -20,6 +20,7 @@
 #include "esp_log.h"
 #include "sdkconfig.h"
 
+#include "battery_monitor.h"
 #include "i2c_protocol.h"
 #include "speaker.h"
 #include "tft_ui.h"
@@ -292,6 +293,14 @@ void app_main(void)
     err = tft_ui_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "tft_ui_start failed: %s", esp_err_to_name(err));
+        g_status_flags |= STATUS_ERROR;
+        peripherals_error_feedback();
+        return;
+    }
+
+    err = battery_monitor_start();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "battery_monitor_start failed: %s", esp_err_to_name(err));
         g_status_flags |= STATUS_ERROR;
         peripherals_error_feedback();
         return;
