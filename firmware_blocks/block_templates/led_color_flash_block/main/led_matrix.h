@@ -24,6 +24,7 @@
 
  #pragma once
 
+ #include <stdbool.h>
  #include <stdint.h>
  #include "esp_err.h"
  
@@ -41,11 +42,12 @@
  
  void     matrix_fill(uint8_t r, uint8_t g, uint8_t b);
  void     matrix_set_pixel(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
- void     matrix_clear(void);
- void     matrix_show(void);
- void     matrix_set_brightness(uint8_t brightness);
- uint8_t  matrix_get_brightness(void);
- uint16_t matrix_get_size(void);
+  void     matrix_clear(void);
+  void     matrix_show(void);
+  void     matrix_set_brightness(uint8_t brightness);
+  uint8_t  matrix_get_brightness(void);
+  uint16_t matrix_get_size(void);
+  void     led_matrix_set_status_mirror(bool enabled);
  
  /* Return the human-readable name for a pattern ID (e.g. "Color Wipe").
   * Used by the TFT UI status label and ESP_LOG messages. */
