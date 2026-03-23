@@ -8,6 +8,7 @@ idf_component_register(
         "."
         ".."
         "../../../include"
+        
     REQUIRES
         driver
         led_strip
@@ -16,5 +17,6 @@ idf_component_register(
         esp_timer
         espressif__esp_lcd_ili9341
         atanisoft__esp_lcd_touch_xpt2046
+        battery_monitor
 )
 

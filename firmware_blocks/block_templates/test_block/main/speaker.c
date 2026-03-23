@@ -20,7 +20,7 @@ static const char *TAG = "SPEAKER";
 #define SPEAKER_LEDC_CHANNEL    LEDC_CHANNEL_0
 #define SPEAKER_LEDC_DUTY_RES   LEDC_TIMER_10_BIT
 
-#define SPEAKER_DEFAULT_VOLUME  30  // percent
+#define SPEAKER_DEFAULT_VOLUME  50  // percent
 
 static bool s_inited = false;
 static uint8_t s_volume = SPEAKER_DEFAULT_VOLUME;
