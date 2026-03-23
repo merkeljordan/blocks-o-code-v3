@@ -123,6 +123,20 @@ At each tick (`brain_executor_tick()`), the executor advances `pc` or transition
   - `remaining_iterations`: `loop_count` (per-program-position when available; otherwise from executor params; minimum 1)
 - When `pc` reaches `END_LOOP`, it either jumps back to `loop_start_pc + 1` while iterations remain, or pops the loop frame and continues after `END_LOOP`.
 
+### Control Flow Child UX (TFT + Status Strip)
+
+Control-flow child blocks (`IF`, `THEN`, `END_IF`, `LOOP`, `END_LOOP`, `DELAY`) expose their execution state locally in two ways:
+
+- TFT UI: each block boots into an idle screen that shows its block-type label and block-specific accent styling.
+- Execute feedback: when the Brain sends `CMD_EXECUTE`, the child triggers a local "running" visual via `tft_ui_trigger_execute()` plus a short matrix animation.
+- Reset behavior: `CMD_RESET` returns the TFT to idle, clears the local matrix, and clears the shared status strip.
+
+For task-6 LED mirroring, these same blocks also accept Brain-driven `CMD_MATRIX_FILL`, `CMD_MATRIX_BRIGHTNESS`, `CMD_MATRIX_SHOW`, and `CMD_MATRIX_CLEAR` commands through the shared `status_strip` component. That keeps idle type-color mapping and executor highlighting synchronized across:
+
+- the Brain's local strip program map
+- child status strips
+- the control-flow block TFT/matrix local execute feedback
+
 ### Block -> Brain control-flow config submit (I2C `STATUS_DATA_READY` + `CMD_GET_DATA`)
 
 Some child blocks publish configuration or input events to the Brain via:

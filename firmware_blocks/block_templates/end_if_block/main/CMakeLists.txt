@@ -7,7 +7,8 @@ idf_component_register(
         "tft_ui.c"
         "../../../shared/control_flow_tft_ui/control_flow_tft_ui.c"
         "../../../shared/control_flow_tft_ui/control_flow_tft_hw.c"
-    INCLUDE_DIRS "." "../.." "../../../include" "../../../shared/control_flow_tft_ui"
+        "../../../shared_components/status_strip/status_strip.c"
+    INCLUDE_DIRS "." "../.." "../../../include" "../../../shared/control_flow_tft_ui" "../../../shared_components/status_strip"
     REQUIRES
         driver
         led_strip

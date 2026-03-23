@@ -8,6 +8,7 @@
 #include "audio_speaker.h"
 #include "led_matrix.h"
 #include "command_handler.h"
+#include "status_strip.h"
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
@@ -28,6 +29,13 @@ extern void i2c_task(void *arg);
 #define BLOCK_TYPE            BLOCK_TYPE_DELAY
 
 static const char *TAG = "DELAY_BLOCK";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 // ============================================================================
 // CONFIG (payload: delay_ms)
@@ -142,6 +150,10 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
+        return;
+    }
+
     switch (cmd) {
         case CMD_PING:
             g_status_flags = STATUS_READY;
@@ -197,6 +209,7 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_RESET:
             config_reset();
+            (void)status_strip_reset(&kStatusStripConfig);
             tft_ui_set_idle();
             matrix_clear();
             matrix_show();
