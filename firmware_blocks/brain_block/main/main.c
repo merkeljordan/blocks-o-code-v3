@@ -57,13 +57,21 @@ static void registry_scan_task(void *arg) {
 static void block_event_poll_task(void *arg) {
     (void)arg;
     uint8_t status = 0;
-    uint8_t payload[2] = {0};
+    uint8_t payload[8] = {0};
 
     while (1) {
         const device_registry_t *registry = device_registry_get();
         for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
             const device_entry_t *entry = &registry->devices[i];
-            if (!entry->present || entry->type != BLOCK_TYPE_LED_FLASH) {
+            if (!entry->present) {
+                continue;
+            }
+
+            // Only poll blocks that can produce Brain-consumable DATA_READY payloads.
+            if (entry->type != BLOCK_TYPE_LED_FLASH &&
+                entry->type != BLOCK_TYPE_LOOP &&
+                entry->type != BLOCK_TYPE_DELAY &&
+                entry->type != BLOCK_TYPE_BUTTON) {
                 continue;
             }
 
@@ -75,12 +83,35 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
-            if (i2c_get_data(entry->address, payload, sizeof(payload)) == ESP_OK) {
-                // payload[0] = event_id, payload[1] = event value (selection digit)
-                bool queued = brain_event_handle_block_event(entry->address, payload[0], &payload[1], 1);
+            size_t expected_len = 0;
+            switch (entry->type) {
+                case BLOCK_TYPE_LED_FLASH:
+                    expected_len = 1 + BRAIN_BLOCK_EVENT_SELECTION_SUBMIT_PAYLOAD_LEN;
+                    break;
+                case BLOCK_TYPE_LOOP:
+                    expected_len = 1 + BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT_PAYLOAD_LEN;
+                    break;
+                case BLOCK_TYPE_DELAY:
+                    expected_len = 1 + BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN;
+                    break;
+                case BLOCK_TYPE_BUTTON:
+                    expected_len = 1 + BRAIN_BLOCK_EVENT_BUTTON_PRESS_PAYLOAD_LEN;
+                    break;
+                default:
+                    expected_len = 0;
+                    break;
+            }
+            if (expected_len == 0 || expected_len > sizeof(payload)) {
+                ESP_LOGW(TAG, "No payload size mapping for type=%s", block_type_to_string(entry->type));
+                continue;
+            }
+
+            if (i2c_get_data(entry->address, payload, expected_len) == ESP_OK) {
+                // payload[0] = event_id, payload[1..] = event payload
+                bool queued = brain_event_handle_block_event(entry->address, payload[0], &payload[1], expected_len - 1);
                 if (!queued) {
-                    ESP_LOGW(TAG, "Failed to enqueue block event from 0x%02X (id=0x%02X, val=%u)",
-                             entry->address, payload[0], payload[1]);
+                    ESP_LOGW(TAG, "Failed to enqueue block event from 0x%02X (id=0x%02X, len=%u)",
+                             entry->address, payload[0], (unsigned)(expected_len - 1));
                 }
             } else {
                 ESP_LOGW(TAG, "CMD_GET_DATA failed for 0x%02X while STATUS_DATA_READY set", entry->address);

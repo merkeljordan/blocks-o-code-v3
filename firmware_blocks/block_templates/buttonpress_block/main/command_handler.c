@@ -1,4 +1,6 @@
-#include <stdio.h>
+// Legacy command handler retained for compatibility with older templates.
+// The button block uses `command_handle()` in `main.c` for CMD_GET_DATA semantics.
+
 #include <stdint.h>
 
 #include "esp_log.h"

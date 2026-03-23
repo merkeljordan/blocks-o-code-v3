@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -8,7 +9,19 @@
 #include "led_matrix.h"
 #include "command_handler.h"
 
+#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
+#include "tft_ui.h"
+#else
+static inline void tft_ui_start(void) {}
+static inline void tft_ui_trigger_execute(void) {}
+static inline void tft_ui_set_idle(void) {}
+#endif
+
 extern void initArduino(void);
+
+// I2C slave transport implemented in i2c_comm.c
+extern esp_err_t i2c_slave_init(void);
+extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "LOOP"
 #define BLOCK_I2C_ADDRESS     0x08  // TODO: set per board
@@ -26,17 +39,61 @@ typedef struct {
 static block_config_t g_config;
 static bool g_config_valid = false;
 
-static void config_reset(void) { /* TODO */ }
+static uint8_t g_status_flags = STATUS_READY;
+
+// ============================================================================
+// BLOCK -> BRAIN EVENT (STATUS_DATA_READY + CMD_GET_DATA)
+// ============================================================================
+static struct {
+    bool has_event;
+    uint8_t event_id;
+    uint8_t payload[8];
+    size_t payload_len;
+} g_pending_event;
+
+static void publish_loop_count_event(uint8_t loop_count)
+{
+    g_pending_event.has_event = true;
+    g_pending_event.event_id = BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT;
+    g_pending_event.payload[0] = loop_count;
+    g_pending_event.payload_len = 1;
+    g_status_flags |= STATUS_DATA_READY;
+}
+
+static void on_local_loop_count_changed(uint8_t loop_count)
+{
+    g_config.loop_count = (loop_count == 0) ? 1 : loop_count;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
+    publish_loop_count_event(g_config.loop_count);
+    speaker_beep_ok();
+}
+
+// Entry point for TFT/UI code running on this block:
+// call this when the user picks a new loop count.
+void loop_block_set_loop_count_from_ui(uint8_t loop_count)
+{
+    on_local_loop_count_changed(loop_count);
+}
+
+static void config_reset(void)
+{
+    g_config.loop_count = 1;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY;
+    publish_loop_count_event(g_config.loop_count);
+}
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
-    (void)out;
-    (void)max_len;
-    // TODO: write loop_count to payload
-    return 0;
+    if (out == NULL || max_len < 1) {
+        return 0;
+    }
+    out[0] = g_config.loop_count;
+    return 1;
 }
 
 // ============================================================================
-// PERIPHERALS (STUBS)
+// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
@@ -45,31 +102,99 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
-static void peripherals_show_running(void) { /* TODO */ }
+static void peripherals_show_running(void)
+{
+    tft_ui_trigger_execute();
 
-// ============================================================================
-// COMMAND HANDLER (STUB)
-// ============================================================================
-static uint8_t g_status_flags = STATUS_READY;
-
-static void command_handle(i2c_command_t cmd,
-                           const uint8_t *rx,
-                           size_t rx_len,
-                           uint8_t *tx,
-                           size_t *tx_len) {
-    (void)cmd;
-    (void)rx;
-    (void)rx_len;
-    (void)tx;
-    (void)tx_len;
-    // TODO: implement CMD_* handling per FRAMEWORK.md
+    // Simple "running" indication: brief green flash on the matrix.
+    matrix_fill(0, 64, 0);
+    matrix_show();
+    vTaskDelay(pdMS_TO_TICKS(120));
+    matrix_clear();
+    matrix_show();
 }
 
 // ============================================================================
-// I2C COMM (STUB)
+// STATUS ACCESSOR (used by i2c_comm.c register map)
 // ============================================================================
-static esp_err_t i2c_slave_init(void) { return ESP_OK; }
-static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
+uint8_t loop_block_get_status_flags(void)
+{
+    return g_status_flags;
+}
+
+// ============================================================================
+// COMMAND HANDLER
+// ============================================================================
+void command_handle(i2c_command_t cmd,
+                    const uint8_t *rx,
+                    size_t rx_len,
+                    uint8_t *tx,
+                    size_t *tx_len)
+{
+    if (tx_len) {
+        *tx_len = 0;
+    }
+
+    switch (cmd) {
+        case CMD_PING:
+            g_status_flags = STATUS_READY;
+            peripherals_ok_feedback();
+            break;
+
+        case CMD_GET_STATUS:
+            if (tx && tx_len) {
+                tx[0] = g_status_flags;
+                *tx_len = 1;
+            }
+            break;
+
+        case CMD_SET_LOOP:
+            if (rx_len >= 1) {
+                g_config.loop_count = (rx[0] == 0) ? 1 : rx[0];
+                g_config_valid = true;
+                g_status_flags = STATUS_READY;
+                publish_loop_count_event(g_config.loop_count);
+            }
+            break;
+
+        case CMD_GET_DATA:
+            if (tx && tx_len && g_pending_event.has_event) {
+                // tx[0] = event_id, tx[1..] = payload
+                tx[0] = g_pending_event.event_id;
+                if (g_pending_event.payload_len > 0) {
+                    memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+                }
+                *tx_len = 1 + g_pending_event.payload_len;
+
+                // Clear DATA_READY after Brain consumes the event.
+                g_pending_event.has_event = false;
+                g_pending_event.payload_len = 0;
+                g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+            }
+            break;
+
+        case CMD_EXECUTE:
+            if (!config_is_valid()) {
+                g_status_flags = STATUS_ERROR;
+                peripherals_error_feedback();
+                break;
+            }
+            peripherals_show_running();
+            g_status_flags = STATUS_READY;
+            break;
+
+        case CMD_RESET:
+            config_reset();
+            tft_ui_set_idle();
+            matrix_clear();
+            matrix_show();
+            g_status_flags = STATUS_READY;
+            break;
+
+        default:
+            break;
+    }
+}
 
 // ============================================================================
 // MAIN
@@ -95,6 +220,8 @@ void app_main(void) {
 
     // Show startup animation
     led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
 
     // Initialize I²C slave
     ret = i2c_slave_init();
