@@ -5,6 +5,7 @@
 #include "esp_err.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "tft_ui.h"
 #include "command_handler.h"
 
@@ -74,6 +75,13 @@ void app_main(void) {
 
     // Start TFT UI (intro screen -> Start button -> numpad sequence control).
     // This launches an internal GUI task and returns immediately.
+    ret = battery_monitor_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start battery monitor!");
+        speaker_beep_error();
+        return;
+    }
+
     tft_ui_start();
 
     // Keep non-UI tasks on Core 0 so TFT interactions on Core 1 remain smooth.
