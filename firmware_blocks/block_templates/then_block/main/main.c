@@ -153,6 +153,7 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_RESET:
             config_reset();
+            (void)status_strip_reset(&kStatusStripConfig);
             tft_ui_set_idle();
             matrix_clear();
             matrix_show();
