@@ -40,10 +40,6 @@ static void refresh_dynamic_registers(void)
     s_registers[REG_STATUS] = music_block_get_status_flags();
 }
 
-static bool is_register_index_byte(uint8_t v)
-{
-    return (v < 0x10U);
-}
 
 esp_err_t i2c_slave_init(void)
 {
@@ -97,33 +93,15 @@ void i2c_task(void *arg)
         // Keep STATUS register synced with runtime state managed in main.c.
         refresh_dynamic_registers();
 
-        // Brain-side register index writes can arrive coalesced in the slave RX buffer
-        // (e.g. [0x00, 0x00, 0x01]). To avoid leaving stale bytes queued in the slave
-        // TX buffer, reply with exactly one byte for the latest register request only.
-        if (is_register_index_byte(rx_buf[0])) {
-            bool all_register_indexes = true;
-            for (int i = 1; i < len; i++) {
-                if (!is_register_index_byte(rx_buf[i])) {
-                    all_register_indexes = false;
-                    break;
-                }
-            }
+        // Single-byte message with value < 0x10 is a register read request.
+        if (len == 1 && rx_buf[0] < 0x10) {
+            uint8_t reg = rx_buf[0];
+            uint8_t value = s_registers[reg];
 
-            if (all_register_indexes) {
-                uint8_t reg = rx_buf[len - 1];
-                uint8_t value = s_registers[reg];
+            (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
 
-                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
-
-                if (len == 1) {
-                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
-                } else {
-                    ESP_LOGW(TAG,
-                             "Coalesced %d register index byte(s); replied only to last reg 0x%02X -> 0x%02X",
-                             len, reg, value);
-                }
-                continue;
-            }
+            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
+            continue;
         }
 
         size_t tx_len = 0;
