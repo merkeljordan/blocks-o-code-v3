@@ -1,6 +1,7 @@
 # ESP-IDF build output
 build/
 build_full.log
+build-sandbox/
 
 # ESP-IDF config backups
 sdkconfig.old
