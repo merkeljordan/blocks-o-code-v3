@@ -7,5 +7,5 @@ idf_component_register(
     PRIV_INCLUDE_DIRS
         "libhelix-mp3/real")
 
-# Some of warinings, block them.
+# Some of warnings, block them.
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-unused-but-set-variable)
