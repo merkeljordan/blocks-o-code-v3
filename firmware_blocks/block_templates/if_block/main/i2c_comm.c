@@ -39,10 +39,6 @@ static void refresh_dynamic_registers(void)
     registers[REG_STATUS] = if_block_get_status_flags();
 }
 
-static bool is_register_index_byte(uint8_t v)
-{
-    return (v < 0x10U);
-}
 
 // ============================================================================
 // I²C SLAVE INITIALIZATION
@@ -94,22 +90,12 @@ void i2c_task(void *arg) {
             ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
 
             refresh_dynamic_registers();
-            if (is_register_index_byte(buffer[0])) {
-                bool all_register_indexes = true;
-                for (int i = 1; i < len; i++) {
-                    if (!is_register_index_byte(buffer[i])) {
-                        all_register_indexes = false;
-                        break;
-                    }
-                }
-
-                if (all_register_indexes) {
-                    uint8_t reg = buffer[len - 1];
-                    uint8_t response = registers[reg];
-                    (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
-                    continue;
-                }
+            if (len == 1 && buffer[0] < 0x10) {
+                uint8_t reg = buffer[0];
+                uint8_t response = registers[reg];
+                (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
+                ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
+                continue;
             }
 
             size_t tx_len = 0;
