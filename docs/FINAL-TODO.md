@@ -11,11 +11,11 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | Branch | Status vs main | Notes |
 |--------|----------------|--------|
 | `main` | baseline | Local `main` matches `origin/main`. |
-| `origin/brain-stop-button-tft-final` | on track with `main` | Stop-button behavior branch exists; currently **behind `origin/main` by ~10 commits**, so merge `main` in before finishing/merging. |
-| `origin/led-strip-behavior` | ahead of `main` | Remote branch has Brain-driven strip mirroring work (Task #6) but is not merged into `main`. It’s currently **behind `origin/main` by ~2 commits**. |
-| `origin/note-block-firmware` | ahead of `main` | NOTE block firmware + Brain note broadcast work is on this branch; not merged into `main`. It’s currently **behind `origin/main` by ~8 commits**. |
-| `origin/control-flow-docs-and-blocks` | ahead of `main` | Branch exists with control flow buildout work; not merged into `main`. |
-| `origin/music-sequences-behavior` | on track with `main` | Music sequence block behavior, simulator support, and expanded song catalog are implemented on this branch; merged into `main`. |
+| `origin/led-strip-behavior` | ahead of `main` | Remote branch still exists and has unmerged work (**8 commits ahead of `main`**). |
+| `origin/control-flow-docs-and-blocks` | ahead of `main` | Remote branch still exists and has unmerged work (**11 commits ahead of `main`**). |
+| `note-block-firmware` (local) | ahead of `main` | Local branch has NOTE block work (**7 commits ahead of `main`**); `origin/note-block-firmware` is deleted. |
+| `origin/feature/battery-monitor` | mostly merged | Battery % TFT work is merged to `main` (branch has no unique commits vs `main`). |
+| Legacy refs (`origin/brain-stop-button-tft*`, `origin/music-sequences-behavior`, `origin/note-block-firmware`) | deleted on remote | Track final status from `main` plus surviving branches above. |
 
 ---
 
@@ -25,9 +25,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Once Start is pressed, the same button becomes Stop until execution finishes.
 - **Where:** Brain TFT UI — `firmware_blocks/brain_block/main/esp32_lcd_display_v9.c` (Start button, `home_action_event_cb`).
-- **Branch:** `origin/brain-stop-button-tft` has the implementation (ahead of `main`). Merge/cherry-pick from there.
+- **Branch:** Merged to `main` (legacy stop-button branch no longer exists on `origin`).
 - **Owner:** **Destiny** (TFT / “what you see”).
-- **Status:** [X] In progress (needs merge to `main`)
+- **Status:** [x] Done (merged to `main`)
 - **How:**
   1. **One physical button, two behaviors:** The Start button is created in `create_home_screen()` — search for `"Start"` and `create_action_tile(..., "Start", ...)`. Change this single button's label and action depending on whether the Brain is *idle* or *running*.
   2. **Know when we're running:** In `brain_event_handler.h`, `brain_executor_get_context()` returns a struct whose `.state` is `EXECUTOR_RUNNING` when a run is in progress (or `EXECUTOR_IDLE`, `EXECUTOR_DONE`, etc.). Include that header in the display file and call it when handling the button and when updating the button's look.
@@ -42,9 +42,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Complete the NOTE block end-to-end: kid selects A–G on TFT (preview), submits selection to Brain, then on NOTE steps the Brain broadcasts the selected note so every speaker-capable block plays it.
 - **Where:** `firmware_blocks/block_templates/note_block/` — `i2c_comm.c` and command handler in `main.c`; `i2c_protocol.h` has `CMD_PLAY_NOTE`.
-- **Branch:** `origin/note-block-firmware` (pushed; needs merge to `main`)
+- **Branch:** `note-block-firmware` local branch (origin branch deleted; needs merge/cherry-pick to `main`)
 - **Owner:** **Jordan**
-- **Status:** [x] Implemented + pushed (needs merge to `main`)
+- **Status:** [x] Implemented on local branch (needs merge/cherry-pick to `main`)
 - **How:**
   1. **TFT UI (NOTE block):** `note_block/main/tft_ui.c` provides an LVGL UI like LED Color Flash: tap **A–G** to preview, tap **SUBMIT** to publish the selection to the Brain.
   2. **Selection submit (child → Brain):** NOTE block sets `STATUS_DATA_READY` only when a selection submit is pending; Brain reads `CMD_GET_DATA` payload `[event_id=0x01, note_id]`.
@@ -83,9 +83,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Document and/or implement execution behavior for If/Then/End If, Loop/End Loop, Delay (and any related blocks). “Write out” = docs and/or firmware execution path.
 - **Where:** Docs (e.g. `docs/architecture/`, `docs/api/firmware-api.md`); brain executor / event handler; child block templates.
-- **Branch:** No active branch with unique commits. Create branch if needed (e.g. `control-flow-docs-and-blocks`).
+- **Branch:** `origin/control-flow-docs-and-blocks` (active; ahead of `main`)
 - **Owner:** **Jordan** (validation / execution flow).
-- **Status:** [x] Done (control-flow infrastructure complete; handoff to Destiny)
+- **Status:** [x] Implemented on branch (needs merge to `main`; handoff to Destiny complete)
 - **How:**
   1. **Execution path:** The Brain runs the program in `brain_event_handler.c`: the executor has a program (array of block types), a program counter (`pc`), and loop stack. It “ticks” and for each step may send I2C commands (e.g. CMD_EXECUTE) to the block at the current position. Control flow means: when the executor hits an **If**, it must decide whether to run the “then” branch (e.g. check button state); for **Loop**, it must repeat a range of program indices; for **Delay**, it must wait then advance. Read `brain_executor_tick()` and the switch on block type to see where to add or extend logic for IF/THEN/END_IF, LOOP/END_LOOP, DELAY.
   2. **Event map:** `block_config_manager` (and the event map) tells the Brain how many IF/LOOP boundaries there are and where they are. The executor uses this to know “loop from pc X to Y” or “if branch from A to B”. Docs: describe this in `docs/architecture/` or `docs/api/firmware-api.md` (e.g. “Control flow execution” subsection: how IF/LOOP/DELAY are interpreted and how the executor advances `pc`).
@@ -97,7 +97,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 - **What:** Complete music sequence block behavior and add more songs/assets.
 - **Where:** Music sequence block template and app-side config; audio/song assets.
-- **Branch:** `origin/music-sequences-behavior` has no unique commits yet — use it or create a new branch for this work.
+- **Branch:** Merged to `main` (legacy `origin/music-sequences-behavior` branch has been removed).
 - **Owner:** **Destiny** (speaker / “what you hear”).
 - **Status:** [x] Implemented + pushed (merged to `main`)
 - **How:**
@@ -237,19 +237,19 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 
 | # | Task | Suggested owner | Branch | Status |
 |---|------|-----------------|--------|--------|
-| 1 | Brain Stop button (Start→Stop) | Destiny | `brain-stop-button-tft-final` or new | [✓] Done (merged to `main`) |
-| 2 | Note block firmware | Jordan | `note-block-firmware` | [x] Pushed (needs merge) |
+| 1 | Brain Stop button (Start→Stop) | Destiny | `main` | [✓] Done (merged to `main`) |
+| 2 | Note block firmware | Jordan | `note-block-firmware` (local) | [x] Implemented (needs merge/cherry-pick) |
 | 3 | Protocol docs + startup sound | Jordan | merged to `main` | [✓] Done |
-| 4 | Control flow blocks (write out) | Jordan | new or `control-flow-docs-and-blocks` | [✓] Done (Passed to Destiny) |
-| 5 | Music sequence block + more songs | Destiny | `music-sequences-behavior` |  [✓] Done (merged to `main`) |
+| 4 | Control flow blocks (write out) | Jordan | `origin/control-flow-docs-and-blocks` | [x] Implemented on branch (needs merge) |
+| 5 | Music sequence block + more songs | Destiny | `main` |  [✓] Done (merged to `main`) |
 | 6 | LED strip idle + execution mirroring | Destiny | `led-strip-behavior` | [ ] In progress |
 | 7 | Brain broadcasts: matrix + speaker via event handler | TBD | new | [ ] Not started |
 | 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
 | 9 | Update any docs | Jordan | same as #3 or small branch | [ ] In progress |
 | 10 | GPIO pinout markdown | Jordan / hardware owner | `main` (`docs/hardware/gpio-pinouts.md`) | [✓] Done |
 | 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |  [✓] Done (merged to `main`) | On MSQ + LCF Blocks
-| 12 | Control flow TFT: block label + disco on execution | Destiny | `control-flow-docs-and-blocks` or `control-flow-block-tft-ui` |  [] In progress (plan to merge into `led-strip-behavior`)|
+| 12 | Control flow TFT: block label + disco on execution | Destiny | `origin/control-flow-docs-and-blocks` or `origin/led-strip-behavior` | [ ] In progress (plan to merge into `led-strip-behavior`) |
 
 ---
 
-*Edit the “Owner” lines and checkboxes as you assign and complete. Last updated: from main branch context.*
+*Edit the “Owner” lines and checkboxes as you assign and complete. Last updated: 2026-03-23 (audited from local `main` + current remote refs).*
