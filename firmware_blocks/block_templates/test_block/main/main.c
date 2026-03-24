@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_err.h"
 
+#include "battery_monitor.h"
 #include "speaker.h"
 #include "led_dual_ws2812.h"
 #include "tft_test_ui.h"
@@ -33,6 +34,11 @@ void app_main(void)
     esp_err_t led_init_err = led_dual_ws2812_init();
     if (led_init_err != ESP_OK) {
         ESP_LOGE(TAG, "LED init failed: %s", esp_err_to_name(led_init_err));
+    }
+
+    esp_err_t bat_err = battery_monitor_start();
+    if (bat_err != ESP_OK) {
+        ESP_LOGE(TAG, "Battery monitor start failed: %s", esp_err_to_name(bat_err));
     }
 
     /* TFT + touch (required). */

@@ -22,6 +22,7 @@
 #include "esp_lcd_ili9341.h"
 #include "esp_lcd_touch_xpt2046.h"
 
+#include "battery_monitor.h"
 #include "tft_test_ui.h"
 
 static const char *TAG = "TFT_TEST_UI";
@@ -38,6 +39,7 @@ static const char *TAG = "TFT_TEST_UI";
 #define TFT_TASK_STACK_SIZE        (6 * 1024)
 #define TFT_TASK_PRIORITY          5
 #define TFT_BACKLIGHT_ON_LEVEL     1
+#define BATTERY_REFRESH_MS         3000U
 
 #define PIN_NUM_BK_LIGHT           32
 #define PIN_NUM_SCLK               18
@@ -62,6 +64,93 @@ static volatile bool s_dirty = false;
 static char s_lines[TFT_TEST_LINE_COUNT][64];
 static lv_obj_t *s_labels[TFT_TEST_LINE_COUNT];
 static lv_obj_t *s_touch_catcher = NULL;
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *fill;
+    lv_obj_t *text;
+} battery_indicator_t;
+
+static battery_indicator_t s_battery = {0};
+
+static lv_color_t battery_color_for_percent(unsigned percent)
+{
+    if (percent <= 20U) {
+        return lv_color_hex(0xFF5C5C);
+    }
+    if (percent <= 50U) {
+        return lv_color_hex(0xFFD166);
+    }
+    return lv_color_hex(0x69F0AE);
+}
+
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator)
+{
+    lv_obj_t *body = NULL;
+    lv_obj_t *cap = NULL;
+
+    indicator->root = lv_obj_create(parent);
+    lv_obj_remove_style_all(indicator->root);
+    lv_obj_set_size(indicator->root, 72, 20);
+    lv_obj_align(indicator->root, LV_ALIGN_TOP_RIGHT, -8, 8);
+    lv_obj_clear_flag(indicator->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->text = lv_label_create(indicator->root);
+    lv_label_set_text(indicator->text, "100%");
+    lv_obj_set_style_text_color(indicator->text, lv_color_hex(0xBBD0FF), 0);
+    lv_obj_align(indicator->text, LV_ALIGN_LEFT_MID, 0, 0);
+
+    body = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_size(body, 24, 12);
+    lv_obj_align(body, LV_ALIGN_RIGHT_MID, -6, 0);
+    lv_obj_set_style_border_width(body, 2, 0);
+    lv_obj_set_style_border_color(body, lv_color_hex(0xE2E8F0), 0);
+    lv_obj_set_style_radius(body, 3, 0);
+    lv_obj_set_style_bg_color(body, lv_color_hex(0x0B1220), 0);
+    lv_obj_set_style_bg_opa(body, LV_OPA_70, 0);
+    lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->fill = lv_obj_create(body);
+    lv_obj_remove_style_all(indicator->fill);
+    lv_obj_set_size(indicator->fill, 20, 8);
+    lv_obj_align(indicator->fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_radius(indicator->fill, 1, 0);
+    lv_obj_set_style_bg_color(indicator->fill, battery_color_for_percent(100U), 0);
+    lv_obj_set_style_bg_opa(indicator->fill, LV_OPA_COVER, 0);
+
+    cap = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(cap);
+    lv_obj_set_size(cap, 3, 6);
+    lv_obj_align(cap, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_radius(cap, 1, 0);
+    lv_obj_set_style_bg_color(cap, lv_color_hex(0xE2E8F0), 0);
+    lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
+}
+
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+{
+    uint32_t fill_width = 0;
+    lv_color_t fill_color = battery_color_for_percent(percent);
+
+    if (indicator->root == NULL) {
+        return;
+    }
+
+    fill_width = (percent * 20U) / 100U;
+    if (percent > 0U && fill_width == 0U) {
+        fill_width = 1U;
+    }
+
+    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
+    lv_obj_set_style_bg_color(indicator->fill, fill_color, 0);
+}
+
+static void refresh_battery_indicator(void)
+{
+    update_battery_indicator(&s_battery, (unsigned)battery_monitor_get_percent());
+}
 
 static void lvgl_tick_cb(void *arg)
 {
@@ -145,12 +234,21 @@ static void gui_refresh_labels_if_dirty(void)
 static void lvgl_task(void *arg)
 {
     (void)arg;
+    TickType_t last_battery_refresh = 0;
     ESP_LOGI(TAG, "LVGL task started");
 
+    refresh_battery_indicator();
+    last_battery_refresh = xTaskGetTickCount();
+
     while (1) {
+        TickType_t now = xTaskGetTickCount();
         gui_refresh_labels_if_dirty();
 
         uint32_t delay_ms = lv_timer_handler();
+        if ((now - last_battery_refresh) >= pdMS_TO_TICKS(BATTERY_REFRESH_MS)) {
+            refresh_battery_indicator();
+            last_battery_refresh = now;
+        }
         if (delay_ms < 5)       delay_ms = 5;
         else if (delay_ms > 30) delay_ms = 30;
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
@@ -299,6 +397,12 @@ esp_err_t tft_test_ui_start(void)
     lv_obj_set_size(s_touch_catcher, TFT_H_RES, TFT_V_RES);
     lv_obj_set_style_bg_opa(s_touch_catcher, 0, 0);
     lv_obj_add_event_cb(s_touch_catcher, touch_catcher_event_cb, LV_EVENT_PRESSED, NULL);
+
+    create_battery_indicator(scr, &s_battery);
+    refresh_battery_indicator();
+    if (s_battery.root != NULL) {
+        lv_obj_move_foreground(s_battery.root);
+    }
 
     /* Start LVGL tick timer. */
     const esp_timer_create_args_t tick_args = {
