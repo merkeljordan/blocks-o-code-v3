@@ -50,6 +50,8 @@ static volatile bool s_pending_execute;
 static volatile bool s_pending_idle;
 static volatile bool s_pending_value_refresh;
 
+#define CFUI_LOG(fmt, ...) printf("[control_flow_tft_ui] " fmt "\n", ##__VA_ARGS__)
+
 #if LV_USE_GIF
 extern const uint8_t discoball_gif_start[] asm("_binary_discoball_gif_start");
 extern const uint8_t discoball_gif_end[] asm("_binary_discoball_gif_end");
@@ -254,6 +256,29 @@ static void gif_get_dimensions(const uint8_t *data, size_t len, uint16_t *w, uin
     *w = (uint16_t)data[6] | ((uint16_t)data[7] << 8);
     *h = (uint16_t)data[8] | ((uint16_t)data[9] << 8);
 }
+
+static void gif_get_header_info(const uint8_t *data, size_t len, bool *has_gct, uint16_t *gct_entries)
+{
+    if (has_gct != NULL) {
+        *has_gct = false;
+    }
+    if (gct_entries != NULL) {
+        *gct_entries = 0;
+    }
+    if (data == NULL || len < 13U) {
+        return;
+    }
+
+    uint8_t packed = data[10];
+    bool gct = ((packed & 0x80U) != 0U);
+    uint16_t entries = (uint16_t)(1U << ((packed & 0x07U) + 1U));
+    if (has_gct != NULL) {
+        *has_gct = gct;
+    }
+    if (gct_entries != NULL) {
+        *gct_entries = gct ? entries : 0;
+    }
+}
 #endif
 
 static void update_idle_status(void)
@@ -352,6 +377,8 @@ static void start_running_state(void)
 {
     s_running = true;
     s_anim_tick = 0;
+    CFUI_LOG("start_running_state: gif_obj=%p gif_loaded=%s", (void *)s_running_gif,
+             s_running_gif_loaded ? "true" : "false");
     lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x000000u), 0);
     lv_obj_set_style_bg_grad_color(s_screen, lv_color_hex(0x000000u), 0);
     lv_obj_set_style_bg_grad_dir(s_screen, LV_GRAD_DIR_VER, 0);
@@ -373,10 +400,16 @@ static void start_running_state(void)
     }
 #if LV_USE_GIF
     if (s_running_gif != NULL) {
+        const void *src_before = lv_image_get_src(s_running_gif);
+        CFUI_LOG("runtime gif start: src_before=%p hidden=%d", src_before,
+                 (int)lv_obj_has_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN));
         lv_obj_move_background(s_running_gif);
         lv_obj_clear_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
         lv_gif_restart(s_running_gif);
         lv_gif_resume(s_running_gif);
+        const void *src_after = lv_image_get_src(s_running_gif);
+        CFUI_LOG("runtime gif start: src_after=%p hidden=%d", src_after,
+                 (int)lv_obj_has_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN));
     }
 #endif
     if (s_running_status_label != NULL) {
@@ -553,22 +586,39 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
 
 #if LV_USE_GIF
+    /* LVGL's gifdec opens the file with one lv_malloc of ~5*W*H (+ small overhead).
+     * Video is not a simpler swap on ESP32 (decoder + buffers + bandwidth). If this
+     * fails, shrink the GIF canvas (e.g. 120x120), enable PSRAM for alloc, or use a few
+     * static LVGL images cycled with lv_timer instead of GIF. */
     size_t gif_size = (size_t)(discoball_gif_end - discoball_gif_start);
     bool gif_sig_ok = gif_has_valid_signature(discoball_gif_start, gif_size);
     uint16_t gif_w = 0;
     uint16_t gif_h = 0;
+    bool gif_has_gct = false;
+    uint16_t gif_gct_entries = 0;
     gif_get_dimensions(discoball_gif_start, gif_size, &gif_w, &gif_h);
+    gif_get_header_info(discoball_gif_start, gif_size, &gif_has_gct, &gif_gct_entries);
     uint32_t decode_est_bytes = (uint32_t)gif_w * (uint32_t)gif_h * 5U;
-    printf("[control_flow_tft_ui] GIF bytes=%u signature_ok=%s wh=%ux%u decode_est=%uB\n",
-           (unsigned)gif_size,
-           gif_sig_ok ? "true" : "false",
-           (unsigned)gif_w,
-           (unsigned)gif_h,
-           (unsigned)decode_est_bytes);
+    CFUI_LOG("gif setup: start=%p end=%p size=%u signature_ok=%s wh=%ux%u decode_est=%uB gct=%s gct_entries=%u",
+             (const void *)discoball_gif_start,
+             (const void *)discoball_gif_end,
+             (unsigned)gif_size,
+             gif_sig_ok ? "true" : "false",
+             (unsigned)gif_w,
+             (unsigned)gif_h,
+             (unsigned)decode_est_bytes,
+             gif_has_gct ? "true" : "false",
+             (unsigned)gif_gct_entries);
+    if (gif_size >= 13U) {
+        CFUI_LOG("gif header bytes: %02X %02X %02X %02X %02X %02X packed=%02X bg=%02X aspect=%02X",
+                 discoball_gif_start[0], discoball_gif_start[1], discoball_gif_start[2],
+                 discoball_gif_start[3], discoball_gif_start[4], discoball_gif_start[5],
+                 discoball_gif_start[10], discoball_gif_start[11], discoball_gif_start[12]);
+    }
 #if defined(ESP_PLATFORM)
-    printf("[control_flow_tft_ui] heap free=%uB largest=%uB\n",
-           (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
-           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+    CFUI_LOG("heap snapshot: free=%uB largest=%uB",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 #endif
 
     memset(&s_discoball_gif_src, 0, sizeof(s_discoball_gif_src));
@@ -578,16 +628,32 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_discoball_gif_src.data_size = (uint32_t)gif_size;
 
     s_running_gif = lv_gif_create(s_screen);
+    CFUI_LOG("lv_gif_create: obj=%p", (void *)s_running_gif);
     lv_obj_set_size(s_running_gif, CONTROL_FLOW_SCREEN_W, CONTROL_FLOW_SCREEN_H);
     lv_obj_set_pos(s_running_gif, 0, 0);
     lv_obj_move_background(s_running_gif);
     if ((gif_size > 0U) && gif_sig_ok) {
+        const void *src_before = lv_image_get_src(s_running_gif);
+        CFUI_LOG("before lv_gif_set_src: src=%p", src_before);
         lv_gif_set_src(s_running_gif, &s_discoball_gif_src);
+        const void *src_after = lv_image_get_src(s_running_gif);
+        CFUI_LOG("after lv_gif_set_src: src=%p", src_after);
+        if (src_after == NULL) {
+#if defined(ESP_PLATFORM)
+            const uint32_t need_approx = decode_est_bytes + 8192U;
+            CFUI_LOG("gif decode failed: gifdec needs a contiguous block ~%uB (5*W*H). "
+                     "largest_free_block=%uB — resize GIF or use SPIRAM-capable heap.",
+                     (unsigned)need_approx,
+                     (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#else
+            CFUI_LOG("gif decode failed after lv_gif_set_src (see LVGL gifdec / GIF format)");
+#endif
+        }
     } else {
-        printf("[control_flow_tft_ui] GIF rejected before decode (invalid bytes/signature)\n");
+        CFUI_LOG("gif rejected before decode: invalid bytes/signature");
     }
     s_running_gif_loaded = ((gif_size > 0U) && gif_sig_ok && (lv_image_get_src(s_running_gif) != NULL));
-    printf("[control_flow_tft_ui] GIF load_result=%s\n", s_running_gif_loaded ? "success" : "failed");
+    CFUI_LOG("gif load_result=%s", s_running_gif_loaded ? "success" : "failed");
     lv_image_set_scale(s_running_gif, CONTROL_FLOW_DISCO_GIF_SCALE);
     lv_image_set_inner_align(s_running_gif, LV_IMAGE_ALIGN_CENTER);
     lv_image_set_antialias(s_running_gif, true);
@@ -596,6 +662,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
 #else
     s_running_gif = NULL;
     s_running_gif_loaded = false;
+    CFUI_LOG("LV_USE_GIF disabled at compile-time; GIF path is skipped");
 #endif
 
     lv_obj_move_foreground(s_title_label);
