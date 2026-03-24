@@ -213,13 +213,15 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                   const double localY = 0.0;
                   final blockCount = blocks.length;
                   final shouldScroll = blockCount >= _scrollThreshold;
-                  final effectiveYaw = shouldScroll ? (_yaw * 0.78) : _yaw;
-                  final cubeDepthScale = shouldScroll ? 0.72 : 1.0;
+                  final effectiveYaw = shouldScroll
+                      ? _yaw.clamp(-0.18, 0.18).toDouble()
+                      : _yaw;
+                  final cubeDepthScale = shouldScroll ? 0.6 : 1.0;
                   final baseInterBlock = cubeHalf * 2;
                   final interBlock = shouldScroll
                       // Add breathing room in long-chain mode to avoid
                       // neighboring cubes visually merging together.
-                      ? (baseInterBlock * 1.04)
+                      ? (baseInterBlock * 1.01)
                       : (blockCount <= 3
                             ? baseInterBlock * 1.03
                             : blockCount <= 6
@@ -310,6 +312,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                             cardSize: cardSize,
                             cubeScale: cubeScale,
                             cubeDepthScale: cubeDepthScale,
+                            compactMode: shouldScroll,
                             yaw: effectiveYaw,
                             modelCenter: pb.modelCenter,
                             depth: pb.depth,
@@ -367,6 +370,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
     required double cardSize,
     required double cubeScale,
     required double cubeDepthScale,
+    required bool compactMode,
     required double yaw,
     required _Point3 modelCenter,
     required double depth,
@@ -391,6 +395,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
             cubeCenter: modelCenter,
             cubeScale: cubeScale,
             cubeDepthScale: cubeDepthScale,
+            compactMode: compactMode,
             glowAmount: glowAmount,
             yaw: yaw,
             pitch: _pitch,
@@ -452,6 +457,7 @@ class _CubePainter extends CustomPainter {
   final _Point3 cubeCenter;
   final double cubeScale;
   final double cubeDepthScale;
+  final bool compactMode;
   final double glowAmount;
   final double yaw;
   final double pitch;
@@ -464,6 +470,7 @@ class _CubePainter extends CustomPainter {
     required this.cubeCenter,
     required this.cubeScale,
     required this.cubeDepthScale,
+    required this.compactMode,
     required this.glowAmount,
     required this.yaw,
     required this.pitch,
@@ -643,12 +650,24 @@ class _CubePainter extends CustomPainter {
       }
     }
 
-    // Label on the most front-facing visible face (largest -normal.z).
+    // In compact high-count mode, pin labels to the front face to avoid
+    // neighboring side faces visually stealing label placement.
     _FaceDraw? labelFace;
-    for (final fd in drawFaces) {
-      final current = labelFace;
-      if (current == null || (-fd.normal.z) > (-current.normal.z)) {
-        labelFace = fd;
+    if (compactMode) {
+      for (final fd in drawFaces) {
+        final f = fd.indices;
+        if (f.length == 4 && f[0] == 4 && f[1] == 5 && f[2] == 6 && f[3] == 7) {
+          labelFace = fd;
+          break;
+        }
+      }
+    }
+    if (labelFace == null) {
+      for (final fd in drawFaces) {
+        final current = labelFace;
+        if (current == null || (-fd.normal.z) > (-current.normal.z)) {
+          labelFace = fd;
+        }
       }
     }
 
@@ -711,6 +730,7 @@ class _CubePainter extends CustomPainter {
         oldDelegate.cubeCenter.z != cubeCenter.z ||
         oldDelegate.cubeScale != cubeScale ||
         oldDelegate.cubeDepthScale != cubeDepthScale ||
+        oldDelegate.compactMode != compactMode ||
         oldDelegate.glowAmount != glowAmount ||
         oldDelegate.yaw != yaw ||
         oldDelegate.pitch != pitch ||
