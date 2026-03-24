@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../models/block_configuration.dart';
@@ -14,10 +13,7 @@ import '../models/block_type.dart';
 class Block3DVisualizer extends StatefulWidget {
   final BlockConfiguration configuration;
 
-  const Block3DVisualizer({
-    super.key,
-    required this.configuration,
-  });
+  const Block3DVisualizer({super.key, required this.configuration});
 
   @override
   State<Block3DVisualizer> createState() => _Block3DVisualizerState();
@@ -25,6 +21,8 @@ class Block3DVisualizer extends StatefulWidget {
 
 class _Block3DVisualizerState extends State<Block3DVisualizer>
     with SingleTickerProviderStateMixin {
+  static const int _scrollThreshold = 10;
+
   // Camera angles in radians.
   double _yaw = 0.4; // left/right
   double _pitch = 0.3; // up/down
@@ -34,6 +32,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
 
   // Brief glow animation for snap/joint changes.
   late final AnimationController _glowController;
+  late final ScrollController _horizontalScrollController;
   Set<int> _glowBlockIndices = <int>{};
 
   bool get _isWindows =>
@@ -42,18 +41,21 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
   @override
   void initState() {
     super.initState();
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 550),
-    )..addListener(() {
-        // Drive repaints for the glow fade-out.
-        if (mounted) setState(() {});
-      });
+    _horizontalScrollController = ScrollController();
+    _glowController =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 550),
+        )..addListener(() {
+          // Drive repaints for the glow fade-out.
+          if (mounted) setState(() {});
+        });
   }
 
   @override
   void dispose() {
     _glowController.dispose();
+    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -115,127 +117,174 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
     final colorScheme = theme.colorScheme;
 
     return GestureDetector(
-        onPanStart: (details) {
-          _lastDragPosition = details.localPosition;
-        },
-        onPanUpdate: (details) {
-          if (_lastDragPosition == null) return;
-          final delta = details.localPosition - _lastDragPosition!;
-          _lastDragPosition = details.localPosition;
+      onPanStart: (details) {
+        _lastDragPosition = details.localPosition;
+      },
+      onPanUpdate: (details) {
+        if (_lastDragPosition == null) return;
+        final delta = details.localPosition - _lastDragPosition!;
+        _lastDragPosition = details.localPosition;
 
-          setState(() {
-            // Horizontal drag: adjust yaw.
-            _yaw += delta.dx * 0.01;
-            // Vertical drag: adjust pitch, clamped to avoid flipping.
-            _pitch = (_pitch - delta.dy * 0.01).clamp(-1.0, 1.0);
-          });
-        },
-        onPanEnd: (_) => _lastDragPosition = null,
-        child: Container(
-          height: 260,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                colorScheme.surfaceContainerHighest.withOpacity(0.6),
-                colorScheme.surface.withOpacity(0.9),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colorScheme.primary.withOpacity(0.3),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
-              ),
+        setState(() {
+          // Horizontal drag: adjust yaw.
+          _yaw += delta.dx * 0.01;
+          // Vertical drag: adjust pitch, clamped to avoid flipping.
+          _pitch = (_pitch - delta.dy * 0.01).clamp(-1.0, 1.0);
+        });
+      },
+      onPanEnd: (_) => _lastDragPosition = null,
+      child: Container(
+        height: 260,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.surfaceContainerHighest.withOpacity(0.6),
+              colorScheme.surface.withOpacity(0.9),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.view_in_ar, color: colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    '3D Block Visualization',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: colorScheme.primary.withOpacity(0.3),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.view_in_ar, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  '3D Block Visualization',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const Spacer(),
-                  Icon(Icons.mouse, size: 16, color: colorScheme.onSurface.withOpacity(0.7)),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Drag to rotate',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurface.withOpacity(0.7),
-                    ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.mouse,
+                  size: 16,
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.configuration.blocks.length >= _scrollThreshold
+                      ? 'Drag to rotate • Scroll horizontally'
+                      : 'Drag to rotate',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withOpacity(0.7),
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final blocks = widget.configuration.blocks;
-                    if (blocks.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No blocks to visualize yet.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.7),
-                          ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final blocks = widget.configuration.blocks;
+                  if (blocks.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No blocks to visualize yet.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    final centerX = constraints.maxWidth / 2;
-                    final centerY = constraints.maxHeight / 2 + 10;
-                    const double cubeHalf = 0.55;
-                    const double cubeScale = 70;
-                    const double cameraDistance = 3.2;
+                  final viewportWidth = constraints.maxWidth;
+                  final centerY = constraints.maxHeight / 2 + 10;
+                  const double cubeHalf = 0.55;
+                  const double cameraDistance = 3.2;
 
-                    const double localZ = 0.0;
-                    const double localY = 0.0;
-                    final double interBlock = cubeHalf * 2; // face-to-face
+                  const double localZ = 0.0;
+                  const double localY = 0.0;
+                  final blockCount = blocks.length;
+                  final shouldScroll = blockCount >= _scrollThreshold;
+                  final baseInterBlock = cubeHalf * 2;
+                  final interBlock = shouldScroll
+                      ? baseInterBlock
+                      : ((baseInterBlock -
+                                    ((blockCount - 1) / 20).clamp(0.0, 0.32))
+                                .clamp(0.8, baseInterBlock))
+                            .toDouble();
 
-                    final projected = <_ProjectedBlock>[];
-                    for (var i = 0; i < blocks.length; i++) {
-                      final block = blocks[i];
-                      final localX = (i - (blocks.length - 1) / 2) * interBlock;
+                  final availableWidth = shouldScroll
+                      ? math.max(viewportWidth * 0.92, 520).toDouble()
+                      : math.max(viewportWidth - 20, 120).toDouble();
+                  final modelSpan =
+                      ((blockCount - 1) * interBlock) + (cubeHalf * 3.2);
+                  final cubeScale = shouldScroll
+                      ? 66.0
+                      : (availableWidth / modelSpan)
+                            .clamp(36.0, 70.0)
+                            .toDouble();
+                  final cardSize = (cubeScale * 2.25)
+                      .clamp(shouldScroll ? 130.0 : 100.0, 160.0)
+                      .toDouble();
+                  final projectedSpanWidth = modelSpan * cubeScale;
+                  final sceneWidth = shouldScroll
+                      ? math.max(viewportWidth, projectedSpanWidth + 120)
+                      : viewportWidth;
+                  final centerX = sceneWidth / 2;
 
-                      final rotated = _rotatePoint(localX, localY, localZ, _yaw, _pitch);
+                  final projected = <_ProjectedBlock>[];
+                  for (var i = 0; i < blocks.length; i++) {
+                    final block = blocks[i];
+                    final localX = (i - (blocks.length - 1) / 2) * interBlock;
 
-                      final factor = cameraDistance / (cameraDistance + rotated.z);
-                      final screenX = centerX + rotated.x * factor * cubeScale;
-                      final screenY = centerY + rotated.y * factor * cubeScale;
-                      final depth = rotated.y;
+                    final rotated = _rotatePoint(
+                      localX,
+                      localY,
+                      localZ,
+                      _yaw,
+                      _pitch,
+                    );
 
-                      projected.add(
-                        _ProjectedBlock(
-                          index: i,
-                          block: block,
-                          modelCenter: _Point3(localX, localY, localZ),
-                          screenPosition: Offset(screenX, screenY),
-                          depth: depth,
-                        ),
-                      );
-                    }
+                    final denominator = (cameraDistance + rotated.z)
+                        .clamp(0.9, 6.0)
+                        .toDouble();
+                    final factor = cameraDistance / denominator;
+                    final screenX = centerX + rotated.x * factor * cubeScale;
+                    final screenY = centerY + rotated.y * factor * cubeScale;
+                    final depth = rotated.z;
 
-                    projected.sort((a, b) => a.depth.compareTo(b.depth));
+                    projected.add(
+                      _ProjectedBlock(
+                        index: i,
+                        block: block,
+                        modelCenter: _Point3(localX, localY, localZ),
+                        screenPosition: Offset(screenX, screenY),
+                        depth: depth,
+                      ),
+                    );
+                  }
 
-                    final glowAmount = _glowController.value;
-                    return Stack(
+                  projected.sort((a, b) {
+                    final byDepth = b.depth.compareTo(a.depth);
+                    if (byDepth != 0) return byDepth;
+                    return a.index.compareTo(b.index);
+                  });
+
+                  final glowAmount = _glowController.value;
+                  final scene = SizedBox(
+                    width: sceneWidth,
+                    height: constraints.maxHeight,
+                    child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Ground plane.
                         Positioned.fill(
                           child: CustomPaint(
                             painter: _GroundPlanePainter(
@@ -245,13 +294,14 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                             ),
                           ),
                         ),
-                        // Projected blocks.
                         ...projected.map(
                           (pb) => _buildBlockCard(
                             theme,
                             colorScheme,
                             pb.block,
                             pb.screenPosition,
+                            cardSize: cardSize,
+                            cubeScale: cubeScale,
                             modelCenter: pb.modelCenter,
                             depth: pb.depth,
                             glowAmount: _glowBlockIndices.contains(pb.index)
@@ -260,14 +310,29 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                  );
+
+                  if (!shouldScroll) {
+                    return scene;
+                  }
+
+                  return Scrollbar(
+                    controller: _horizontalScrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: scene,
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   // Rotate a point around Y (yaw) and X (pitch).
@@ -290,6 +355,8 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
     ColorScheme colorScheme,
     BlockInfo block,
     Offset position, {
+    required double cardSize,
+    required double cubeScale,
     required _Point3 modelCenter,
     required double depth,
     required double glowAmount,
@@ -297,9 +364,8 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
     final blockType = block.blockType;
     final baseColor = _getBlockTypeColor(colorScheme, blockType);
 
-    const double cardSize = 160;
-    const double widgetCenterX = cardSize / 2; // 80
-    const double widgetCenterY = cardSize / 2 + 8; // matches `_CubePainter`
+    final widgetCenterX = cardSize / 2;
+    final widgetCenterY = cardSize / 2 + (cardSize * 0.05);
 
     return Positioned(
       left: position.dx - widgetCenterX,
@@ -312,15 +378,15 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
             baseColor: baseColor,
             depth: depth,
             cubeCenter: modelCenter,
+            cubeScale: cubeScale,
             glowAmount: glowAmount,
             yaw: _yaw,
             pitch: _pitch,
-            label: blockType?.displayName ?? block.whoami.blockType ?? 'Unknown',
-            textStyle: theme.textTheme.bodySmall ??
-                const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                ),
+            label:
+                blockType?.displayName ?? block.whoami.blockType ?? 'Unknown',
+            textStyle:
+                theme.textTheme.bodySmall ??
+                const TextStyle(color: Colors.white, fontSize: 11),
           ),
         ),
       ),
@@ -372,6 +438,7 @@ class _CubePainter extends CustomPainter {
   final Color baseColor;
   final double depth;
   final _Point3 cubeCenter;
+  final double cubeScale;
   final double glowAmount;
   final double yaw;
   final double pitch;
@@ -382,6 +449,7 @@ class _CubePainter extends CustomPainter {
     required this.baseColor,
     required this.depth,
     required this.cubeCenter,
+    required this.cubeScale,
     required this.glowAmount,
     required this.yaw,
     required this.pitch,
@@ -396,7 +464,6 @@ class _CubePainter extends CustomPainter {
     // True cube: rotate 8 vertices in 3D, then perspective-project.
     const double half = 0.55; // cube half-edge in model units
     const double cameraDistance = 3.2; // camera distance in model units
-    const double scale = 70; // pixels per model unit (after projection)
 
     final vertices = <_Vec3>[
       const _Vec3(-half, -half, -half), // 0
@@ -424,12 +491,14 @@ class _CubePainter extends CustomPainter {
     }
 
     Offset projectRelative(_Vec3 p) {
-      final factor = cameraDistance / (cameraDistance + p.z);
-      return Offset(p.x * factor * scale, p.y * factor * scale);
+      final denominator = (cameraDistance + p.z).clamp(0.9, 6.0).toDouble();
+      final factor = cameraDistance / denominator;
+      return Offset(p.x * factor * cubeScale, p.y * factor * cubeScale);
     }
 
-    final rotatedCenter =
-        rotate(_Vec3(cubeCenter.x, cubeCenter.y, cubeCenter.z));
+    final rotatedCenter = rotate(
+      _Vec3(cubeCenter.x, cubeCenter.y, cubeCenter.z),
+    );
     final rotatedOffsets = vertices.map(rotate).toList(growable: false);
 
     final projectedCenter = projectRelative(rotatedCenter);
@@ -461,9 +530,9 @@ class _CubePainter extends CustomPainter {
 
     double avgZFor(List<int> f) =>
         (rotatedOffsets[f[0]].z +
-                rotatedOffsets[f[1]].z +
-                rotatedOffsets[f[2]].z +
-                rotatedOffsets[f[3]].z) /
+            rotatedOffsets[f[1]].z +
+            rotatedOffsets[f[2]].z +
+            rotatedOffsets[f[3]].z) /
         4.0;
 
     Path pathFor(List<int> f) {
@@ -477,12 +546,13 @@ class _CubePainter extends CustomPainter {
 
     // Draw all faces sorted far-to-near for stability (no popping).
     final drawFaces = <_FaceDraw>[
-      for (final f in faces) _FaceDraw(indices: f, normal: normalFor(f), avgZ: avgZFor(f)),
+      for (final f in faces)
+        _FaceDraw(indices: f, normal: normalFor(f), avgZ: avgZFor(f)),
     ]..sort((a, b) => b.avgZ.compareTo(a.avgZ));
 
     // Depth-based dim so distant blocks read slightly darker.
-    final normalizedDepth = ((depth + 200.0) / 400.0).clamp(0.0, 1.0);
-    final depthDim = 0.85 - normalizedDepth * 0.25; // 0.85..0.60
+    final normalizedDepth = ((depth + 1.6) / 3.2).clamp(0.0, 1.0);
+    final depthDim = 0.92 - normalizedDepth * 0.3; // 0.92..0.62
 
     final lightDir = const _Vec3(-0.35, -0.6, -1.0).normalized();
 
@@ -549,8 +619,7 @@ class _CubePainter extends CustomPainter {
         ..strokeWidth = 2.2 + glowAmount * 4.0
         ..strokeJoin = StrokeJoin.miter
         ..strokeCap = StrokeCap.square
-        ..maskFilter =
-            MaskFilter.blur(BlurStyle.normal, 6 + glowAmount * 14);
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 + glowAmount * 14);
 
       for (final e in edges) {
         final a = projected[e[0]];
@@ -572,9 +641,15 @@ class _CubePainter extends CustomPainter {
     if (lf != null) {
       final f = lf.indices;
       final centroid = Offset(
-        (projected[f[0]].dx + projected[f[1]].dx + projected[f[2]].dx + projected[f[3]].dx) /
+        (projected[f[0]].dx +
+                projected[f[1]].dx +
+                projected[f[2]].dx +
+                projected[f[3]].dx) /
             4.0,
-        (projected[f[0]].dy + projected[f[1]].dy + projected[f[2]].dy + projected[f[3]].dy) /
+        (projected[f[0]].dy +
+                projected[f[1]].dy +
+                projected[f[2]].dy +
+                projected[f[3]].dy) /
             4.0,
       );
 
@@ -605,7 +680,10 @@ class _CubePainter extends CustomPainter {
         Paint()..color = Colors.black.withOpacity(0.22),
       );
 
-      tp.paint(canvas, Offset(centroid.dx - tp.width / 2, centroid.dy - tp.height / 2));
+      tp.paint(
+        canvas,
+        Offset(centroid.dx - tp.width / 2, centroid.dy - tp.height / 2),
+      );
     }
   }
 
@@ -616,6 +694,7 @@ class _CubePainter extends CustomPainter {
         oldDelegate.cubeCenter.x != cubeCenter.x ||
         oldDelegate.cubeCenter.y != cubeCenter.y ||
         oldDelegate.cubeCenter.z != cubeCenter.z ||
+        oldDelegate.cubeScale != cubeScale ||
         oldDelegate.glowAmount != glowAmount ||
         oldDelegate.yaw != yaw ||
         oldDelegate.pitch != pitch ||
@@ -636,11 +715,8 @@ class _Vec3 {
 
   double dot(_Vec3 other) => x * other.x + y * other.y + z * other.z;
 
-  _Vec3 cross(_Vec3 o) => _Vec3(
-        y * o.z - z * o.y,
-        z * o.x - x * o.z,
-        x * o.y - y * o.x,
-      );
+  _Vec3 cross(_Vec3 o) =>
+      _Vec3(y * o.z - z * o.y, z * o.x - x * o.z, x * o.y - y * o.x);
 
   double get length => math.sqrt(x * x + y * y + z * z);
 
@@ -680,10 +756,7 @@ class _GroundPlanePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          color.withOpacity(0.0),
-          color,
-        ],
+        colors: [color.withOpacity(0.0), color],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final path = Path();
@@ -723,4 +796,3 @@ class _GroundPlanePainter extends CustomPainter {
         oldDelegate.color != color;
   }
 }
-
