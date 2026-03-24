@@ -79,6 +79,16 @@ enum ScreenType {
   contact,
 }
 
+enum PlaythroughStep {
+  openWorkspace,
+  addIfBlock,
+  addButtonPress,
+  addThenBlock,
+  addNoteBlock,
+  addEndIfBlock,
+  completed,
+}
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -132,6 +142,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   DateTime? _stressTestStartTime;
   int _stressTestMessageRate = 10; // messages per second
 
+  // Guided playthrough tutorial (MVP, in-memory only).
+  bool _showPlaythroughPrompt = true;
+  bool _isPlaythroughActive = false;
+  PlaythroughStep _playthroughStep = PlaythroughStep.openWorkspace;
+
   late AnimationController _menuAnimationController;
   late Animation<double> _menuAnimation;
 
@@ -184,6 +199,171 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _startPlaythrough() {
+    setState(() {
+      _showPlaythroughPrompt = false;
+      _isPlaythroughActive = true;
+      _playthroughStep = PlaythroughStep.openWorkspace;
+    });
+    _schedulePlaythroughEvaluation(source: 'start_playthrough');
+  }
+
+  void _skipPlaythroughPrompt() {
+    setState(() {
+      _showPlaythroughPrompt = false;
+    });
+  }
+
+  void _endPlaythrough({bool showFeedback = false}) {
+    if (!_isPlaythroughActive) return;
+    setState(() {
+      _isPlaythroughActive = false;
+    });
+    if (!showFeedback || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Playthrough ended. You can restart it from Welcome.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _schedulePlaythroughEvaluation({
+    BlockConfiguration? configuration,
+    required String source,
+  }) {
+    if (!_isPlaythroughActive) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isPlaythroughActive) return;
+      _evaluatePlaythroughProgress(
+        configuration: configuration,
+        source: source,
+      );
+    });
+  }
+
+  void _evaluatePlaythroughProgress({
+    BlockConfiguration? configuration,
+    required String source,
+  }) {
+    if (!_isPlaythroughActive) return;
+    final nextStep = _determinePlaythroughStep(
+      configuration: configuration ?? _currentConfiguration,
+      screen: currentScreen,
+    );
+    if (nextStep == _playthroughStep) return;
+
+    setState(() {
+      _playthroughStep = nextStep;
+    });
+
+    if (nextStep == PlaythroughStep.completed) {
+      debugPrint('[Playthrough] Completed from: $source');
+      _showPlaythroughCompletion();
+    }
+  }
+
+  PlaythroughStep _determinePlaythroughStep({
+    required BlockConfiguration? configuration,
+    required ScreenType screen,
+  }) {
+    if (screen != ScreenType.blockConfig) {
+      return PlaythroughStep.openWorkspace;
+    }
+
+    final blockTypes = (configuration?.blocks ?? const <BlockInfo>[])
+        .map((b) => b.blockType)
+        .whereType<BlockType>()
+        .where((t) => t != BlockType.brainBlock)
+        .toList();
+
+    int findAfter(int fromExclusive, BlockType target) {
+      for (var i = fromExclusive + 1; i < blockTypes.length; i++) {
+        if (blockTypes[i] == target) return i;
+      }
+      return -1;
+    }
+
+    final ifIdx = findAfter(-1, BlockType.ifBlock);
+    if (ifIdx == -1) return PlaythroughStep.addIfBlock;
+
+    final buttonIdx = findAfter(ifIdx, BlockType.buttonPress);
+    if (buttonIdx == -1) return PlaythroughStep.addButtonPress;
+
+    final thenIdx = findAfter(buttonIdx, BlockType.thenBlock);
+    if (thenIdx == -1) return PlaythroughStep.addThenBlock;
+
+    final noteIdx = findAfter(thenIdx, BlockType.noteBlock);
+    if (noteIdx == -1) return PlaythroughStep.addNoteBlock;
+
+    final endIfIdx = findAfter(noteIdx, BlockType.endIfBlock);
+    if (endIfIdx == -1) return PlaythroughStep.addEndIfBlock;
+
+    return PlaythroughStep.completed;
+  }
+
+  String _playthroughStepTitle(PlaythroughStep step) {
+    switch (step) {
+      case PlaythroughStep.openWorkspace:
+        return 'Open Block Workspace';
+      case PlaythroughStep.addIfBlock:
+        return 'Step 1: Add If Block';
+      case PlaythroughStep.addButtonPress:
+        return 'Step 2: Add Button Press';
+      case PlaythroughStep.addThenBlock:
+        return 'Step 3: Add Then Block';
+      case PlaythroughStep.addNoteBlock:
+        return 'Step 4: Add Note Block';
+      case PlaythroughStep.addEndIfBlock:
+        return 'Step 5: Add End If Block';
+      case PlaythroughStep.completed:
+        return 'Scenario Complete';
+    }
+  }
+
+  String _playthroughStepDescription(PlaythroughStep step) {
+    switch (step) {
+      case PlaythroughStep.openWorkspace:
+        return 'Go to Block Configuration to begin. The tutorial tracks changes live.';
+      case PlaythroughStep.addIfBlock:
+        return 'Add an If Block to begin the control-flow condition.';
+      case PlaythroughStep.addButtonPress:
+        return 'Add a Button Press block after If to define the trigger.';
+      case PlaythroughStep.addThenBlock:
+        return 'Add a Then Block to start the action branch.';
+      case PlaythroughStep.addNoteBlock:
+        return 'Add a Note Block inside the Then branch for output.';
+      case PlaythroughStep.addEndIfBlock:
+        return 'Close the sequence with an End If Block.';
+      case PlaythroughStep.completed:
+        return 'Nice work! You completed: If -> Button Press -> Then -> Note -> EndIf.';
+    }
+  }
+
+  void _showPlaythroughCompletion() {
+    _endPlaythrough();
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Playthrough complete'),
+          content: const Text(
+            'You built the example scenario successfully.\n\n'
+            'Pattern learned:\n'
+            'If -> Button Press -> Then -> Note Block -> EndIf',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Load fake block configuration from assets for testing
   Future<void> _loadFakeConfiguration(String assetPath) async {
     try {
@@ -217,6 +397,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         connectionStatus = 'Offline mode: loaded fake config from $assetPath';
         _lastHeartbeatTime = DateTime.now();
       });
+      _schedulePlaythroughEvaluation(
+        configuration: config,
+        source: 'load_offline_base',
+      );
     } catch (e) {
       setState(() {
         connectionStatus = 'Offline mode: failed to load fake config: $e';
@@ -235,6 +419,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       connectionStatus = statusText;
       _lastHeartbeatTime = DateTime.now();
     });
+    _schedulePlaythroughEvaluation(
+      configuration: config,
+      source: 'apply_local_config',
+    );
   }
 
   void _offlineAddBlock() {
@@ -363,6 +551,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
     setState(() {
       currentScreen = screen;
     });
+    _schedulePlaythroughEvaluation(source: 'navigate_to_${screen.name}');
   }
 
   void _toggleMenu() {
@@ -567,6 +756,10 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
+          _schedulePlaythroughEvaluation(
+            configuration: config,
+            source: 'tcp_block_config',
+          );
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             final renderTsMs = DateTime.now().millisecondsSinceEpoch;
@@ -976,8 +1169,234 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
+
+          if (!_isPlaythroughActive &&
+              _showPlaythroughPrompt &&
+              currentScreen == ScreenType.welcome)
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: _buildPlaythroughPromptCard(theme, colorScheme),
+            ),
+
+          if (_isPlaythroughActive)
+            Positioned.fill(
+              child: _buildPlaythroughOverlay(theme, colorScheme),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPlaythroughPromptCard(ThemeData theme, ColorScheme colorScheme) {
+    return Material(
+      elevation: 14,
+      borderRadius: BorderRadius.circular(18),
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primaryContainer.withOpacity(0.98),
+              colorScheme.secondaryContainer.withOpacity(0.92),
+            ],
+          ),
+          border: Border.all(
+            color: colorScheme.primary.withOpacity(0.45),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome, color: colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Try the guided playthrough',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Build: If -> Button Press -> Then -> Note -> EndIf',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onPrimaryContainer.withOpacity(0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('playthrough_skip_button'),
+              onPressed: _skipPlaythroughPrompt,
+              child: const Text('Skip'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              key: const Key('playthrough_start_button'),
+              onPressed: _startPlaythrough,
+              child: const Text('Start'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaythroughOverlay(ThemeData theme, ColorScheme colorScheme) {
+    final step = _playthroughStep;
+    final inWorkspace = currentScreen == ScreenType.blockConfig;
+    final totalSteps = 6;
+    final stepNumber = switch (step) {
+      PlaythroughStep.openWorkspace => 0,
+      PlaythroughStep.addIfBlock => 1,
+      PlaythroughStep.addButtonPress => 2,
+      PlaythroughStep.addThenBlock => 3,
+      PlaythroughStep.addNoteBlock => 4,
+      PlaythroughStep.addEndIfBlock => 5,
+      PlaythroughStep.completed => 6,
+    };
+
+    return Stack(
+      children: [
+        if (inWorkspace)
+          IgnorePointer(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 72, 12, 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: colorScheme.primary.withOpacity(0.65),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+        Positioned(
+          left: 16,
+          top: 80,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Material(
+              elevation: 10,
+              borderRadius: BorderRadius.circular(16),
+              color: colorScheme.surface.withOpacity(0.95),
+              child: Container(
+                key: const Key('playthrough_progress_panel'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.primary.withOpacity(0.35),
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.tour, color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Playthrough',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$stepNumber/$totalSteps',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _playthroughStepTitle(step),
+                      key: const Key('playthrough_step_title'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _playthroughStepDescription(step),
+                      key: const Key('playthrough_step_description'),
+                      style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (step == PlaythroughStep.openWorkspace)
+                          ElevatedButton.icon(
+                            key: const Key('playthrough_go_workspace_button'),
+                            onPressed: _handleGetStarted,
+                            icon: const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Go to workspace'),
+                          ),
+                        OutlinedButton(
+                          key: const Key('playthrough_restart_button'),
+                          onPressed: _startPlaythrough,
+                          child: const Text('Restart'),
+                        ),
+                        TextButton(
+                          key: const Key('playthrough_end_button'),
+                          onPressed: () => _endPlaythrough(showFeedback: true),
+                          child: const Text('End'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Test helpers to drive tutorial progression without TCP sockets.
+  void debugStartPlaythroughForTest() {
+    _startPlaythrough();
+  }
+
+  void debugNavigateToScreenForTest(ScreenType screen) {
+    _navigateToScreen(screen);
+  }
+
+  void debugApplyConfigurationForTest(BlockConfiguration configuration) {
+    final violations = _configValidator.validate(configuration);
+    setState(() {
+      currentScreen = ScreenType.blockConfig;
+      _currentConfiguration = configuration;
+      _configViolations = violations;
+      _lastHeartbeatTime = DateTime.now();
+    });
+    _schedulePlaythroughEvaluation(
+      configuration: configuration,
+      source: 'debug_test_configuration',
     );
   }
 
