@@ -213,13 +213,20 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                   const double localY = 0.0;
                   final blockCount = blocks.length;
                   final shouldScroll = blockCount >= _scrollThreshold;
+                  final effectiveYaw = shouldScroll ? (_yaw * 0.78) : _yaw;
+                  final cubeDepthScale = shouldScroll ? 0.72 : 1.0;
                   final baseInterBlock = cubeHalf * 2;
                   final interBlock = shouldScroll
-                      ? baseInterBlock
-                      : ((baseInterBlock -
-                                    ((blockCount - 1) / 20).clamp(0.0, 0.32))
-                                .clamp(0.8, baseInterBlock))
-                            .toDouble();
+                      // Add breathing room in long-chain mode to avoid
+                      // neighboring cubes visually merging together.
+                      ? (baseInterBlock * 1.04)
+                      : (blockCount <= 3
+                            ? baseInterBlock * 1.03
+                            : blockCount <= 6
+                            ? baseInterBlock * 1.01
+                            : blockCount <= 8
+                            ? baseInterBlock * 1.00
+                            : baseInterBlock);
 
                   final availableWidth = shouldScroll
                       ? math.max(viewportWidth * 0.92, 520).toDouble()
@@ -236,7 +243,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                       .toDouble();
                   final projectedSpanWidth = modelSpan * cubeScale;
                   final sceneWidth = shouldScroll
-                      ? math.max(viewportWidth, projectedSpanWidth + 120)
+                      ? math.max(viewportWidth, projectedSpanWidth + 180)
                       : viewportWidth;
                   final centerX = sceneWidth / 2;
 
@@ -249,7 +256,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                       localX,
                       localY,
                       localZ,
-                      _yaw,
+                      effectiveYaw,
                       _pitch,
                     );
 
@@ -288,7 +295,7 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                         Positioned.fill(
                           child: CustomPaint(
                             painter: _GroundPlanePainter(
-                              yaw: _yaw,
+                              yaw: effectiveYaw,
                               pitch: _pitch,
                               color: colorScheme.primary.withOpacity(0.15),
                             ),
@@ -302,6 +309,8 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
                             pb.screenPosition,
                             cardSize: cardSize,
                             cubeScale: cubeScale,
+                            cubeDepthScale: cubeDepthScale,
+                            yaw: effectiveYaw,
                             modelCenter: pb.modelCenter,
                             depth: pb.depth,
                             glowAmount: _glowBlockIndices.contains(pb.index)
@@ -357,6 +366,8 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
     Offset position, {
     required double cardSize,
     required double cubeScale,
+    required double cubeDepthScale,
+    required double yaw,
     required _Point3 modelCenter,
     required double depth,
     required double glowAmount,
@@ -379,8 +390,9 @@ class _Block3DVisualizerState extends State<Block3DVisualizer>
             depth: depth,
             cubeCenter: modelCenter,
             cubeScale: cubeScale,
+            cubeDepthScale: cubeDepthScale,
             glowAmount: glowAmount,
-            yaw: _yaw,
+            yaw: yaw,
             pitch: _pitch,
             label:
                 blockType?.displayName ?? block.whoami.blockType ?? 'Unknown',
@@ -439,6 +451,7 @@ class _CubePainter extends CustomPainter {
   final double depth;
   final _Point3 cubeCenter;
   final double cubeScale;
+  final double cubeDepthScale;
   final double glowAmount;
   final double yaw;
   final double pitch;
@@ -450,6 +463,7 @@ class _CubePainter extends CustomPainter {
     required this.depth,
     required this.cubeCenter,
     required this.cubeScale,
+    required this.cubeDepthScale,
     required this.glowAmount,
     required this.yaw,
     required this.pitch,
@@ -463,17 +477,18 @@ class _CubePainter extends CustomPainter {
 
     // True cube: rotate 8 vertices in 3D, then perspective-project.
     const double half = 0.55; // cube half-edge in model units
+    final halfDepth = half * cubeDepthScale;
     const double cameraDistance = 3.2; // camera distance in model units
 
     final vertices = <_Vec3>[
-      const _Vec3(-half, -half, -half), // 0
-      const _Vec3(half, -half, -half), // 1
-      const _Vec3(half, half, -half), // 2
-      const _Vec3(-half, half, -half), // 3
-      const _Vec3(-half, -half, half), // 4
-      const _Vec3(half, -half, half), // 5
-      const _Vec3(half, half, half), // 6
-      const _Vec3(-half, half, half), // 7
+      _Vec3(-half, -half, -halfDepth), // 0
+      _Vec3(half, -half, -halfDepth), // 1
+      _Vec3(half, half, -halfDepth), // 2
+      _Vec3(-half, half, -halfDepth), // 3
+      _Vec3(-half, -half, halfDepth), // 4
+      _Vec3(half, -half, halfDepth), // 5
+      _Vec3(half, half, halfDepth), // 6
+      _Vec3(-half, half, halfDepth), // 7
     ];
 
     _Vec3 rotate(_Vec3 p) {
@@ -695,6 +710,7 @@ class _CubePainter extends CustomPainter {
         oldDelegate.cubeCenter.y != cubeCenter.y ||
         oldDelegate.cubeCenter.z != cubeCenter.z ||
         oldDelegate.cubeScale != cubeScale ||
+        oldDelegate.cubeDepthScale != cubeDepthScale ||
         oldDelegate.glowAmount != glowAmount ||
         oldDelegate.yaw != yaw ||
         oldDelegate.pitch != pitch ||
