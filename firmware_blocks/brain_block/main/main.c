@@ -11,6 +11,8 @@
 #include "tft_ui.h"
 #include "brain_event_handler.h"
 #include "audio_speaker.h"
+#include "status_strip.h"
+#include "led_contract.h"
 
 extern void initArduino(void);
 
@@ -47,6 +49,20 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define ENABLE_BRAIN_EXECUTOR_DEMO_VALIDATION_BYPASS 0
 #define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 1
 #define BRAIN_EXECUTOR_TICK_INTERVAL_MS 10
+#define BRAIN_STATUS_STRIP_GPIO      GPIO_NUM_13
+#define BRAIN_STATUS_STRIP_LED_COUNT 30
+
+typedef led_contract_rgb_t led_rgb_t;
+
+static const status_strip_config_t kBrainStatusStripConfig = {
+    .gpio_num = BRAIN_STATUS_STRIP_GPIO,
+    .led_count = BRAIN_STATUS_STRIP_LED_COUNT,
+};
+
+static bool executor_state_is_active(brain_executor_state_t state);
+static uint8_t brain_led_idle_brightness(void);
+static uint8_t brain_led_active_brightness(void);
+static uint8_t brain_led_inactive_running_brightness(void);
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
@@ -164,6 +180,251 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
         }
     }
     return false;
+}
+
+static uint8_t brain_led_idle_brightness(void)
+{
+    return 96U;
+}
+
+static uint8_t brain_led_active_brightness(void)
+{
+    return 255U;
+}
+
+static uint8_t brain_led_inactive_running_brightness(void)
+{
+    return 48U;
+}
+
+static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness)
+{
+    return (led_rgb_t) {
+        .r = (uint8_t)(((uint16_t)color.r * brightness) / 255U),
+        .g = (uint8_t)(((uint16_t)color.g * brightness) / 255U),
+        .b = (uint8_t)(((uint16_t)color.b * brightness) / 255U),
+    };
+}
+
+static int brain_led_highlight_index(const brain_executor_context_t *ctx)
+{
+    /* Map executor state to the logical program step that should be highlighted.
+     *
+     * Why this helper exists:
+     * - The executor does not always sit on a "normal running" step.
+     * - During wait states (delay, input wait), the child block that owns the
+     *   visible output is usually the previous program step, not the next one.
+     * - When the executor has advanced past the last step, we still want the
+     *   final block to remain highlighted briefly instead of showing "nothing".
+     *
+     * Result:
+     * - RUNNING       -> highlight current pc
+     * - WAIT_*        -> highlight previous logical step
+     * - past-the-end  -> highlight final step
+     * - idle/inactive -> no highlight
+     */
+    if (ctx == NULL || !executor_state_is_active(ctx->state) || ctx->program_len == 0) {
+        return -1;
+    }
+
+    if (ctx->state == EXECUTOR_WAIT_DELAY || ctx->state == EXECUTOR_WAIT_INPUT) {
+        return (ctx->pc > 0) ? (int)(ctx->pc - 1) : 0;
+    }
+
+    if (ctx->pc >= ctx->program_len) {
+        return (ctx->program_len > 0) ? (int)(ctx->program_len - 1) : -1;
+    }
+
+    return (int)ctx->pc;
+}
+
+static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
+                                          const brain_executor_context_t *ctx)
+{
+    static uint64_t s_last_render_scan_ts = UINT64_MAX;
+    static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
+    static uint8_t s_last_render_pc = 0xFF;
+    static uint8_t s_last_render_block_count = 0xFF;
+    static esp_err_t s_last_init_err = ESP_OK;
+
+    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
+    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
+    uint64_t scan_ts = (cfg != NULL) ? cfg->last_scan_timestamp : 0;
+    uint8_t block_count = (cfg != NULL) ? cfg->block_count : 0;
+
+    if (s_last_render_scan_ts == scan_ts &&
+        s_last_render_state == state &&
+        s_last_render_pc == pc &&
+        s_last_render_block_count == block_count) {
+        return;
+    }
+
+    esp_err_t err = status_strip_ensure_ready(&kBrainStatusStripConfig);
+    if (err != ESP_OK) {
+        if (err != s_last_init_err) {
+            ESP_LOGW(TAG, "Brain status strip init failed: %s", esp_err_to_name(err));
+            s_last_init_err = err;
+        }
+        return;
+    }
+    s_last_init_err = ESP_OK;
+
+    status_strip_set_brightness(255U);
+
+    /* Brain local strip renderer
+     *
+     * This is the Brain-side answer to "show me the built program locally".
+     * The strip is not hardcoded to one fixed program layout. Instead, every
+     * refresh derives its output from the latest scanned block configuration:
+     *
+     * 1. Read the latest scanned config (`cfg->blocks[]`, `cfg->block_count`).
+     * 2. Divide the Brain strip into `block_count` visual segments.
+     * 3. Color each segment using the shared block_type -> RGB palette.
+     * 4. If the executor is active, brighten only the active logical step and
+     *    dim the rest so the strip mirrors the current program position.
+     *
+     * Because the segment assignment is calculated from `block_count` every
+     * time, this automatically adapts to different user-built programs:
+     * - short programs -> larger segments per block
+     * - long programs  -> smaller segments per block
+     * - reordered blocks -> colors move with the new scanned order
+     *
+     * Fallback behavior:
+     * - before any blocks are scanned, show the Brain's own color as a solid
+     *   strip so the user still gets "I am alive" feedback at boot.
+     */
+    if (cfg == NULL || cfg->block_count == 0 || status_strip_get_led_count() == 0U) {
+        led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
+                                                brain_led_idle_brightness());
+        status_strip_fill(brain_color.r, brain_color.g, brain_color.b);
+    } else {
+        uint16_t led_count = status_strip_get_led_count();
+        int highlight_index = brain_led_highlight_index(ctx);
+        bool is_active_run = executor_state_is_active(state);
+
+        /* Each physical LED is mapped back to a program step by proportion:
+         *
+         *   block_index = led_idx * block_count / led_count
+         *
+         * That makes the renderer configuration-driven instead of assuming a
+         * fixed number of blocks or a fixed LED allocation per block. */
+        for (uint16_t led_idx = 0; led_idx < led_count; led_idx++) {
+            uint8_t block_index = (uint8_t)(((uint32_t)led_idx * cfg->block_count) / led_count);
+            if (block_index >= cfg->block_count) {
+                block_index = (uint8_t)(cfg->block_count - 1);
+            }
+
+            const block_config_entry_t *entry = &cfg->blocks[block_index];
+            led_rgb_t color = entry->present
+                                  ? led_contract_identity_color(entry->block_type)
+                                  : led_contract_identity_color(BLOCK_TYPE_BRAIN);
+
+            /* Idle: every segment uses the same medium brightness so the full
+             * program remains readable.
+             *
+             * Busy/running: only the active step gets full brightness. All
+             * inactive steps stay visible but dim, which mirrors executor
+             * progress without losing the overall program map. */
+            uint8_t brightness = brain_led_idle_brightness();
+            if (is_active_run) {
+                brightness = (block_index == highlight_index)
+                                 ? brain_led_active_brightness()
+                                 : brain_led_inactive_running_brightness();
+            }
+
+            led_rgb_t scaled = scale_led_color(color, brightness);
+            status_strip_set_pixel(led_idx, scaled.r, scaled.g, scaled.b);
+        }
+    }
+
+    err = status_strip_show();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Brain status strip show failed: %s", esp_err_to_name(err));
+    }
+
+    s_last_render_scan_ts = scan_ts;
+    s_last_render_state = state;
+    s_last_render_pc = pc;
+    s_last_render_block_count = block_count;
+}
+
+static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
+                                           const brain_executor_context_t *ctx)
+{
+    static uint64_t s_last_render_scan_ts = 0;
+    static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
+    static uint8_t s_last_render_pc = 0xFF;
+    static uint8_t s_last_render_block_count = 0xFF;
+
+    if (cfg == NULL) {
+        return;
+    }
+
+    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
+    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
+    if (s_last_render_scan_ts == cfg->last_scan_timestamp &&
+        s_last_render_state == state &&
+        s_last_render_pc == pc &&
+        s_last_render_block_count == cfg->block_count) {
+        return;
+    }
+
+    int highlight_index = brain_led_highlight_index(ctx);
+    bool is_active_run = executor_state_is_active(state);
+
+    /* Child rendering stays config-driven too:
+     * - scan order determines visual order
+     * - block type determines idle color
+     * - executor state determines highlight brightness
+     *
+     * So the Brain local strip and the child strips are both derived from the
+     * same scanned program shape and the same executor state, just rendered to
+     * different hardware paths. */
+    for (int i = 0; i < cfg->block_count; i++) {
+        const block_config_entry_t *entry = &cfg->blocks[i];
+        if (!entry->present || !led_contract_supports_brain_mirroring(entry->block_type)) {
+            continue;
+        }
+
+        led_rgb_t color = led_contract_identity_color(entry->block_type);
+        uint8_t brightness = brain_led_idle_brightness();
+        if (is_active_run) {
+            brightness = (i == highlight_index)
+                             ? brain_led_active_brightness()
+                             : brain_led_inactive_running_brightness();
+        }
+
+        esp_err_t fill_ret = i2c_matrix_fill(entry->i2c_address, color.r, color.g, color.b);
+        if (fill_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror fill failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(fill_ret));
+            continue;
+        }
+
+        esp_err_t brightness_ret = i2c_matrix_set_brightness(entry->i2c_address, brightness);
+        if (brightness_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror brightness failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(brightness_ret));
+            continue;
+        }
+
+        esp_err_t show_ret = i2c_matrix_show(entry->i2c_address);
+        if (show_ret != ESP_OK) {
+            ESP_LOGD(TAG, "LED mirror show failed addr=0x%02X type=%s ret=%s",
+                     entry->i2c_address,
+                     block_type_to_string(entry->block_type),
+                     esp_err_to_name(show_ret));
+        }
+    }
+
+    s_last_render_scan_ts = cfg->last_scan_timestamp;
+    s_last_render_state = state;
+    s_last_render_pc = pc;
+    s_last_render_block_count = cfg->block_count;
 }
 
 static bool executor_state_is_active(brain_executor_state_t state)

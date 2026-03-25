@@ -25,6 +25,10 @@
 #include "i2c_protocol.h"
 #include "music_leds.h"
 #include "speaker.h"
+#include "../../../shared_components/led_matrix/led_matrix.h"
+#include "speaker.h"
+#include "status_strip.h"
+#include "led_contract.h"
 #include "tft_ui.h"
 
 extern void initArduino(void);
@@ -70,6 +74,75 @@ static bool g_config_valid = false;
 static bool g_speaker_ready = false;
 static bool g_leds_ready = false;
 static uint8_t g_status_flags = STATUS_READY;
+static TaskHandle_t g_exec_task_handle = NULL;
+static TaskHandle_t g_i2c_task_handle = NULL;
+
+static void render_status_strip(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_MUSIC_SEQ);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
+    }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status_flags));
+    (void)status_strip_show();
+}
+
+static void set_status_flags(uint8_t status_flags)
+{
+    g_status_flags = status_flags;
+    render_status_strip(g_status_flags);
+}
+
+static void apply_startup_reset_state(void)
+{
+    g_selected_song = 0;
+    g_config_valid = false;
+    set_status_flags(STATUS_READY);
+
+    if (g_speaker_ready) {
+        (void)speaker_stop();
+    }
+
+    tft_ui_set_playback_state(&(music_playback_state_t) {
+        .is_playing = false,
+        .active_song_index = 0,
+    });
+    tft_ui_set_status_message("Pick a song and tap Play!");
+    (void)status_strip_reset(&kStatusStripConfig);
+    matrix_clear();
+    matrix_show();
+}
+
+static void stack_monitor_task(void *arg)
+{
+    (void)arg;
+    while (1) {
+        UBaseType_t exec_hwm = 0;
+        UBaseType_t i2c_hwm = 0;
+
+        if (g_exec_task_handle != NULL) {
+            exec_hwm = uxTaskGetStackHighWaterMark(g_exec_task_handle);
+        }
+        if (g_i2c_task_handle != NULL) {
+            i2c_hwm = uxTaskGetStackHighWaterMark(g_i2c_task_handle);
+        }
+
+        if ((exec_hwm > 0 && exec_hwm < STACK_WARN_LOW_WATERMARK_WORDS) ||
+            (i2c_hwm > 0 && i2c_hwm < STACK_WARN_LOW_WATERMARK_WORDS)) {
+            ESP_LOGW(TAG, "Low stack watermark: exec=%u words i2c=%u words",
+                     (unsigned)exec_hwm, (unsigned)i2c_hwm);
+#if STACK_MONITOR_VERBOSE
+        } else {
+            ESP_LOGI(TAG, "Stack watermark: exec=%u words i2c=%u words",
+                     (unsigned)exec_hwm, (unsigned)i2c_hwm);
+#endif
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(STACK_MONITOR_PERIOD_MS));
+    }
+}
 
 static void sync_selection_status_flag(void)
 {
@@ -78,6 +151,13 @@ static void sync_selection_status_flag(void)
     } else {
         g_status_flags &= (uint8_t)~STATUS_DATA_READY;
     }
+
+    if ((g_status_flags & (STATUS_BUSY | STATUS_ERROR)) == 0U) {
+        g_status_flags |= STATUS_READY;
+    } else {
+        g_status_flags &= (uint8_t)~STATUS_READY;
+    }
+    render_status_strip(g_status_flags);
 }
 
 static void clear_busy_and_refresh_ready_state(void)
@@ -108,7 +188,7 @@ static void peripherals_init(void)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "speaker_init failed: %s", esp_err_to_name(err));
         g_speaker_ready = false;
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
         return;
     }
 
@@ -158,8 +238,7 @@ static void handle_play_note(const uint8_t *rx, size_t rx_len)
         note_id = 0U;
     }
 
-    g_status_flags |= STATUS_BUSY;
-    g_status_flags &= (uint8_t)~STATUS_ERROR;
+    set_status_flags(STATUS_BUSY);
 
     if (g_leds_ready) {
         music_leds_show_note_color(note_id, 0U);
@@ -171,7 +250,7 @@ static void handle_play_note(const uint8_t *rx, size_t rx_len)
 
     clear_busy_and_refresh_ready_state();
     if (err != ESP_OK) {
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
     }
 }
 
@@ -185,12 +264,40 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    if (status_strip_handle_matrix_command(TAG,
+                                           &kStatusStripConfig,
+                                           cmd,
+                                           rx,
+                                           rx_len)) {
+        // Keep handling command below so matrix and strip stay mirrored.
+    }
+
     switch (cmd) {
         case CMD_PING:
             break;
 
         case CMD_PLAY_NOTE:
             handle_play_note(rx, rx_len);
+            break;
+
+        case CMD_MATRIX_FILL:
+            if (rx_len >= 3U) {
+                matrix_fill(rx[0], rx[1], rx[2]);
+            }
+            break;
+
+        case CMD_MATRIX_CLEAR:
+            matrix_clear();
+            break;
+
+        case CMD_MATRIX_BRIGHTNESS:
+            if (rx_len >= 1U) {
+                matrix_set_brightness(rx[0]);
+            }
+            break;
+
+        case CMD_MATRIX_SHOW:
+            matrix_show();
             break;
 
         case CMD_GET_STATUS:
@@ -219,10 +326,7 @@ void command_handle(i2c_command_t cmd,
 
             ESP_LOGI(TAG, "CMD_EXECUTE: playing song %u", (unsigned)g_selected_song);
 
-            g_status_flags |= STATUS_BUSY;
-            g_status_flags &= (uint8_t)~STATUS_ERROR;
-            g_status_flags &= (uint8_t)~STATUS_READY;
-            sync_selection_status_flag();
+            set_status_flags(STATUS_BUSY);
 
             tft_ui_set_playback_state(&(music_playback_state_t) {
                 .is_playing = true,
@@ -246,7 +350,7 @@ void command_handle(i2c_command_t cmd,
 
                 clear_busy_and_refresh_ready_state();
                 if (err != ESP_OK) {
-                    g_status_flags |= STATUS_ERROR;
+                    set_status_flags(STATUS_ERROR);
                     tft_ui_set_status_message("Playback error.");
                     ESP_LOGE(TAG,
                              "CMD_EXECUTE: speaker_play_song failed err=%d",
@@ -291,8 +395,7 @@ static void execution_task(void *arg)
                 case MUSIC_UI_ACTION_SONG_CHANGED:
                     g_selected_song = ui_action.song_index;
                     g_config_valid = false;
-                    g_status_flags &= (uint8_t)~STATUS_ERROR;
-                    g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+                    set_status_flags(STATUS_READY);
                     ESP_LOGI(TAG, "Song changed to %u (%s)",
                              (unsigned)g_selected_song,
                              speaker_get_song_name(g_selected_song));
@@ -301,8 +404,7 @@ static void execution_task(void *arg)
                 case MUSIC_UI_ACTION_SONG_SELECTED:
                     g_selected_song = ui_action.song_index;
                     g_config_valid = true;
-                    g_status_flags &= (uint8_t)~STATUS_ERROR;
-                    g_status_flags |= STATUS_DATA_READY;
+                    set_status_flags(STATUS_DATA_READY);
                     ESP_LOGI(TAG, "Song selected: %u (%s)",
                              (unsigned)g_selected_song,
                              speaker_get_song_name(g_selected_song));
@@ -335,10 +437,18 @@ void app_main(void)
         return;
     }
 
+    err = led_matrix_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "led_matrix_init failed: %s", esp_err_to_name(err));
+        set_status_flags(STATUS_ERROR);
+        peripherals_error_feedback();
+        return;
+    }
+
     err = i2c_slave_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "i2c_slave_init failed: %s", esp_err_to_name(err));
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
         peripherals_error_feedback();
         return;
     }
@@ -346,15 +456,18 @@ void app_main(void)
     err = tft_ui_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "tft_ui_start failed: %s", esp_err_to_name(err));
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
         peripherals_error_feedback();
         return;
     }
 
+    apply_startup_reset_state();
+    render_status_strip(g_status_flags);
+
     err = battery_monitor_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "battery_monitor_start failed: %s", esp_err_to_name(err));
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
         peripherals_error_feedback();
         return;
     }
@@ -366,7 +479,7 @@ void app_main(void)
 
     if (ok_exec != pdPASS || ok_i2c != pdPASS) {
         ESP_LOGE(TAG, "Failed to create execution or I2C tasks");
-        g_status_flags |= STATUS_ERROR;
+        set_status_flags(STATUS_ERROR);
         peripherals_error_feedback();
         return;
     }

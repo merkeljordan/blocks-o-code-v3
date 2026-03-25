@@ -11,6 +11,8 @@
 #include "i2c_protocol.h"
 #include "led_matrix.h"
 #include "speaker.h"
+#include "status_strip.h"
+#include "led_contract.h"
 #include "tft_ui.h"
 
 // I2C glue is implemented in i2c_comm.c following the "new style" template.
@@ -21,6 +23,8 @@ extern void i2c_task(void *arg);
 #define BLOCK_I2C_ADDRESS  0x0F
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
 
 static const char *TAG = "NOTE_BLOCK";
 #define STARTUP_GUARD_SETTLE_MS 120
@@ -62,6 +66,9 @@ static const note_color_t k_note_colors[7] = {
     {0, 170, 255},   /* E */
     {80, 96, 255},   /* F */
     {200, 64, 255},  /* G */
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
 };
 
 // ============================================================================
@@ -94,6 +101,24 @@ static void peripherals_show_running(void);
 static void play_note(uint8_t note_id);
 static uint8_t s_status_flags = STATUS_READY;
 
+static void render_status_strip(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_NOTE);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
+    }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status_flags));
+    (void)status_strip_show();
+}
+
+static void set_status_flags(uint8_t status_flags)
+{
+    s_status_flags = status_flags;
+    render_status_strip(status_flags);
+}
+
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
 static bool s_pending_event_valid = false;
@@ -109,11 +134,13 @@ static void note_playback_task(void *arg)
 
     for (;;) {
         if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+            bool has_pending_event = false;
             peripherals_show_running();
             play_note(cmd.note_id);
             portENTER_CRITICAL(&s_pending_event_spinlock);
-            s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            has_pending_event = s_pending_event_valid;
             portEXIT_CRITICAL(&s_pending_event_spinlock);
+            set_status_flags(has_pending_event ? STATUS_DATA_READY : STATUS_READY);
         }
     }
 }
@@ -259,9 +286,7 @@ bool note_block_submit_selection(uint8_t note_id)
     s_pending_event_valid = true;
     portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
-        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
-        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
-        s_status_flags |= STATUS_DATA_READY;
+        set_status_flags(STATUS_DATA_READY);
     }
     return true;
 }
@@ -297,9 +322,7 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     s_pending_event_valid = true;
     portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
-        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
-        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
-        s_status_flags |= STATUS_DATA_READY;
+        set_status_flags(STATUS_DATA_READY);
     }
     return true;
 }
@@ -317,11 +340,13 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+
     switch (cmd) {
     case CMD_PING:
         // Do not clear STATUS_DATA_READY while an event is pending.
         if (!(s_pending_event_valid && (s_status_flags == STATUS_DATA_READY))) {
-            s_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
         }
         break;
 
@@ -344,40 +369,73 @@ void command_handle(i2c_command_t cmd,
             if (s_playback_queue != NULL) {
                 playback_cmd_t cmd_play = { .note_id = rx[0] };
                 if (xQueueSendToBack(s_playback_queue, &cmd_play, 0) == pdPASS) {
-                    s_status_flags = STATUS_BUSY;
+                    set_status_flags(STATUS_BUSY);
                 } else {
-                    s_status_flags = STATUS_ERROR;
+                    set_status_flags(STATUS_ERROR);
                 }
             } else {
-                s_status_flags = STATUS_ERROR;
+                set_status_flags(STATUS_ERROR);
             }
         } else {
-            s_status_flags = STATUS_ERROR;
+            set_status_flags(STATUS_ERROR);
         }
+        break;
+
+    case CMD_SET_LED:
+        if (rx && rx_len >= 1) {
+            s_config.is_custom_sequence = false;
+            s_config.note_id = (uint8_t)(rx[0] % 7U);
+            s_config.seq_len = 0U;
+            s_config_valid = true;
+        }
+        break;
+
+    case CMD_MATRIX_FILL:
+        if (rx_len >= 3U) {
+            matrix_fill(rx[0], rx[1], rx[2]);
+        }
+        break;
+
+    case CMD_MATRIX_CLEAR:
+        matrix_clear();
+        break;
+
+    case CMD_MATRIX_BRIGHTNESS:
+        if (rx_len >= 1U) {
+            matrix_set_brightness(rx[0]);
+        }
+        break;
+
+    case CMD_MATRIX_SHOW:
+        matrix_show();
         break;
 
     case CMD_GET_DATA:
         // Only return payload when an event is pending.
         if (tx && tx_len && rx_len == 0) {
+            bool consumed_event = false;
             portENTER_CRITICAL(&s_pending_event_spinlock);
             if (s_pending_event_valid) {
                 memcpy(tx, s_pending_event_buf, s_pending_event_len);
                 *tx_len = s_pending_event_len;
                 s_pending_event_valid = false;
                 s_pending_event_len = 0;
-                s_status_flags = STATUS_READY;
+                consumed_event = true;
             }
             portEXIT_CRITICAL(&s_pending_event_spinlock);
+            if (consumed_event) {
+                set_status_flags(STATUS_READY);
+            }
         }
         break;
 
     case CMD_EXECUTE:
         if (!config_is_valid()) {
             peripherals_error_feedback();
-            s_status_flags = STATUS_ERROR;
+            set_status_flags(STATUS_ERROR);
             break;
         }
-        s_status_flags = STATUS_BUSY;
+        set_status_flags(STATUS_BUSY);
         peripherals_show_running();
         if (s_config.is_custom_sequence && s_config.seq_len > 0) {
             for (uint8_t i = 0; i < s_config.seq_len; i++) {
@@ -386,12 +444,13 @@ void command_handle(i2c_command_t cmd,
         } else {
             play_note(s_config.note_id);
         }
-        s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+        set_status_flags(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
         break;
 
     case CMD_RESET:
         config_reset();
-        s_status_flags = STATUS_READY;
+        set_status_flags(STATUS_READY);
+        (void)status_strip_reset(&kStatusStripConfig);
         matrix_clear();
         matrix_show();
         break;
@@ -426,6 +485,7 @@ void app_main(void)
 
     led_matrix_startup_animation();
     restore_idle_color();
+    render_status_strip(s_status_flags);
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {
