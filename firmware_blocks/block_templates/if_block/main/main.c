@@ -7,14 +7,34 @@
 #include "audio_speaker.h"
 #include "led_matrix.h"
 #include "command_handler.h"
+#include "status_strip.h"
+
+#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
+#include "tft_ui.h"
+#else
+static inline void tft_ui_start(void) {}
+static inline void tft_ui_trigger_execute(void) {}
+static inline void tft_ui_set_idle(void) {}
+#endif
 
 extern void initArduino(void);
+
+// I2C slave transport implemented in i2c_comm.c
+extern esp_err_t i2c_slave_init(void);
+extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "IF"
 #define BLOCK_I2C_ADDRESS     0x10  // I2C address for If block
 #define BLOCK_TYPE            BLOCK_TYPE_IF
 
 static const char *TAG = "IF_BLOCK";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 // ============================================================================
 // CONFIG (no payload for IF)
@@ -26,7 +46,14 @@ typedef struct {
 static block_config_t g_config;
 static bool g_config_valid = true;
 
-static void config_reset(void) { /* TODO */ }
+static uint8_t g_status_flags = STATUS_READY;
+
+static void config_reset(void)
+{
+    g_config.unused = 0;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY;
+}
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
     (void)out;
@@ -35,7 +62,7 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
 }
 
 // ============================================================================
-// PERIPHERALS (STUBS)
+// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
@@ -44,31 +71,86 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
-static void peripherals_show_running(void) { /* TODO */ }
+static void peripherals_show_running(void)
+{
+    tft_ui_trigger_execute();
 
-// ============================================================================
-// COMMAND HANDLER (STUB)
-// ============================================================================
-static uint8_t g_status_flags = STATUS_READY;
-
-static void command_handle(i2c_command_t cmd,
-                           const uint8_t *rx,
-                           size_t rx_len,
-                           uint8_t *tx,
-                           size_t *tx_len) {
-    (void)cmd;
-    (void)rx;
-    (void)rx_len;
-    (void)tx;
-    (void)tx_len;
-    // TODO: implement CMD_* handling per FRAMEWORK.md
+    // Simple "running" indication: brief blue flash on the matrix.
+    matrix_fill(0, 0, 64);
+    matrix_show();
+    vTaskDelay(pdMS_TO_TICKS(120));
+    matrix_clear();
+    matrix_show();
 }
 
 // ============================================================================
-// I2C COMM (STUB)
+// STATUS ACCESSOR (used by i2c_comm.c register map)
 // ============================================================================
-static esp_err_t i2c_slave_init(void) { return ESP_OK; }
-static void i2c_task(void *arg) { (void)arg; vTaskDelay(pdMS_TO_TICKS(1000)); }
+uint8_t if_block_get_status_flags(void)
+{
+    return g_status_flags;
+}
+
+// ============================================================================
+// COMMAND HANDLER
+// ============================================================================
+void command_handle(i2c_command_t cmd,
+                    const uint8_t *rx,
+                    size_t rx_len,
+                    uint8_t *tx,
+                    size_t *tx_len)
+{
+    (void)rx;
+    (void)rx_len;
+
+    if (tx_len) {
+        *tx_len = 0;
+    }
+
+    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
+        return;
+    }
+
+    switch (cmd) {
+        case CMD_PING:
+            g_status_flags = STATUS_READY;
+            peripherals_ok_feedback();
+            break;
+
+        case CMD_GET_STATUS:
+            if (tx && tx_len) {
+                tx[0] = g_status_flags;
+                *tx_len = 1;
+            }
+            break;
+
+        case CMD_GET_DATA:
+            // IF block has no payload; return zero-length response.
+            break;
+
+        case CMD_EXECUTE:
+            if (!config_is_valid()) {
+                g_status_flags = STATUS_ERROR;
+                peripherals_error_feedback();
+                break;
+            }
+            peripherals_show_running();
+            g_status_flags = STATUS_READY;
+            break;
+
+        case CMD_RESET:
+            config_reset();
+            (void)status_strip_reset(&kStatusStripConfig);
+            tft_ui_set_idle();
+            matrix_clear();
+            matrix_show();
+            g_status_flags = STATUS_READY;
+            break;
+
+        default:
+            break;
+    }
+}
 
 // ============================================================================
 // MAIN
@@ -94,6 +176,8 @@ void app_main(void) {
 
     // Show startup animation
     led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

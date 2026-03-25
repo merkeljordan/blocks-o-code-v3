@@ -4,13 +4,16 @@ idf_component_register(
         "i2c_comm.c"
         "tft_ui.c"
         "speaker_music.c"
+        "../../../shared_components/status_strip/status_strip.c"
     INCLUDE_DIRS
         "."
         ".."
         "../.."
         "../../../include"
+        "../../../shared_components/status_strip"
     REQUIRES
         driver
+        led_strip
         esp_lcd
         esp_timer
         lvgl

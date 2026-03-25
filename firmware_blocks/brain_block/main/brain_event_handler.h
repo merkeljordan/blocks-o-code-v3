@@ -63,9 +63,6 @@ void brain_event_handler_set_config_validation(bool is_valid, uint32_t error_cou
 const brain_validation_state_t *brain_event_handler_get_validation_state(void);
 bool brain_event_handler_can_start_execution(void);
 
-void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map);
-const block_event_map_t *brain_event_handler_get_config_event_map(void);
-
 void brain_executor_set_params(const brain_executor_params_t *params);
 const brain_executor_context_t *brain_executor_get_context(void);
 void brain_executor_set_button_state(bool is_pressed);
@@ -86,3 +83,17 @@ bool brain_event_handle_block_event(uint8_t block_addr,
 
 // Known block-originated event IDs.
 #define BRAIN_BLOCK_EVENT_SELECTION_SUBMIT  0x01
+#define BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT 0x02
+#define BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT   0x03
+#define BRAIN_BLOCK_EVENT_BUTTON_PRESS      0x04
+
+// Block-originated payload layouts (payload passed to brain_event_handle_block_event()).
+//
+// - SELECTION_SUBMIT: payload[0] = selection digit (uint8_t)
+// - LOOP_COUNT_SUBMIT: payload[0] = loop_count (uint8_t, 0 treated as 1 by executor)
+// - DELAY_MS_SUBMIT: payload[0..3] = delay_ms (uint32_t little-endian)
+// - BUTTON_PRESS: payload[0] = pressed (uint8_t; any nonzero treated as pressed)
+#define BRAIN_BLOCK_EVENT_SELECTION_SUBMIT_PAYLOAD_LEN  1
+#define BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT_PAYLOAD_LEN 1
+#define BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN   4
+#define BRAIN_BLOCK_EVENT_BUTTON_PRESS_PAYLOAD_LEN      1

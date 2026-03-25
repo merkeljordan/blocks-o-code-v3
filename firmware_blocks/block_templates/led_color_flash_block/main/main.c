@@ -13,6 +13,7 @@ extern void initArduino(void);
 
 // Forward declarations from other modules
 extern esp_err_t led_matrix_init(void);
+extern void led_flash_play_preview(uint8_t color_id);
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 extern void led_status_task(void *arg);
@@ -54,6 +55,8 @@ void app_main(void) {
         return;
     }
 
+    // Show a short startup animation using the existing matrix effect API.
+    led_flash_play_preview(5);
     // I2C slave is the Brain-facing interface for this child block.
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

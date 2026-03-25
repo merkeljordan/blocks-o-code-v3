@@ -23,6 +23,7 @@
 #include "battery_monitor.h"
 #include "i2c_protocol.h"
 #include "speaker.h"
+#include "status_strip.h"
 #include "tft_ui.h"
 
 extern void initArduino(void);
@@ -39,6 +40,13 @@ void i2c_task(void *arg);
 #endif
 
 static const char *TAG = "TPL_MUSIC_SEQ";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 static uint8_t g_selected_song = 0;
 static bool g_config_valid = false;
@@ -142,6 +150,14 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+    if (status_strip_handle_matrix_command(TAG,
+                                           &kStatusStripConfig,
+                                           cmd,
+                                           rx,
+                                           rx_len)) {
+        return;
+    }
+
     switch (cmd) {
         case CMD_PING:
             break;
@@ -217,6 +233,7 @@ void command_handle(i2c_command_t cmd,
                 .active_song_index = 0,
             });
             tft_ui_set_status_message("Pick a song and tap Play!");
+            (void)status_strip_reset(&kStatusStripConfig);
             break;
 
         default:

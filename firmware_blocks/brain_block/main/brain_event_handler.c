@@ -19,9 +19,14 @@
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
-static block_event_map_t s_event_map;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
+
+// Per-program-position control-flow parameters (indexed by executor pc).
+static uint16_t s_loop_count_by_pc[BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS];
+static bool s_loop_count_valid_by_pc[BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS];
+static uint32_t s_delay_ms_by_pc[BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS];
+static bool s_delay_ms_valid_by_pc[BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS];
 
 // Throttling for validation-gate start warnings to avoid log flooding.
 #define BRAIN_EXEC_VALIDATION_LOG_INTERVAL_MS 2000U
@@ -75,6 +80,14 @@ static void set_default_validation_state(void) {
 static void brain_executor_reset_context(brain_executor_state_t state) {
     memset(&s_executor_ctx, 0, sizeof(s_executor_ctx));
     s_executor_ctx.state = state;
+}
+
+static void clear_per_pc_params(void)
+{
+    memset(s_loop_count_by_pc, 0, sizeof(s_loop_count_by_pc));
+    memset(s_loop_count_valid_by_pc, 0, sizeof(s_loop_count_valid_by_pc));
+    memset(s_delay_ms_by_pc, 0, sizeof(s_delay_ms_by_pc));
+    memset(s_delay_ms_valid_by_pc, 0, sizeof(s_delay_ms_valid_by_pc));
 }
 
 static bool is_output_block(block_type_t type) {
@@ -367,6 +380,32 @@ static bool load_program_from_config(void) {
     return true;
 }
 
+static bool get_program_index_for_block_addr(uint8_t block_addr, uint8_t *out_index)
+{
+    if (out_index == NULL) {
+        return false;
+    }
+
+    block_config_state_t config_snapshot;
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
+        return false;
+    }
+
+    for (int i = 0; i < config_snapshot.block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        const block_config_entry_t *entry = &config_snapshot.blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+        if (entry->i2c_address == block_addr) {
+            *out_index = (uint8_t)i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 typedef enum {
     EVT_SRC_MESSAGE = 0,
     EVT_SRC_BLOCK   = 1,
@@ -539,10 +578,50 @@ static bool process_block_event(uint8_t block_addr,
         }
     }
 
-    // TODO: support additional block-originated events (e.g., button-press or
-    // sensor readings) by extending the shared event ID contract in
-    // i2c_protocol.h and translating them here into executor inputs like
-    // brain_executor_set_button_state(...) or future parameter setters.
+    if (event_id == BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT && payload && payload_len >= 1) {
+        uint8_t pc = 0;
+        if (!get_program_index_for_block_addr(block_addr, &pc)) {
+            ESP_LOGW(TAG, "LOOP_COUNT submit from unknown addr=0x%02X", block_addr);
+            return false;
+        }
+        uint16_t loop_count = (payload[0] == 0) ? 1 : payload[0];
+        s_loop_count_by_pc[pc] = loop_count;
+        s_loop_count_valid_by_pc[pc] = true;
+        ESP_LOGI(TAG, "LOOP_COUNT submit: addr=0x%02X pc=%u loop_count=%u",
+                 block_addr, (unsigned)pc, (unsigned)loop_count);
+        return true;
+    }
+
+    if (event_id == BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT && payload && payload_len >= 4) {
+        uint8_t pc = 0;
+        if (!get_program_index_for_block_addr(block_addr, &pc)) {
+            ESP_LOGW(TAG, "DELAY_MS submit from unknown addr=0x%02X", block_addr);
+            return false;
+        }
+        uint32_t v = 0;
+        v |= (uint32_t)payload[0];
+        v |= ((uint32_t)payload[1] << 8);
+        v |= ((uint32_t)payload[2] << 16);
+        v |= ((uint32_t)payload[3] << 24);
+        s_delay_ms_by_pc[pc] = v;
+        s_delay_ms_valid_by_pc[pc] = true;
+        ESP_LOGI(TAG, "DELAY_MS submit: addr=0x%02X pc=%u delay_ms=%lu",
+                 block_addr, (unsigned)pc, (unsigned long)v);
+        return true;
+    }
+
+    if (event_id == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
+        // Any press sets the condition true; executor will clear after consuming.
+        uint8_t pressed = 1;
+        if (payload && payload_len >= 1) {
+            pressed = payload[0];
+        }
+        if (pressed != 0) {
+            brain_executor_set_button_state(true);
+        }
+        ESP_LOGI(TAG, "BUTTON_PRESS: addr=0x%02X pressed=%u", block_addr, (unsigned)pressed);
+        return true;
+    }
 
     ESP_LOGW(TAG, "Unhandled block event: addr=0x%02X id=0x%02X len=%u",
              block_addr, event_id, (unsigned)payload_len);
@@ -569,8 +648,8 @@ static void brain_event_task(void *arg) {
 
 void brain_event_handler_init(void) {
     set_default_validation_state();
-    memset(&s_event_map, 0, sizeof(s_event_map));
     brain_executor_reset_context(EXECUTOR_IDLE);
+    clear_per_pc_params();
     memset(&s_executor_params, 0, sizeof(s_executor_params));
     s_executor_params.loop_count = 1;
     s_executor_params.delay_ms = 500;
@@ -626,30 +705,6 @@ const brain_validation_state_t *brain_event_handler_get_validation_state(void) {
 
 bool brain_event_handler_can_start_execution(void) {
     return s_validation_state.has_received_validation && s_validation_state.app_config_valid;
-}
-
-void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map) {
-    // TODO: extend executor_start to consult s_event_map and refuse to run
-    // structurally invalid programs (e.g., unmatched IF/END_IF, LOOP/END_LOOP,
-    // or sequences with inputs but no outputs) instead of only relying on the
-    // app-side validator.
-    if (event_map == NULL) {
-        memset(&s_event_map, 0, sizeof(s_event_map));
-        return;
-    }
-
-    memcpy(&s_event_map, event_map, sizeof(s_event_map));
-    if (s_executor_ctx.state == EXECUTOR_RUNNING ||
-        s_executor_ctx.state == EXECUTOR_WAIT_DELAY ||
-        s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
-        ESP_LOGW(TAG, "Config changed during execution; stopping executor");
-        brain_executor_stop();
-    }
-    ESP_LOGD(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
-}
-
-const block_event_map_t *brain_event_handler_get_config_event_map(void) {
-    return &s_event_map;
 }
 
 void brain_executor_set_params(const brain_executor_params_t *params) {
@@ -740,6 +795,8 @@ void brain_executor_tick(void) {
     } else if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
         if (s_executor_ctx.button_pressed) {
             s_executor_ctx.state = EXECUTOR_RUNNING;
+            // Auto-clear after a single press is consumed.
+            s_executor_ctx.button_pressed = false;
         } else {
             return;
         }
@@ -766,10 +823,17 @@ void brain_executor_tick(void) {
 
     switch (current) {
         case BLOCK_TYPE_DELAY:
-            s_executor_ctx.wait_until_ms = now_ms() + s_executor_params.delay_ms;
+        {
+            uint32_t delay_ms = s_executor_params.delay_ms;
+            if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
+                s_delay_ms_valid_by_pc[s_executor_ctx.pc]) {
+                delay_ms = s_delay_ms_by_pc[s_executor_ctx.pc];
+            }
+            s_executor_ctx.wait_until_ms = now_ms() + delay_ms;
             s_executor_ctx.state = EXECUTOR_WAIT_DELAY;
             s_executor_ctx.pc++;
             return;
+        }
 
         case BLOCK_TYPE_IF: {
             int end_if_index = find_matching_end_index(s_executor_ctx.pc, BLOCK_TYPE_IF);
@@ -785,6 +849,8 @@ void brain_executor_tick(void) {
                 return;
             }
 
+            // Condition true: consume the press so IF gates on "any press" once.
+            s_executor_ctx.button_pressed = false;
             int then_index = find_then_index(s_executor_ctx.pc, (uint8_t)end_if_index);
             s_executor_ctx.pc = (then_index >= 0) ? (uint8_t)(then_index + 1) : (uint8_t)(s_executor_ctx.pc + 1);
             return;
@@ -803,7 +869,13 @@ void brain_executor_tick(void) {
                 return;
             }
 
-            if (s_executor_params.loop_count == 0) {
+            uint16_t loop_count = s_executor_params.loop_count;
+            if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
+                s_loop_count_valid_by_pc[s_executor_ctx.pc]) {
+                loop_count = s_loop_count_by_pc[s_executor_ctx.pc];
+            }
+
+            if (loop_count == 0) {
                 s_executor_ctx.pc = (uint8_t)(end_loop_index + 1);
                 return;
             }
@@ -817,7 +889,7 @@ void brain_executor_tick(void) {
             brain_loop_frame_t *frame = &s_executor_ctx.loop_stack[s_executor_ctx.loop_depth++];
             frame->loop_start_pc = s_executor_ctx.pc;
             frame->loop_end_pc = (uint8_t)end_loop_index;
-            frame->remaining_iterations = s_executor_params.loop_count;
+            frame->remaining_iterations = loop_count;
             s_executor_ctx.pc++;
             return;
         }
