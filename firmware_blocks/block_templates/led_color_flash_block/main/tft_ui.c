@@ -133,7 +133,7 @@ static lv_obj_t *create_intro_screen(void);
 static lv_obj_t *create_numpad_screen(void);
 static void open_numpad_screen(void);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -272,7 +272,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
     lv_color_t fill_color = battery_color_for_percent(percent);
@@ -286,7 +286,11 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
         fill_width = 1U;
     }
 
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, fill_color, 0);
 }
@@ -294,9 +298,10 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
+    const bool is_charging = battery_monitor_is_charging();
 
-    update_battery_indicator(&s_intro_battery, percent);
-    update_battery_indicator(&s_numpad_battery, percent);
+    update_battery_indicator(&s_intro_battery, percent, is_charging);
+    update_battery_indicator(&s_numpad_battery, percent, is_charging);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -608,11 +613,15 @@ void tft_ui_start(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_ili9341(io_handle, &panel_cfg, &s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel_handle));
+    ESP_LOGI(TAG, "LCD panel init complete, waiting 800ms for stabilization");
+    vTaskDelay(pdMS_TO_TICKS(800));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel_handle, true, false));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel_handle, true));
+    ESP_LOGI(TAG, "LCD panel display enabled");
 
     /* Backlight on now that the panel is ready. */
     gpio_set_level(PIN_NUM_BK_LIGHT, TFT_BACKLIGHT_ON_LEVEL);
+    ESP_LOGI(TAG, "LCD backlight enabled");
 
     /* Initialize LVGL. */
     lv_init();
@@ -691,10 +700,7 @@ void tft_ui_start(void)
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "Failed to create LVGL task");
         abort();
-        ESP_LOGE(TAG, "Failed to create LVGL task");
-        abort();
     }
 
-    ESP_LOGI(TAG, "LVGL v9 TFT UI started");
     ESP_LOGI(TAG, "LVGL v9 TFT UI started");
 }

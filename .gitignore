@@ -9,7 +9,11 @@ sdkconfig.old
 # Dependency lock
 dependencies.lock
 
+<<<<<<< HEAD
 # ESP-IDF managed components (downloaded)
+=======
+# ESP-IDF managed dependencies (generated)
+>>>>>>> 896f775b85e9a4c2cfc9a6333128cea9a041f0e7
 **/managed_components/
 
 # VSCode
