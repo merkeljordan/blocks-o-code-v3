@@ -28,7 +28,7 @@
  * - BATTERY_CAL_SCALE: multiplicative correction for resistor tolerances/ADC gain.
  * - BATTERY_CAL_OFFSET_MV: additive correction if a fixed offset is observed.
  */
-#define BATTERY_CAL_SCALE      1.00f
+#define BATTERY_CAL_SCALE      0.995f
 #define BATTERY_CAL_OFFSET_MV  0.0f
 
 #define DIVIDER_R_TOP_OHMS     2000.0f
@@ -38,11 +38,26 @@
 #define BATTERY_MONITOR_PERIOD_MS 2000U
 #define BATTERY_MONITOR_STACK_SIZE 2048
 #define BATTERY_MONITOR_PRIORITY   2
+#define BATTERY_FILTER_ALPHA       0.25f
+#define BATTERY_FULL_CONFIRM_MV    8420.0f
+#define BATTERY_FULL_CONFIRM_SAMPLES 15U
+#define CHARGE_TREND_RISE_MV       4.0f
+#define CHARGE_TREND_FALL_MV      -4.0f
+#define CHARGE_UNPLUG_DROP_MV     -12.0f
+#define CHARGE_SCORE_SET_THRESHOLD 6
+#define CHARGE_SCORE_CLEAR_THRESHOLD -2
+#define CHARGE_SCORE_MAX           20
 
 static float s_last_battery_voltage_mv = -1.0f;
+static float s_filtered_battery_voltage_mv = -1.0f;
+static float s_prev_filtered_battery_voltage_mv = -1.0f;
 static bool s_monitor_started = false;
 static bool s_adc_cal_ready = false;
 static esp_adc_cal_characteristics_t s_adc_chars;
+static uint32_t s_full_confirm_count = 0;
+static uint8_t s_display_percent = BATTERY_PERCENT_STUB;
+static int s_charge_trend_score = 0;
+static bool s_is_charging = false;
 
 static const char *TAG = "battery_monitor";
 
@@ -68,15 +83,22 @@ static uint8_t voltage_to_percentage(float battery_mv)
 void battery_monitor_update_voltage(float volts)
 {
     s_last_battery_voltage_mv = volts * 1000.0f;
+    s_filtered_battery_voltage_mv = s_last_battery_voltage_mv;
+    s_display_percent = voltage_to_percentage(s_filtered_battery_voltage_mv);
 }
 
 uint8_t battery_monitor_get_percent(void)
 {
-    if (s_last_battery_voltage_mv <= 0.0f) {
+    if (!s_monitor_started && s_last_battery_voltage_mv <= 0.0f) {
         return BATTERY_PERCENT_STUB;
     }
 
-    return voltage_to_percentage(s_last_battery_voltage_mv);
+    return s_display_percent;
+}
+
+bool battery_monitor_is_charging(void)
+{
+    return s_is_charging;
 }
 
 static float battery_monitor_read_voltage_mv(int *raw_out, float *adc_pin_mv_out)
@@ -124,14 +146,78 @@ static void battery_monitor_task(void *arg)
         float adc_pin_mv = 0.0f;
         const float battery_mv = battery_monitor_read_voltage_mv(&raw, &adc_pin_mv);
         if (battery_mv > 0.0f) {
+            uint8_t percent = 0;
+            float delta_mv = 0.0f;
+            if (s_filtered_battery_voltage_mv <= 0.0f) {
+                s_filtered_battery_voltage_mv = battery_mv;
+            } else {
+                s_filtered_battery_voltage_mv =
+                    ((1.0f - BATTERY_FILTER_ALPHA) * s_filtered_battery_voltage_mv) +
+                    (BATTERY_FILTER_ALPHA * battery_mv);
+            }
+
+            if (s_prev_filtered_battery_voltage_mv > 0.0f) {
+                delta_mv = s_filtered_battery_voltage_mv - s_prev_filtered_battery_voltage_mv;
+            }
+            s_prev_filtered_battery_voltage_mv = s_filtered_battery_voltage_mv;
+
+            if (delta_mv > CHARGE_TREND_RISE_MV) {
+                s_charge_trend_score += 2;
+            } else if (delta_mv < CHARGE_TREND_FALL_MV) {
+                s_charge_trend_score -= 2;
+            } else if (s_charge_trend_score > 0) {
+                s_charge_trend_score -= 1;
+            } else if (s_charge_trend_score < 0) {
+                s_charge_trend_score += 1;
+            }
+            if (s_charge_trend_score > CHARGE_SCORE_MAX) {
+                s_charge_trend_score = CHARGE_SCORE_MAX;
+            } else if (s_charge_trend_score < -CHARGE_SCORE_MAX) {
+                s_charge_trend_score = -CHARGE_SCORE_MAX;
+            }
+
+            if (s_charge_trend_score >= CHARGE_SCORE_SET_THRESHOLD) {
+                s_is_charging = true;
+            } else if (s_charge_trend_score <= CHARGE_SCORE_CLEAR_THRESHOLD) {
+                s_is_charging = false;
+            }
+
+            // Fast clear on unplug-like voltage drop so the lightning icon
+            // doesn't linger for many polling cycles.
+            if (s_is_charging && delta_mv <= CHARGE_UNPLUG_DROP_MV) {
+                s_is_charging = false;
+                s_charge_trend_score = CHARGE_SCORE_CLEAR_THRESHOLD;
+            }
+
+            if (s_filtered_battery_voltage_mv >= BATTERY_FULL_CONFIRM_MV) {
+                if (s_full_confirm_count < BATTERY_FULL_CONFIRM_SAMPLES) {
+                    s_full_confirm_count++;
+                }
+            } else {
+                s_full_confirm_count = 0;
+            }
+
+            percent = voltage_to_percentage(s_filtered_battery_voltage_mv);
+            if (percent >= 100U && s_full_confirm_count < BATTERY_FULL_CONFIRM_SAMPLES) {
+                // Prevent an immediate 100% jump from charger-in voltage boost.
+                percent = 99U;
+            }
+
             s_last_battery_voltage_mv = battery_mv;
+            s_display_percent = percent;
             ESP_LOGD(
                 TAG,
-                "raw=%d adc_pin=%.0fmV battery=%.0fmV percent=%u",
+                "raw=%d adc_pin=%.0fmV inst=%.0fmV filt=%.0fmV d=%.1fmV pct=%u chg=%d score=%d full_hold=%lu/%u",
                 raw,
                 (double)adc_pin_mv,
                 (double)battery_mv,
-                (unsigned)battery_monitor_get_percent()
+                (double)s_filtered_battery_voltage_mv,
+                (double)delta_mv,
+                (unsigned)s_display_percent,
+                (int)s_is_charging,
+                s_charge_trend_score,
+                (unsigned long)s_full_confirm_count,
+                (unsigned)BATTERY_FULL_CONFIRM_SAMPLES
             );
         }
 
