@@ -11,12 +11,15 @@
 #include <Arduino.h>
 #include "driver/i2s.h"
 #include "sdkconfig.h"
+#include "esp_log.h"
 
 #include "DACOutput.h"
 #include "SampleSource.h"
 
 // Number of stereo frames requested each refill cycle.
 #define NUM_FRAMES_TO_SEND 128
+#define AUDIO_WRITER_TASK_STACK_SIZE 6144
+#define AUDIO_WRITER_TASK_PRIORITY 6
 
 // Pin low-level audio writer on a dedicated core in dual-core builds.
 #if CONFIG_FREERTOS_UNICORE
@@ -24,6 +27,8 @@
 #else
 #define AUDIO_WRITER_CORE_ID 0
 #endif
+
+static const char *TAG = "DAC_OUTPUT";
 
 // --------------------------------------------------------------------------
 // i2sWriterTask
@@ -99,8 +104,11 @@ void DACOutput::start(SampleSource *sample_generator)
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
         .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S_MSB),
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 4,
-        .dma_buf_len = 64,
+        .dma_buf_count = 8,
+        .dma_buf_len = 128,
+        .use_apll = false,
+        .tx_desc_auto_clear = true,
+        .fixed_mclk = 0,
     };
 
     // Install I2S driver and create event queue used by writer task.
@@ -115,11 +123,18 @@ void DACOutput::start(SampleSource *sample_generator)
     // Spawn writer task pinned to the audio core.
     xTaskCreatePinnedToCore(i2sWriterTask,
                             "i2s Writer Task",
-                            4096,
+                            AUDIO_WRITER_TASK_STACK_SIZE,
                             this,
-                            1,
+                            AUDIO_WRITER_TASK_PRIORITY,
                             &m_i2sWriterTaskHandle,
                             AUDIO_WRITER_CORE_ID);
+
+    ESP_LOGI(TAG, "writer task prio=%d core=%d stack=%d dma=%dx%d",
+             AUDIO_WRITER_TASK_PRIORITY,
+             AUDIO_WRITER_CORE_ID,
+             AUDIO_WRITER_TASK_STACK_SIZE,
+             i2sConfig.dma_buf_count,
+             i2sConfig.dma_buf_len);
 }
 
 void DACOutput::setSampleSource(SampleSource *source)

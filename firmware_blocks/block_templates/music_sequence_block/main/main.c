@@ -35,9 +35,18 @@ void i2c_task(void *arg);
 
 #if CONFIG_FREERTOS_UNICORE
 #define EXEC_CORE_ID 0
+#define I2C_CORE_ID 0
 #else
-#define EXEC_CORE_ID 0
+#define EXEC_CORE_ID 1
+#define I2C_CORE_ID 1
 #endif
+
+#define EXEC_TASK_STACK_SIZE 6144
+#define I2C_TASK_STACK_SIZE 6144
+#define STACK_MONITOR_TASK_STACK_SIZE 3072
+#define STACK_MONITOR_PERIOD_MS 5000
+#define STACK_WARN_LOW_WATERMARK_WORDS 256
+#define STACK_MONITOR_VERBOSE 0
 
 static const char *TAG = "TPL_MUSIC_SEQ";
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
@@ -52,6 +61,55 @@ static uint8_t g_selected_song = 0;
 static bool g_config_valid = false;
 static bool g_speaker_ready = false;
 static uint8_t g_status_flags = STATUS_READY;
+static TaskHandle_t g_exec_task_handle = NULL;
+static TaskHandle_t g_i2c_task_handle = NULL;
+
+static void apply_startup_reset_state(void)
+{
+    g_selected_song = 0;
+    g_config_valid = false;
+    g_status_flags = STATUS_READY;
+
+    if (g_speaker_ready) {
+        (void)speaker_stop();
+    }
+
+    tft_ui_set_playback_state(&(music_playback_state_t) {
+        .is_playing = false,
+        .active_song_index = 0,
+    });
+    tft_ui_set_status_message("Pick a song and tap Play!");
+    (void)status_strip_reset(&kStatusStripConfig);
+}
+
+static void stack_monitor_task(void *arg)
+{
+    (void)arg;
+    while (1) {
+        UBaseType_t exec_hwm = 0;
+        UBaseType_t i2c_hwm = 0;
+
+        if (g_exec_task_handle != NULL) {
+            exec_hwm = uxTaskGetStackHighWaterMark(g_exec_task_handle);
+        }
+        if (g_i2c_task_handle != NULL) {
+            i2c_hwm = uxTaskGetStackHighWaterMark(g_i2c_task_handle);
+        }
+
+        if ((exec_hwm > 0 && exec_hwm < STACK_WARN_LOW_WATERMARK_WORDS) ||
+            (i2c_hwm > 0 && i2c_hwm < STACK_WARN_LOW_WATERMARK_WORDS)) {
+            ESP_LOGW(TAG, "Low stack watermark: exec=%u words i2c=%u words",
+                     (unsigned)exec_hwm, (unsigned)i2c_hwm);
+#if STACK_MONITOR_VERBOSE
+        } else {
+            ESP_LOGI(TAG, "Stack watermark: exec=%u words i2c=%u words",
+                     (unsigned)exec_hwm, (unsigned)i2c_hwm);
+#endif
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(STACK_MONITOR_PERIOD_MS));
+    }
+}
 
 static void sync_selection_status_flag(void)
 {
@@ -94,7 +152,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(20);
+    speaker_set_volume(30);
     g_speaker_ready = true;
 }
 
@@ -225,15 +283,7 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_RESET:
-            g_selected_song = 0;
-            g_config_valid = false;
-            g_status_flags = STATUS_READY;
-            tft_ui_set_playback_state(&(music_playback_state_t) {
-                .is_playing = false,
-                .active_song_index = 0,
-            });
-            tft_ui_set_status_message("Pick a song and tap Play!");
-            (void)status_strip_reset(&kStatusStripConfig);
+            apply_startup_reset_state();
             break;
 
         default:
@@ -316,6 +366,8 @@ void app_main(void)
         return;
     }
 
+    apply_startup_reset_state();
+
     err = battery_monitor_start();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "battery_monitor_start failed: %s", esp_err_to_name(err));
@@ -325,9 +377,11 @@ void app_main(void)
     }
 
     ok_exec = xTaskCreatePinnedToCore(execution_task, "music_exec",
-                                      4096, NULL, 4, NULL, EXEC_CORE_ID);
+                                      EXEC_TASK_STACK_SIZE, NULL, 4,
+                                      &g_exec_task_handle, EXEC_CORE_ID);
     ok_i2c = xTaskCreatePinnedToCore(i2c_task, "music_i2c",
-                                     4096, NULL, 5, NULL, EXEC_CORE_ID);
+                                     I2C_TASK_STACK_SIZE, NULL, 5,
+                                     &g_i2c_task_handle, I2C_CORE_ID);
 
     if (ok_exec != pdPASS || ok_i2c != pdPASS) {
         ESP_LOGE(TAG, "Failed to create execution or I2C tasks");
@@ -335,6 +389,9 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
+
+    (void)xTaskCreate(stack_monitor_task, "music_stack_mon",
+                      STACK_MONITOR_TASK_STACK_SIZE, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "%s block ready", BLOCK_NAME);
 }

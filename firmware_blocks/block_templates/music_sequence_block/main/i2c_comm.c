@@ -19,6 +19,9 @@ extern void command_handle(i2c_command_t cmd,
 extern uint8_t music_block_get_status_flags(void);
 
 static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
+#define I2C_VERBOSE_LOGS 0
+#define I2C_SLAVE_RX_BUF_SIZE 256
+#define I2C_SLAVE_TX_BUF_SIZE 256
 
 // Fixed child-bus address/type for the music sequence block.
 #define MY_ADDRESS      0x12
@@ -38,6 +41,12 @@ static void init_registers(void)
 static void refresh_dynamic_registers(void)
 {
     s_registers[REG_STATUS] = music_block_get_status_flags();
+}
+
+static void reset_i2c_fifos(void)
+{
+    (void)i2c_reset_rx_fifo(I2C_PORT_NUM);
+    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
 }
 
 
@@ -64,11 +73,17 @@ esp_err_t i2c_slave_init(void)
         return err;
     }
 
-    err = i2c_driver_install(I2C_PORT_NUM, conf.mode, 128, 128, 0);
+    err = i2c_driver_install(I2C_PORT_NUM,
+                             conf.mode,
+                             I2C_SLAVE_RX_BUF_SIZE,
+                             I2C_SLAVE_TX_BUF_SIZE,
+                             0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(err));
         return err;
     }
+
+    reset_i2c_fifos();
 
     ESP_LOGI(TAG, "I2C slave initialized");
     return ESP_OK;
@@ -78,6 +93,7 @@ void i2c_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    reset_i2c_fifos();
 
     uint8_t rx_buf[128];
     uint8_t tx_buf[64];
@@ -88,7 +104,9 @@ void i2c_task(void *arg)
             continue;
         }
 
+#if I2C_VERBOSE_LOGS
         ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
+#endif
 
         // Keep STATUS register synced with runtime state managed in main.c.
         refresh_dynamic_registers();
@@ -100,7 +118,9 @@ void i2c_task(void *arg)
 
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
 
+#if I2C_VERBOSE_LOGS
             ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
+#endif
             continue;
         }
 
@@ -113,7 +133,9 @@ void i2c_task(void *arg)
 
         if (tx_len > 0U) {
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
+#if I2C_VERBOSE_LOGS
             ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+#endif
         }
     }
 }

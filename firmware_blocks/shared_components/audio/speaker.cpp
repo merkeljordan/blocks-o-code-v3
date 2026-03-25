@@ -214,9 +214,9 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
         return ESP_OK;
     }
 
-    //Change the magnitude to avoid clipping. Keep the volume control.
+    // Keep requested frequency, but lower magnitude to avoid clipping.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, 1000, tone_magnitude);
+    SinWaveGenerator tone(44100, hz, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);
