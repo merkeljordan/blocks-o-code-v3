@@ -1,122 +1,96 @@
-#include "battery_monitor.h"
-
-#include <stdbool.h>
-
-#include "driver/adc.h"
-#include "esp_check.h"
-#include "esp_log.h"
+#include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 
-#define BATTERY_VOLTAGE_EMPTY_V 7.0f
-#define BATTERY_VOLTAGE_FULL_V  8.4f
-#define BATTERY_PERCENT_STUB    100U
-#define BATTERY_MONITOR_GPIO_CHANNEL ADC1_CHANNEL_6
-#define BATTERY_MONITOR_ATTEN       ADC_ATTEN_DB_12
-#define BATTERY_MONITOR_MAX_RAW     4095.0f
 /*
- * Battery sense is routed to GPIO34 through a divider. The pack itself is a
- * 2S source (7.0V empty to 8.4V full), so the ADC-side node needs to support
- * roughly half the pack voltage near full charge.
+ * Battery monitor assumptions:
+ * - 1-cell Li-ion battery (about 7.0V empty to 8.4V full)
+ * - Battery is connected to ADC through a resistor divider
+ * - Example divider: 2k (top) / 1k (bottom) -> divide by 2
  */
-#define BATTERY_MONITOR_ADC_FULL_V  4.2f
-#define BATTERY_MONITOR_DIVIDER     3.0f
-#define BATTERY_MONITOR_SAMPLES     16
-#define BATTERY_MONITOR_PERIOD_MS   3000U
-#define BATTERY_MONITOR_STACK_SIZE  2048
-#define BATTERY_MONITOR_PRIORITY    2
+#define BATTERY_VOLTAGE_EMPTY_MV 7000.0f
+#define BATTERY_VOLTAGE_FULL_MV 8400.0f
 
-static float s_last_battery_voltage_v = -1.0f;
-static bool s_monitor_started = false;
+#define ADC_UNIT_USED          ADC_UNIT_1
+#define ADC_CHANNEL_BATTERY    ADC_CHANNEL_6   // GPIO34 on many ESP32 boards
+#define ADC_ATTEN_USED         ADC_ATTEN_DB_12
+#define ADC_BITWIDTH_USED      ADC_BITWIDTH_DEFAULT
 
-static const char *TAG = "battery_monitor";
+#define DIVIDER_R_TOP_OHMS     2000.0f
+#define DIVIDER_R_BOTTOM_OHMS  1000.0f
+ 
+static adc_oneshot_unit_handle_t adc_handle;
+static adc_cali_handle_t adc_cali_handle = NULL;
 
 static float clampf(float value, float min, float max)
 {
-    if (value < min) {
-        return min;
-    }
-    if (value > max) {
-        return max;
-    }
+    if (value < min) return min;
+    if (value > max) return max;
     return value;
 }
 
-void battery_monitor_update_voltage(float volts)
+static int voltage_to_percentage(float battery_mv)
 {
-    s_last_battery_voltage_v = volts;
-}
-
-uint8_t battery_monitor_get_percent(void)
-{
-    float percent = 0.0f;
-
-    if (s_last_battery_voltage_v <= 0.0f) {
-        return BATTERY_PERCENT_STUB;
-    }
-
-    percent = ((s_last_battery_voltage_v - BATTERY_VOLTAGE_EMPTY_V) * 100.0f) /
-              (BATTERY_VOLTAGE_FULL_V - BATTERY_VOLTAGE_EMPTY_V);
+    float percent = ((battery_mv - BATTERY_VOLTAGE_EMPTY_MV) * 100.0f) /
+                    (BATTERY_VOLTAGE_FULL_MV - BATTERY_VOLTAGE_EMPTY_MV);
     percent = clampf(percent, 0.0f, 100.0f);
-    return (uint8_t)(percent + 0.5f);
+    return (int)(percent + 0.5f); // round to nearest int
 }
 
-static float battery_monitor_read_voltage(void)
+static float read_battery_voltage_mv(void)
 {
-    uint32_t raw_total = 0;
+    int raw = 0;
+    adc_oneshot_read(adc_handle, ADC_CHANNEL_BATTERY, &raw);
 
-    for (uint32_t i = 0; i < BATTERY_MONITOR_SAMPLES; i++) {
-        int raw = adc1_get_raw(BATTERY_MONITOR_GPIO_CHANNEL);
-        if (raw < 0) {
+    int adc_pin_mv = 0;
+
+    if (adc_cali_handle) {
+        if (adc_cali_raw_to_voltage(adc_cali_handle, raw, &adc_pin_mv) != ESP_OK) {
             return -1.0f;
         }
-        raw_total += (uint32_t)raw;
+    } else {
+        const float adc_reference_mv = 3000.0f;
+        const int adc_max_count = 4095; // 12-bit
+        adc_pin_mv = (int)(((float)raw / (float)adc_max_count) * adc_reference_mv);
     }
 
-    {
-        const float raw_average = (float)raw_total / (float)BATTERY_MONITOR_SAMPLES;
-        const float adc_voltage = (raw_average / BATTERY_MONITOR_MAX_RAW) * BATTERY_MONITOR_ADC_FULL_V;
-        return adc_voltage * BATTERY_MONITOR_DIVIDER;
-    }
+    // Undo resistor divider: Vbat = Vadc * (Rtop + Rbottom) / Rbottom
+    float battery_mv = adc_pin_mv *
+                       ((DIVIDER_R_TOP_OHMS + DIVIDER_R_BOTTOM_OHMS) / DIVIDER_R_BOTTOM_OHMS);
+
+    return battery_mv;
 }
 
-static void battery_monitor_task(void *arg)
+void app_main(void)
 {
-    (void)arg;
+    adc_oneshot_unit_init_cfg_t init_config = {
+        .unit_id = ADC_UNIT_USED,
+    };
+    adc_oneshot_new_unit(&init_config, &adc_handle);
 
-    while (true) {
-        float volts = battery_monitor_read_voltage();
-        if (volts > 0.0f) {
-            battery_monitor_update_voltage(volts);
-            ESP_LOGD(TAG, "battery voltage=%.2fV percent=%u", (double)volts,
-                     (unsigned)battery_monitor_get_percent());
-        }
+    adc_oneshot_chan_cfg_t chan_config = {
+        .bitwidth = ADC_BITWIDTH_USED,
+        .atten = ADC_ATTEN_USED,
+    };
+    adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_BATTERY, &chan_config);
 
-        vTaskDelay(pdMS_TO_TICKS(BATTERY_MONITOR_PERIOD_MS));
-    }
-}
-
-esp_err_t battery_monitor_start(void)
-{
-    BaseType_t task_ok;
-
-    if (s_monitor_started) {
-        return ESP_OK;
+    adc_cali_line_fitting_config_t cali_config = {
+        .unit_id = ADC_UNIT_USED,
+        .atten = ADC_ATTEN_USED,
+        .bitwidth = ADC_BITWIDTH_USED,
+    };
+    if (adc_cali_create_scheme_line_fitting(&cali_config, &adc_cali_handle) != ESP_OK) {
+        adc_cali_handle = NULL;
     }
 
-    ESP_RETURN_ON_ERROR(adc1_config_width(ADC_WIDTH_BIT_12), TAG,
-                        "adc1_config_width failed");
-    ESP_RETURN_ON_ERROR(adc1_config_channel_atten(BATTERY_MONITOR_GPIO_CHANNEL,
-                                                  BATTERY_MONITOR_ATTEN),
-                        TAG, "adc1_config_channel_atten failed");
+    while (1) {
+        float battery_mv = read_battery_voltage_mv();
+        int battery_percent = voltage_to_percentage(battery_mv);
 
-    task_ok = xTaskCreate(battery_monitor_task, "battery_monitor",
-                          BATTERY_MONITOR_STACK_SIZE, NULL,
-                          BATTERY_MONITOR_PRIORITY, NULL);
-    if (task_ok != pdPASS) {
-        return ESP_ERR_NO_MEM;
+        printf("Battery: %.0f mV (%d%%)\n", battery_mv, battery_percent);
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
-
-    s_monitor_started = true;
-    return ESP_OK;
 }
