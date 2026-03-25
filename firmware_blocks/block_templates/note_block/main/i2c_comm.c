@@ -48,14 +48,23 @@ static int is_command_byte(uint8_t b)
 {
     switch ((i2c_command_t)b) {
         case CMD_PING:
-        case CMD_GET_STATUS:
-        case CMD_GET_EVENT:
-        case CMD_CUSTOM_SEQUENCE:
         case CMD_GET_TYPE:
+        case CMD_SET_LED:
+        case CMD_GET_STATUS:
         case CMD_GET_DATA:
+        case CMD_PLAY_NOTE:
         case CMD_EXECUTE:
         case CMD_RESET:
-        case CMD_PLAY_NOTE:
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_MATRIX_FILL:
+        case CMD_MATRIX_SET_PIXEL:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SET_ROW:
+        case CMD_MATRIX_SET_COLUMN:
+        case CMD_MATRIX_DRAW_PATTERN:
+        case CMD_MATRIX_BRIGHTNESS:
+        case CMD_MATRIX_SHOW:
             return 1;
         default:
             return 0;

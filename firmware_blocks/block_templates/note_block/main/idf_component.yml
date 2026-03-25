@@ -4,4 +4,3 @@ dependencies:
   lvgl/lvgl: "*"
   espressif/esp_lcd_ili9341: "*"
   atanisoft/esp_lcd_touch_xpt2046: "*"
-  espressif/arduino-esp32: "*"
