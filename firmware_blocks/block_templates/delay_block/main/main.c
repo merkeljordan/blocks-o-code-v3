@@ -243,8 +243,6 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
 

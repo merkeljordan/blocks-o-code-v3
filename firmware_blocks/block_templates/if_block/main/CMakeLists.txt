@@ -10,10 +10,6 @@ idf_component_register(
         "../../../shared/control_flow_tft_ui/fonts/mochi_boom_28.c"
         "../../../shared/control_flow_tft_ui/fonts/mochi_boom_34.c"
         "../../../shared_components/status_strip/status_strip.c"
-    EMBED_FILES
-        # When replacing this GIF, use: idf.py fullclean build
-        # so embedded binary symbols are regenerated deterministically.
-        "../../../shared/control_flow_tft_ui/discoball.gif"
     INCLUDE_DIRS "." "../.." "../../../include" "../../../shared/control_flow_tft_ui" "../../../shared_components/status_strip"
     REQUIRES
         driver

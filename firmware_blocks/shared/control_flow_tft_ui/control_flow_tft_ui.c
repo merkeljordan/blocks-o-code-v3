@@ -2,9 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#if defined(ESP_PLATFORM)
-#include "esp_heap_caps.h"
-#endif
 
 LV_FONT_DECLARE(mochi_boom_28);
 LV_FONT_DECLARE(mochi_boom_34);
@@ -17,7 +14,16 @@ LV_FONT_DECLARE(mochi_boom_34);
 #define CONTROL_FLOW_CARD_IDLE_Y    14
 #define CONTROL_FLOW_CARD_IDLE_W    212
 #define CONTROL_FLOW_CARD_IDLE_H    160
-#define CONTROL_FLOW_DISCO_GIF_SCALE 256U
+
+#define DISCO_TILE_COLS 6U
+#define DISCO_TILE_ROWS 4U
+#define DISCO_TILE_COUNT ((DISCO_TILE_COLS) * (DISCO_TILE_ROWS))
+#define DISCO_SPOT_COUNT 3U
+#define DISCO_FLOOR_H 176
+#define DISCO_TILE_W ((CONTROL_FLOW_SCREEN_W) / (DISCO_TILE_COLS))
+#define DISCO_TILE_H ((DISCO_FLOOR_H) / (DISCO_TILE_ROWS))
+#define DISCO_SPOT_SIZE 56
+#define DISCO_SPOT_R   ((DISCO_SPOT_SIZE) / 2)
 
 #define CONTROL_FLOW_TITLE_FONT (&mochi_boom_34)
 
@@ -28,6 +34,9 @@ typedef struct {
 } rgb8_t;
 
 static lv_obj_t *s_screen;
+static lv_obj_t *s_disco_layer;
+static lv_obj_t *s_disco_tiles[DISCO_TILE_COUNT];
+static lv_obj_t *s_disco_spots[DISCO_SPOT_COUNT];
 static lv_obj_t *s_card;
 static lv_obj_t *s_control_card;
 static lv_obj_t *s_status_label;
@@ -38,11 +47,9 @@ static lv_obj_t *s_preview_button;
 static lv_obj_t *s_submit_button;
 static lv_obj_t *s_minus_button;
 static lv_obj_t *s_plus_button;
-static lv_obj_t *s_running_gif;
 static lv_timer_t *s_anim_timer;
 static lv_timer_t *s_state_timer;
 static control_flow_ui_config_t s_cfg;
-static bool s_running_gif_loaded;
 static uint32_t s_current_value;
 static uint32_t s_anim_tick;
 static bool s_running;
@@ -52,19 +59,11 @@ static volatile bool s_pending_value_refresh;
 
 #define CFUI_LOG(fmt, ...) printf("[control_flow_tft_ui] " fmt "\n", ##__VA_ARGS__)
 
-#if LV_USE_GIF
-extern const uint8_t discoball_gif_start[] asm("_binary_discoball_gif_start");
-extern const uint8_t discoball_gif_end[] asm("_binary_discoball_gif_end");
-static lv_image_dsc_t s_discoball_gif_src;
-#endif
-
 static void set_button_palette(lv_obj_t *button, uint32_t color);
 static void set_preview_button_visible(bool visible);
 static void start_running_state(void);
-#if LV_USE_GIF
-static bool gif_has_valid_signature(const uint8_t *data, size_t len);
-static void gif_get_dimensions(const uint8_t *data, size_t len, uint16_t *w, uint16_t *h);
-#endif
+static void disco_layer_create(lv_obj_t *parent);
+static void disco_anim_apply(uint32_t tick);
 
 static uint32_t clamp_value(uint32_t value)
 {
@@ -100,6 +99,99 @@ static uint32_t blend_hex(uint32_t a, uint32_t b, uint8_t amount)
     uint32_t g = ((uint32_t)rgb_a.g * inv + (uint32_t)rgb_b.g * amount) / 255u;
     uint32_t b_out = ((uint32_t)rgb_a.b * inv + (uint32_t)rgb_b.b * amount) / 255u;
     return (r << 16) | (g << 8) | b_out;
+}
+
+static uint32_t disco_neon(uint32_t index)
+{
+    static const uint32_t k_neon[] = {
+        0xFF00EEu, 0x00F5FFu, 0xFFF000u, 0xFF3377u, 0x33FFAAu, 0x8899FFu,
+        0xFFAA33u, 0xCC66FFu,
+    };
+    return k_neon[index % (sizeof(k_neon) / sizeof(k_neon[0]))];
+}
+
+/* Integer triangle wave in [0, span] for smooth bouncing without libm. */
+static uint32_t tri_wave(uint32_t tick, uint32_t span, uint32_t period)
+{
+    if (period < 2U) {
+        return 0U;
+    }
+    uint32_t p = tick % period;
+    uint32_t half = period / 2U;
+    if (p < half) {
+        return (p * span) / half;
+    }
+    return ((period - p) * span) / (period - half);
+}
+
+static void disco_anim_apply(uint32_t tick)
+{
+    uint32_t accent = s_cfg.accent_color;
+    uint32_t pulse = tri_wave(tick, 48U, 14U);
+    uint32_t bg_top = blend_hex(0x120828u, disco_neon(tick / 3U), 55U + (pulse / 4U));
+    uint32_t bg_bot = blend_hex(0x000010u, accent, 28U + (tick % 7U) * 4U);
+
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(bg_top), 0);
+    lv_obj_set_style_bg_grad_color(s_screen, lv_color_hex(bg_bot), 0);
+    lv_obj_set_style_bg_grad_dir(s_screen, LV_GRAD_DIR_VER, 0);
+
+    for (uint32_t i = 0U; i < DISCO_TILE_COUNT; i++) {
+        uint32_t col = i % DISCO_TILE_COLS;
+        uint32_t row = i / DISCO_TILE_COLS;
+        uint32_t wave = (col + row + tick) % 8U;
+        uint32_t c = blend_hex(disco_neon(wave + (tick % 4U)), accent, 38U + (uint32_t)((col + row + tick) % 3U) * 6U);
+        lv_obj_set_style_bg_color(s_disco_tiles[i], lv_color_hex(c), 0);
+    }
+
+    for (uint32_t s = 0U; s < DISCO_SPOT_COUNT; s++) {
+        uint32_t t = tick + s * 7U;
+        uint32_t x_max = (uint32_t)(CONTROL_FLOW_SCREEN_W - DISCO_SPOT_SIZE);
+        uint32_t y_max = (uint32_t)(DISCO_FLOOR_H - DISCO_SPOT_SIZE);
+        int32_t x = (int32_t)tri_wave(t * (11U + s * 3U), x_max, 38U + s * 5U);
+        int32_t y = (int32_t)tri_wave(t * (13U + s * 2U), y_max, 44U + s * 4U);
+        uint32_t spot_c = blend_hex(disco_neon(s + tick), 0xFFFFFFu, 110U);
+        lv_obj_set_pos(s_disco_spots[s], x, y);
+        lv_obj_set_style_bg_color(s_disco_spots[s], lv_color_hex(spot_c), 0);
+    }
+}
+
+static void disco_layer_create(lv_obj_t *parent)
+{
+    s_disco_layer = lv_obj_create(parent);
+    lv_obj_remove_style_all(s_disco_layer);
+    lv_obj_set_size(s_disco_layer, CONTROL_FLOW_SCREEN_W, CONTROL_FLOW_SCREEN_H);
+    lv_obj_set_pos(s_disco_layer, 0, 0);
+    lv_obj_set_style_bg_opa(s_disco_layer, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(s_disco_layer, LV_OBJ_FLAG_SCROLLABLE);
+
+    for (uint32_t row = 0U; row < DISCO_TILE_ROWS; row++) {
+        for (uint32_t col = 0U; col < DISCO_TILE_COLS; col++) {
+            uint32_t i = row * DISCO_TILE_COLS + col;
+            lv_obj_t *tile = lv_obj_create(s_disco_layer);
+            lv_obj_remove_style_all(tile);
+            lv_obj_set_size(tile, (int32_t)DISCO_TILE_W, (int32_t)DISCO_TILE_H);
+            lv_obj_set_pos(tile, (int32_t)(col * DISCO_TILE_W), (int32_t)(row * DISCO_TILE_H));
+            lv_obj_set_style_radius(tile, 6, 0);
+            lv_obj_set_style_border_width(tile, 1, 0);
+            lv_obj_set_style_border_opa(tile, LV_OPA_30, 0);
+            lv_obj_set_style_border_color(tile, lv_color_hex(0x000000u), 0);
+            lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
+            s_disco_tiles[i] = tile;
+        }
+    }
+
+    for (uint32_t s = 0U; s < DISCO_SPOT_COUNT; s++) {
+        lv_obj_t *spot = lv_obj_create(s_disco_layer);
+        lv_obj_remove_style_all(spot);
+        lv_obj_set_size(spot, DISCO_SPOT_SIZE, DISCO_SPOT_SIZE);
+        lv_obj_set_style_radius(spot, DISCO_SPOT_R, 0);
+        lv_obj_set_style_bg_opa(spot, LV_OPA_50, 0);
+        lv_obj_set_style_border_width(spot, 0, 0);
+        lv_obj_clear_flag(spot, LV_OBJ_FLAG_SCROLLABLE);
+        s_disco_spots[s] = spot;
+    }
+
+    lv_obj_add_flag(s_disco_layer, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void set_label_text(lv_obj_t *label, const char *text)
@@ -171,11 +263,8 @@ static void apply_idle_palette(void)
     if (s_status_label != NULL) {
         lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
     }
-    if (s_running_gif != NULL) {
-        lv_obj_add_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
-#if LV_USE_GIF
-        lv_gif_pause(s_running_gif);
-#endif
+    if (s_disco_layer != NULL) {
+        lv_obj_add_flag(s_disco_layer, LV_OBJ_FLAG_HIDDEN);
     }
 
     if (s_preview_button != NULL) {
@@ -231,56 +320,6 @@ static void set_preview_button_visible(bool visible)
     }
 }
 
-#if LV_USE_GIF
-static bool gif_has_valid_signature(const uint8_t *data, size_t len)
-{
-    if (data == NULL || len < 6U) {
-        return false;
-    }
-
-    return ((memcmp(data, "GIF87a", 6) == 0) || (memcmp(data, "GIF89a", 6) == 0));
-}
-
-static void gif_get_dimensions(const uint8_t *data, size_t len, uint16_t *w, uint16_t *h)
-{
-    if (w != NULL) {
-        *w = 0;
-    }
-    if (h != NULL) {
-        *h = 0;
-    }
-    if (data == NULL || len < 10U || w == NULL || h == NULL) {
-        return;
-    }
-
-    *w = (uint16_t)data[6] | ((uint16_t)data[7] << 8);
-    *h = (uint16_t)data[8] | ((uint16_t)data[9] << 8);
-}
-
-static void gif_get_header_info(const uint8_t *data, size_t len, bool *has_gct, uint16_t *gct_entries)
-{
-    if (has_gct != NULL) {
-        *has_gct = false;
-    }
-    if (gct_entries != NULL) {
-        *gct_entries = 0;
-    }
-    if (data == NULL || len < 13U) {
-        return;
-    }
-
-    uint8_t packed = data[10];
-    bool gct = ((packed & 0x80U) != 0U);
-    uint16_t entries = (uint16_t)(1U << ((packed & 0x07U) + 1U));
-    if (has_gct != NULL) {
-        *has_gct = gct;
-    }
-    if (gct_entries != NULL) {
-        *gct_entries = gct ? entries : 0;
-    }
-}
-#endif
-
 static void update_idle_status(void)
 {
     if (s_cfg.supports_value) {
@@ -299,6 +338,7 @@ static void running_timer_cb(lv_timer_t *timer)
     }
 
     s_anim_tick++;
+    disco_anim_apply(s_anim_tick);
     if (s_anim_tick >= CONTROL_FLOW_ANIM_TICKS) {
         control_flow_tft_ui_set_idle();
     }
@@ -377,18 +417,19 @@ static void start_running_state(void)
 {
     s_running = true;
     s_anim_tick = 0;
-    CFUI_LOG("start_running_state: gif_obj=%p gif_loaded=%s", (void *)s_running_gif,
-             s_running_gif_loaded ? "true" : "false");
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(0x000000u), 0);
-    lv_obj_set_style_bg_grad_color(s_screen, lv_color_hex(0x000000u), 0);
-    lv_obj_set_style_bg_grad_dir(s_screen, LV_GRAD_DIR_VER, 0);
+    CFUI_LOG("start_running_state: disco_layer=%p", (void *)s_disco_layer);
+
+    if (s_disco_layer != NULL) {
+        lv_obj_clear_flag(s_disco_layer, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_background(s_disco_layer);
+    }
+    disco_anim_apply(0U);
+
     if (s_card != NULL) {
         lv_obj_add_flag(s_card, LV_OBJ_FLAG_HIDDEN);
     }
     if (s_running_status_label != NULL) {
-        lv_label_set_text(s_running_status_label,
-                          s_running_gif_loaded ? "Disco time! Block is running!"
-                                               : "Disco GIF failed to load");
+        lv_label_set_text(s_running_status_label, "Disco time! Block is running!");
         lv_obj_clear_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(s_running_status_label, lv_color_hex(0xFFFFFFu), 0);
         lv_obj_set_style_translate_y(s_running_status_label, 0, 0);
@@ -398,20 +439,7 @@ static void start_running_state(void)
     } else {
         set_preview_button_visible(false);
     }
-#if LV_USE_GIF
-    if (s_running_gif != NULL) {
-        const void *src_before = lv_image_get_src(s_running_gif);
-        CFUI_LOG("runtime gif start: src_before=%p hidden=%d", src_before,
-                 (int)lv_obj_has_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN));
-        lv_obj_move_background(s_running_gif);
-        lv_obj_clear_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
-        lv_gif_restart(s_running_gif);
-        lv_gif_resume(s_running_gif);
-        const void *src_after = lv_image_get_src(s_running_gif);
-        CFUI_LOG("runtime gif start: src_after=%p hidden=%d", src_after,
-                 (int)lv_obj_has_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN));
-    }
-#endif
+
     if (s_running_status_label != NULL) {
         lv_obj_move_foreground(s_running_status_label);
     }
@@ -424,7 +452,6 @@ static void start_running_state(void)
     }
     lv_timer_reset(s_anim_timer);
     lv_timer_ready(s_anim_timer);
-
 }
 
 static void preview_button_cb(lv_event_t *event)
@@ -515,12 +542,14 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_cfg = *cfg;
     s_current_value = s_cfg.default_value;
     s_running = false;
-    s_running_gif_loaded = false;
     s_anim_tick = 0;
     s_pending_execute = false;
     s_pending_idle = false;
     s_pending_value_refresh = false;
     s_screen = NULL;
+    s_disco_layer = NULL;
+    memset(s_disco_tiles, 0, sizeof(s_disco_tiles));
+    memset(s_disco_spots, 0, sizeof(s_disco_spots));
     s_card = NULL;
     s_control_card = NULL;
     s_status_label = NULL;
@@ -531,7 +560,6 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_submit_button = NULL;
     s_minus_button = NULL;
     s_plus_button = NULL;
-    s_running_gif = NULL;
 
     if (s_cfg.supports_value) {
         s_current_value = clamp_value(s_current_value);
@@ -550,6 +578,8 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_remove_style_all(s_screen);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
     lv_obj_clear_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    disco_layer_create(s_screen);
 
     s_card = lv_obj_create(s_screen);
     lv_obj_set_size(s_card, 212, 160);
@@ -584,86 +614,6 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_set_style_text_opa(s_running_status_label, LV_OPA_COVER, 0);
     lv_label_set_long_mode(s_running_status_label, LV_LABEL_LONG_WRAP);
     lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
-
-#if LV_USE_GIF
-    /* LVGL's gifdec opens the file with one lv_malloc of ~5*W*H (+ small overhead).
-     * Video is not a simpler swap on ESP32 (decoder + buffers + bandwidth). If this
-     * fails, shrink the GIF canvas (e.g. 120x120), enable PSRAM for alloc, or use a few
-     * static LVGL images cycled with lv_timer instead of GIF. */
-    size_t gif_size = (size_t)(discoball_gif_end - discoball_gif_start);
-    bool gif_sig_ok = gif_has_valid_signature(discoball_gif_start, gif_size);
-    uint16_t gif_w = 0;
-    uint16_t gif_h = 0;
-    bool gif_has_gct = false;
-    uint16_t gif_gct_entries = 0;
-    gif_get_dimensions(discoball_gif_start, gif_size, &gif_w, &gif_h);
-    gif_get_header_info(discoball_gif_start, gif_size, &gif_has_gct, &gif_gct_entries);
-    uint32_t decode_est_bytes = (uint32_t)gif_w * (uint32_t)gif_h * 5U;
-    CFUI_LOG("gif setup: start=%p end=%p size=%u signature_ok=%s wh=%ux%u decode_est=%uB gct=%s gct_entries=%u",
-             (const void *)discoball_gif_start,
-             (const void *)discoball_gif_end,
-             (unsigned)gif_size,
-             gif_sig_ok ? "true" : "false",
-             (unsigned)gif_w,
-             (unsigned)gif_h,
-             (unsigned)decode_est_bytes,
-             gif_has_gct ? "true" : "false",
-             (unsigned)gif_gct_entries);
-    if (gif_size >= 13U) {
-        CFUI_LOG("gif header bytes: %02X %02X %02X %02X %02X %02X packed=%02X bg=%02X aspect=%02X",
-                 discoball_gif_start[0], discoball_gif_start[1], discoball_gif_start[2],
-                 discoball_gif_start[3], discoball_gif_start[4], discoball_gif_start[5],
-                 discoball_gif_start[10], discoball_gif_start[11], discoball_gif_start[12]);
-    }
-#if defined(ESP_PLATFORM)
-    CFUI_LOG("heap snapshot: free=%uB largest=%uB",
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
-             (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-#endif
-
-    memset(&s_discoball_gif_src, 0, sizeof(s_discoball_gif_src));
-    s_discoball_gif_src.header.magic = LV_IMAGE_HEADER_MAGIC;
-    s_discoball_gif_src.header.cf = LV_COLOR_FORMAT_RAW;
-    s_discoball_gif_src.data = discoball_gif_start;
-    s_discoball_gif_src.data_size = (uint32_t)gif_size;
-
-    s_running_gif = lv_gif_create(s_screen);
-    CFUI_LOG("lv_gif_create: obj=%p", (void *)s_running_gif);
-    lv_obj_set_size(s_running_gif, CONTROL_FLOW_SCREEN_W, CONTROL_FLOW_SCREEN_H);
-    lv_obj_set_pos(s_running_gif, 0, 0);
-    lv_obj_move_background(s_running_gif);
-    if ((gif_size > 0U) && gif_sig_ok) {
-        const void *src_before = lv_image_get_src(s_running_gif);
-        CFUI_LOG("before lv_gif_set_src: src=%p", src_before);
-        lv_gif_set_src(s_running_gif, &s_discoball_gif_src);
-        const void *src_after = lv_image_get_src(s_running_gif);
-        CFUI_LOG("after lv_gif_set_src: src=%p", src_after);
-        if (src_after == NULL) {
-#if defined(ESP_PLATFORM)
-            const uint32_t need_approx = decode_est_bytes + 8192U;
-            CFUI_LOG("gif decode failed: gifdec needs a contiguous block ~%uB (5*W*H). "
-                     "largest_free_block=%uB — resize GIF or use SPIRAM-capable heap.",
-                     (unsigned)need_approx,
-                     (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
-#else
-            CFUI_LOG("gif decode failed after lv_gif_set_src (see LVGL gifdec / GIF format)");
-#endif
-        }
-    } else {
-        CFUI_LOG("gif rejected before decode: invalid bytes/signature");
-    }
-    s_running_gif_loaded = ((gif_size > 0U) && gif_sig_ok && (lv_image_get_src(s_running_gif) != NULL));
-    CFUI_LOG("gif load_result=%s", s_running_gif_loaded ? "success" : "failed");
-    lv_image_set_scale(s_running_gif, CONTROL_FLOW_DISCO_GIF_SCALE);
-    lv_image_set_inner_align(s_running_gif, LV_IMAGE_ALIGN_CENTER);
-    lv_image_set_antialias(s_running_gif, true);
-    lv_obj_add_flag(s_running_gif, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(s_running_gif, LV_OBJ_FLAG_SCROLLABLE);
-#else
-    s_running_gif = NULL;
-    s_running_gif_loaded = false;
-    CFUI_LOG("LV_USE_GIF disabled at compile-time; GIF path is skipped");
-#endif
 
     lv_obj_move_foreground(s_title_label);
     lv_obj_move_foreground(s_status_label);
