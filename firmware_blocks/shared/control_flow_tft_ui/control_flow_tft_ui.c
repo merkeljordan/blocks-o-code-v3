@@ -14,6 +14,7 @@ LV_FONT_DECLARE(mochi_boom_34);
 #define CONTROL_FLOW_CARD_IDLE_Y    14
 #define CONTROL_FLOW_CARD_IDLE_W    212
 #define CONTROL_FLOW_CARD_IDLE_H    160
+#define CONTROL_FLOW_CARD_CENTERED_Y ((CONTROL_FLOW_SCREEN_H - CONTROL_FLOW_CARD_IDLE_H) / 2)
 
 #define DISCO_TILE_COLS 6U
 #define DISCO_TILE_ROWS 4U
@@ -42,9 +43,10 @@ static lv_obj_t *s_control_card;
 static lv_obj_t *s_status_label;
 static lv_obj_t *s_running_status_label;
 static lv_obj_t *s_title_label;
+static lv_obj_t *s_center_icon_label;
 static lv_obj_t *s_value_label;
-static lv_obj_t *s_preview_button;
 static lv_obj_t *s_submit_button;
+static lv_obj_t *s_secondary_button;
 static lv_obj_t *s_minus_button;
 static lv_obj_t *s_plus_button;
 static lv_timer_t *s_anim_timer;
@@ -60,7 +62,6 @@ static volatile bool s_pending_value_refresh;
 #define CFUI_LOG(fmt, ...) printf("[control_flow_tft_ui] " fmt "\n", ##__VA_ARGS__)
 
 static void set_button_palette(lv_obj_t *button, uint32_t color);
-static void set_preview_button_visible(bool visible);
 static void start_running_state(void);
 static void disco_layer_create(lv_obj_t *parent);
 static void disco_anim_apply(uint32_t tick);
@@ -235,7 +236,11 @@ static void apply_idle_palette(void)
     lv_obj_set_style_bg_grad_color(s_card, lv_color_hex(card_grad), 0);
     lv_obj_set_style_bg_grad_dir(s_card, LV_GRAD_DIR_VER, 0);
     lv_obj_set_style_bg_opa(s_card, LV_OPA_COVER, 0);
-    lv_obj_set_pos(s_card, CONTROL_FLOW_CARD_IDLE_X, CONTROL_FLOW_CARD_IDLE_Y);
+    int32_t card_y = CONTROL_FLOW_CARD_IDLE_Y;
+    if (s_cfg.center_icon_text != NULL && !s_cfg.supports_value) {
+        card_y = CONTROL_FLOW_CARD_CENTERED_Y;
+    }
+    lv_obj_set_pos(s_card, CONTROL_FLOW_CARD_IDLE_X, card_y);
     lv_obj_set_size(s_card, CONTROL_FLOW_CARD_IDLE_W, CONTROL_FLOW_CARD_IDLE_H);
     lv_obj_set_style_radius(s_card, 28, 0);
     lv_obj_set_style_clip_corner(s_card, false, 0);
@@ -250,6 +255,9 @@ static void apply_idle_palette(void)
 
     lv_obj_set_style_text_color(s_title_label, lv_color_hex(0xF8FAFCu), 0);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xD4DCE8u), 0);
+    if (s_center_icon_label != NULL) {
+        lv_obj_set_style_text_color(s_center_icon_label, lv_color_hex(0xF8FAFCu), 0);
+    }
     if (s_running_status_label != NULL) {
         lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(s_running_status_label, lv_color_hex(0xF8FAFCu), 0);
@@ -263,19 +271,20 @@ static void apply_idle_palette(void)
     if (s_status_label != NULL) {
         lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
     }
+    if (s_title_label != NULL) {
+        lv_obj_clear_flag(s_title_label, LV_OBJ_FLAG_HIDDEN);
+    }
     if (s_disco_layer != NULL) {
         lv_obj_add_flag(s_disco_layer, LV_OBJ_FLAG_HIDDEN);
     }
 
-    if (s_preview_button != NULL) {
-        set_button_palette(s_preview_button,
-                           s_cfg.supports_value ? blend_hex(s_cfg.accent_color, 0xFFFFFFu, 70u)
-                                                : s_cfg.accent_color);
-        lv_obj_set_style_shadow_width(s_preview_button, 14, 0);
-    }
     if (s_submit_button != NULL) {
         set_button_palette(s_submit_button, s_cfg.accent_color);
         lv_obj_set_style_shadow_width(s_submit_button, 14, 0);
+    }
+    if (s_secondary_button != NULL) {
+        set_button_palette(s_secondary_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
+        lv_obj_set_style_shadow_width(s_secondary_button, 14, 0);
     }
     if (s_minus_button != NULL) {
         set_button_palette(s_minus_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
@@ -305,27 +314,18 @@ static void set_button_label(lv_obj_t *button, const char *text)
     }
 }
 
-static void set_preview_button_visible(bool visible)
-{
-    if (s_preview_button == NULL) {
-        return;
-    }
-
-    if (visible) {
-        lv_obj_clear_flag(s_preview_button, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_state(s_preview_button, LV_STATE_DISABLED);
-    } else {
-        lv_obj_add_flag(s_preview_button, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_state(s_preview_button, LV_STATE_DISABLED);
-    }
-}
-
 static void update_idle_status(void)
 {
+    if (s_cfg.center_icon_text != NULL) {
+        set_status_text("");
+        return;
+    }
     if (s_cfg.supports_value) {
-        set_status_text("Adjust, submit, or preview the run.");
+        set_status_text("Adjust and submit value.");
+    } else if (s_cfg.supports_dual_action) {
+        set_status_text("Choose branch: Execute or Skip.");
     } else {
-        set_status_text("Preview the run-state animation.");
+        set_status_text("Ready. Awaiting run command.");
     }
 }
 
@@ -354,14 +354,8 @@ static void apply_idle_state(void)
     }
 
     apply_idle_palette();
-    if (s_title_label != NULL) {
-        lv_obj_clear_flag(s_title_label, LV_OBJ_FLAG_HIDDEN);
-    }
     lv_obj_set_style_translate_y(s_title_label, 0, 0);
     lv_obj_set_style_translate_y(s_status_label, 0, 0);
-    if (s_status_label != NULL) {
-        lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
-    }
     if (s_running_status_label != NULL) {
         lv_obj_add_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_translate_y(s_running_status_label, 0, 0);
@@ -369,18 +363,47 @@ static void apply_idle_state(void)
     if (s_control_card != NULL) {
         lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
     }
-    if (s_card != NULL) {
-        lv_obj_clear_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+    if (s_cfg.center_icon_text != NULL) {
+        if (s_card != NULL) {
+            lv_obj_clear_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_title_label != NULL) {
+            lv_obj_add_flag(s_title_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_status_label != NULL) {
+            lv_obj_add_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_center_icon_label != NULL) {
+            lv_obj_clear_flag(s_center_icon_label, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(s_center_icon_label);
+        }
+    } else {
+        if (s_card != NULL) {
+            lv_obj_clear_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_title_label != NULL) {
+            lv_obj_clear_flag(s_title_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_status_label != NULL) {
+            lv_obj_clear_flag(s_status_label, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (s_center_icon_label != NULL) {
+            lv_obj_add_flag(s_center_icon_label, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     update_value_label();
     update_idle_status();
-    set_preview_button_visible(true);
-
-    if (s_preview_button != NULL) {
-        set_button_label(s_preview_button, s_cfg.supports_value ? "Preview" : "Preview Run");
-    }
     if (s_submit_button != NULL) {
-        set_button_label(s_submit_button, "Submit");
+        const char *primary_label = s_cfg.supports_dual_action
+            ? ((s_cfg.primary_action_label != NULL) ? s_cfg.primary_action_label : "Execute")
+            : "Submit";
+        set_button_label(s_submit_button, primary_label);
+    }
+    if (s_secondary_button != NULL) {
+        const char *secondary_label = (s_cfg.secondary_action_label != NULL)
+            ? s_cfg.secondary_action_label
+            : "Skip";
+        set_button_label(s_secondary_button, secondary_label);
     }
 }
 
@@ -428,6 +451,9 @@ static void start_running_state(void)
     if (s_card != NULL) {
         lv_obj_add_flag(s_card, LV_OBJ_FLAG_HIDDEN);
     }
+    if (s_center_icon_label != NULL) {
+        lv_obj_add_flag(s_center_icon_label, LV_OBJ_FLAG_HIDDEN);
+    }
     if (s_running_status_label != NULL) {
         lv_label_set_text(s_running_status_label, "Disco time! Block is running!");
         lv_obj_clear_flag(s_running_status_label, LV_OBJ_FLAG_HIDDEN);
@@ -436,8 +462,6 @@ static void start_running_state(void)
     }
     if (s_control_card != NULL) {
         lv_obj_add_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        set_preview_button_visible(false);
     }
 
     if (s_running_status_label != NULL) {
@@ -452,14 +476,6 @@ static void start_running_state(void)
     }
     lv_timer_reset(s_anim_timer);
     lv_timer_ready(s_anim_timer);
-}
-
-static void preview_button_cb(lv_event_t *event)
-{
-    if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
-        return;
-    }
-    control_flow_tft_ui_trigger_execute();
 }
 
 static void submit_button_cb(lv_event_t *event)
@@ -481,6 +497,42 @@ static void submit_button_cb(lv_event_t *event)
         set_status_text(buffer);
     } else {
         set_status_text("Submit failed.");
+    }
+}
+
+static void primary_action_button_cb(lv_event_t *event)
+{
+    if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    if (s_cfg.primary_action_cb == NULL) {
+        set_status_text("No primary action callback connected.");
+        return;
+    }
+
+    if (s_cfg.primary_action_cb()) {
+        set_status_text("Execute selected.");
+    } else {
+        set_status_text("Execute action failed.");
+    }
+}
+
+static void secondary_action_button_cb(lv_event_t *event)
+{
+    if (lv_event_get_code(event) != LV_EVENT_CLICKED) {
+        return;
+    }
+
+    if (s_cfg.secondary_action_cb == NULL) {
+        set_status_text("No secondary action callback connected.");
+        return;
+    }
+
+    if (s_cfg.secondary_action_cb()) {
+        set_status_text("Skip selected.");
+    } else {
+        set_status_text("Skip action failed.");
     }
 }
 
@@ -555,9 +607,10 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_status_label = NULL;
     s_running_status_label = NULL;
     s_title_label = NULL;
+    s_center_icon_label = NULL;
     s_value_label = NULL;
-    s_preview_button = NULL;
     s_submit_button = NULL;
+    s_secondary_button = NULL;
     s_minus_button = NULL;
     s_plus_button = NULL;
 
@@ -605,6 +658,18 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xD4DCE8u), 0);
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_WRAP);
 
+    s_center_icon_label = lv_label_create(s_card);
+    lv_label_set_text(s_center_icon_label,
+                      (s_cfg.center_icon_text != NULL) ? s_cfg.center_icon_text : "");
+    lv_obj_set_width(s_center_icon_label, 180);
+    lv_obj_set_style_text_align(s_center_icon_label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(s_center_icon_label, CONTROL_FLOW_TITLE_FONT, 0);
+    lv_obj_set_style_text_color(s_center_icon_label, lv_color_hex(0xF8FAFCu), 0);
+    lv_obj_center(s_center_icon_label);
+    if (s_cfg.center_icon_text == NULL) {
+        lv_obj_add_flag(s_center_icon_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
     s_running_status_label = lv_label_create(s_screen);
     lv_obj_set_width(s_running_status_label, 224);
     lv_obj_set_pos(s_running_status_label, 8, 188);
@@ -646,22 +711,42 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
         lv_obj_set_style_text_font(s_value_label, LV_FONT_DEFAULT, 0);
         lv_obj_set_style_text_color(s_value_label, lv_color_hex(0xF8FAFCu), 0);
 
-        s_preview_button = create_button(s_control_card, 18, 68, 84, 34, "Preview");
-        s_submit_button = create_button(s_control_card, 110, 68, 84, 34, "Submit");
-        set_button_palette(s_preview_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 70u));
+        s_submit_button = create_button(s_control_card, 64, 68, 84, 34, "Submit");
         set_button_palette(s_submit_button, s_cfg.accent_color);
-        lv_obj_add_event_cb(s_preview_button, preview_button_cb, LV_EVENT_CLICKED, NULL);
         lv_obj_add_event_cb(s_submit_button, submit_button_cb, LV_EVENT_CLICKED, NULL);
+        s_secondary_button = NULL;
+    } else if (s_cfg.supports_dual_action) {
+        s_control_card = lv_obj_create(s_screen);
+        lv_obj_set_size(s_control_card, 212, 96);
+        lv_obj_set_pos(s_control_card, 14, 204);
+        lv_obj_set_style_radius(s_control_card, 24, 0);
+        lv_obj_set_style_bg_color(s_control_card, lv_color_hex(0x101728u), 0);
+        lv_obj_set_style_bg_grad_color(s_control_card, lv_color_hex(0x17213Au), 0);
+        lv_obj_set_style_bg_grad_dir(s_control_card, LV_GRAD_DIR_VER, 0);
+        lv_obj_set_style_border_width(s_control_card, 1, 0);
+        lv_obj_set_style_border_color(s_control_card, lv_color_hex(0x24324Du), 0);
+        lv_obj_set_style_pad_all(s_control_card, 0, 0);
+        lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_SCROLLABLE);
+
+        const char *primary_label = (s_cfg.primary_action_label != NULL) ? s_cfg.primary_action_label : "Execute";
+        const char *secondary_label = (s_cfg.secondary_action_label != NULL) ? s_cfg.secondary_action_label : "Skip";
+        s_submit_button = create_button(s_control_card, 12, 18, 92, 56, primary_label);
+        s_secondary_button = create_button(s_control_card, 108, 18, 92, 56, secondary_label);
+        set_button_palette(s_submit_button, s_cfg.accent_color);
+        set_button_palette(s_secondary_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
+        lv_obj_add_event_cb(s_submit_button, primary_action_button_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(s_secondary_button, secondary_action_button_cb, LV_EVENT_CLICKED, NULL);
+
+        s_value_label = NULL;
+        s_minus_button = NULL;
+        s_plus_button = NULL;
     } else {
         s_control_card = NULL;
         s_value_label = NULL;
         s_minus_button = NULL;
         s_plus_button = NULL;
         s_submit_button = NULL;
-        s_preview_button = create_button(s_screen, 26, 228, 188, 56, "Preview Run");
-        lv_obj_clear_flag(s_preview_button, LV_OBJ_FLAG_SCROLLABLE);
-        set_button_palette(s_preview_button, s_cfg.accent_color);
-        lv_obj_add_event_cb(s_preview_button, preview_button_cb, LV_EVENT_CLICKED, NULL);
+        s_secondary_button = NULL;
     }
 
     s_state_timer = lv_timer_create(state_timer_cb, 16, NULL);

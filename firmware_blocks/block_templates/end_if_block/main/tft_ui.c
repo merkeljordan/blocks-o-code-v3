@@ -16,6 +16,7 @@ void tft_ui_start(void)
 {
     static const control_flow_ui_config_t k_cfg = {
         .title = "END IF",
+        .center_icon_text = "END IF",
         .accent_color = 0x34D399u,
         .supports_value = false,
         .min_value = 0,

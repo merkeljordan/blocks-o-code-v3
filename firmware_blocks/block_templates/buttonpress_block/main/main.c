@@ -9,6 +9,14 @@
 #include "led_matrix.h"
 #include "command_handler.h"
 
+#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
+#include "tft_ui.h"
+#else
+static inline void tft_ui_start(void) {}
+static inline void tft_ui_trigger_execute(void) {}
+static inline void tft_ui_set_idle(void) {}
+#endif
+
 extern void initArduino(void);
 
 // I2C slave transport implemented in i2c_comm.c
@@ -101,9 +109,12 @@ void command_handle(i2c_command_t cmd,
             g_pending_event.has_event = false;
             g_pending_event.payload_len = 0;
             g_status_flags = STATUS_READY;
+            tft_ui_set_idle();
             break;
 
         case CMD_EXECUTE:
+            tft_ui_trigger_execute();
+            break;
         default:
             break;
     }
@@ -130,6 +141,8 @@ void app_main(void)
     }
 
     led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

@@ -1,5 +1,7 @@
 #include "tft_ui.h"
 
+#include <stdint.h>
+
 #include "control_flow_tft_ui.h"
 
 #if defined(ESP_PLATFORM)
@@ -8,16 +10,30 @@
 #include "esp_log.h"
 #include "control_flow_tft_hw.h"
 
-static const char *TAG = "THEN_TFT_UI";
+static const char *TAG = "BUTTON_TFT_UI";
 #define TFT_BOOT_START_DELAY_MS 800
 #endif
+
+extern void button_block_execute_from_ui(void);
+extern void button_block_pass_from_ui(void);
+
+static bool on_execute_action(void)
+{
+    button_block_execute_from_ui();
+    return true;
+}
+
+static bool on_skip_action(void)
+{
+    button_block_pass_from_ui();
+    return true;
+}
 
 void tft_ui_start(void)
 {
     static const control_flow_ui_config_t k_cfg = {
-        .title = "THEN",
-        .center_icon_text = "THEN",
-        .accent_color = 0x34D399u,
+        .title = "BUTTON",
+        .accent_color = 0x60A5FAu,
         .supports_value = false,
         .min_value = 0,
         .max_value = 0,
@@ -25,6 +41,11 @@ void tft_ui_start(void)
         .default_value = 0,
         .value_suffix = "",
         .submit_cb = NULL,
+        .supports_dual_action = true,
+        .primary_action_label = "Execute",
+        .secondary_action_label = "Skip",
+        .primary_action_cb = on_execute_action,
+        .secondary_action_cb = on_skip_action,
     };
 
 #if defined(ESP_PLATFORM)

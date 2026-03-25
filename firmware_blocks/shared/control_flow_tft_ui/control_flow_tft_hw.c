@@ -29,6 +29,26 @@
 #define TFT_TASK_PRIORITY       5
 #define TFT_BACKLIGHT_ON_LEVEL  1
 
+#ifndef CONTROL_FLOW_TFT_PANEL_MIRROR_X
+#define CONTROL_FLOW_TFT_PANEL_MIRROR_X 1
+#endif
+
+#ifndef CONTROL_FLOW_TFT_PANEL_MIRROR_Y
+#define CONTROL_FLOW_TFT_PANEL_MIRROR_Y 0
+#endif
+
+#ifndef CONTROL_FLOW_TFT_TOUCH_SWAP_XY
+#define CONTROL_FLOW_TFT_TOUCH_SWAP_XY 0
+#endif
+
+#ifndef CONTROL_FLOW_TFT_TOUCH_MIRROR_X
+#define CONTROL_FLOW_TFT_TOUCH_MIRROR_X 0
+#endif
+
+#ifndef CONTROL_FLOW_TFT_TOUCH_MIRROR_Y
+#define CONTROL_FLOW_TFT_TOUCH_MIRROR_Y 1
+#endif
+
 #define PIN_NUM_BK_LIGHT        32
 #define PIN_NUM_SCLK            18
 #define PIN_NUM_MOSI            23
@@ -204,7 +224,9 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
         if (err != ESP_OK) {
             return err;
         }
-        err = esp_lcd_panel_mirror(s_panel_handle, true, false);
+        err = esp_lcd_panel_mirror(s_panel_handle,
+                                   CONTROL_FLOW_TFT_PANEL_MIRROR_X,
+                                   CONTROL_FLOW_TFT_PANEL_MIRROR_Y);
         if (err != ESP_OK) {
             return err;
         }
@@ -260,9 +282,9 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
                     .rst_gpio_num = -1,
                     .int_gpio_num = PIN_NUM_TOUCH_IRQ,
                     .flags = {
-                        .swap_xy = 0,
-                        .mirror_x = 0,
-                        .mirror_y = 1,
+                        .swap_xy = CONTROL_FLOW_TFT_TOUCH_SWAP_XY,
+                        .mirror_x = CONTROL_FLOW_TFT_TOUCH_MIRROR_X,
+                        .mirror_y = CONTROL_FLOW_TFT_TOUCH_MIRROR_Y,
                     },
                 };
                 err = esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &s_touch_handle);

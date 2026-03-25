@@ -467,25 +467,15 @@ static void brain_executor_task(void *arg)
     ESP_LOGW(TAG, "Demo mode: app validation bypass enabled for executor");
 #endif
 
-    uint64_t last_event_map_ts = 0;
     uint64_t last_scan_ts = 0;
     bool demo_auto_started_once = false;
 
     while (1) {
         const block_config_state_t *cfg = block_config_manager_get_state();
-        const block_event_map_t *event_map = block_config_manager_get_event_map();
         const brain_executor_context_t *ctx = brain_executor_get_context();
 
         if (cfg != NULL && cfg->last_scan_timestamp != 0 && cfg->last_scan_timestamp != last_scan_ts) {
             last_scan_ts = cfg->last_scan_timestamp;
-        }
-
-        if (event_map != NULL &&
-            event_map->generated_at_ms != 0 &&
-            event_map->generated_at_ms != last_event_map_ts &&
-            (ctx == NULL || !executor_state_is_active(ctx->state))) {
-            brain_event_handler_refresh_config_event_map(event_map);
-            last_event_map_ts = event_map->generated_at_ms;
         }
 
 #if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START

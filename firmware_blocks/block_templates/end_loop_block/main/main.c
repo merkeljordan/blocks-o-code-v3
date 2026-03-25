@@ -30,6 +30,7 @@ extern void i2c_task(void *arg);
 static const char *TAG = "END_LOOP_BLOCK";
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 16
+#define LED_STATUS_TASK_STACK_SIZE 4096
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
@@ -194,7 +195,7 @@ void app_main(void) {
 
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
+    xTaskCreate(led_status_task, "led_status", LED_STATUS_TASK_STACK_SIZE, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

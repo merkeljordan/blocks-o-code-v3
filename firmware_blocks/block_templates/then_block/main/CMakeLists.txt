@@ -23,4 +23,7 @@ idf_component_register(
         esp_timer
 )
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE CONTROL_FLOW_TFT_UI_ENABLED=1)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    CONTROL_FLOW_TFT_UI_ENABLED=1
+    CONTROL_FLOW_TFT_PANEL_MIRROR_X=1
+)

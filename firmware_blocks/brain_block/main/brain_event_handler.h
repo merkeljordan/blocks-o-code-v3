@@ -61,9 +61,6 @@ void brain_event_handler_set_config_validation(bool is_valid, uint32_t error_cou
 const brain_validation_state_t *brain_event_handler_get_validation_state(void);
 bool brain_event_handler_can_start_execution(void);
 
-void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map);
-const block_event_map_t *brain_event_handler_get_config_event_map(void);
-
 void brain_executor_set_params(const brain_executor_params_t *params);
 const brain_executor_context_t *brain_executor_get_context(void);
 void brain_executor_set_button_state(bool is_pressed);

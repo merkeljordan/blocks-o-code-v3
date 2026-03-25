@@ -16,6 +16,7 @@ void tft_ui_start(void)
 {
     static const control_flow_ui_config_t k_cfg = {
         .title = "END LOOP",
+        .center_icon_text = "END LOOP",
         .accent_color = 0x60A5FAu,
         .supports_value = false,
         .min_value = 0,

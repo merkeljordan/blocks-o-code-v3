@@ -14,7 +14,6 @@
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
-static block_event_map_t s_event_map;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
 
@@ -482,7 +481,6 @@ static void brain_event_task(void *arg) {
 
 void brain_event_handler_init(void) {
     set_default_validation_state();
-    memset(&s_event_map, 0, sizeof(s_event_map));
     brain_executor_reset_context(EXECUTOR_IDLE);
     clear_per_pc_params();
     memset(&s_executor_params, 0, sizeof(s_executor_params));
@@ -540,32 +538,6 @@ const brain_validation_state_t *brain_event_handler_get_validation_state(void) {
 
 bool brain_event_handler_can_start_execution(void) {
     return s_validation_state.has_received_validation && s_validation_state.app_config_valid;
-}
-
-void brain_event_handler_refresh_config_event_map(const block_event_map_t *event_map) {
-    // TODO: extend executor_start to consult s_event_map and refuse to run
-    // structurally invalid programs (e.g., unmatched IF/END_IF, LOOP/END_LOOP,
-    // or sequences with inputs but no outputs) instead of only relying on the
-    // app-side validator.
-    if (event_map == NULL) {
-        memset(&s_event_map, 0, sizeof(s_event_map));
-        clear_per_pc_params();
-        return;
-    }
-
-    memcpy(&s_event_map, event_map, sizeof(s_event_map));
-    clear_per_pc_params();
-    if (s_executor_ctx.state == EXECUTOR_RUNNING ||
-        s_executor_ctx.state == EXECUTOR_WAIT_DELAY ||
-        s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
-        ESP_LOGW(TAG, "Config changed during execution; stopping executor");
-        brain_executor_stop();
-    }
-    ESP_LOGD(TAG, "Config event map refreshed: seq=%u", s_event_map.sequence_count);
-}
-
-const block_event_map_t *brain_event_handler_get_config_event_map(void) {
-    return &s_event_map;
 }
 
 void brain_executor_set_params(const brain_executor_params_t *params) {

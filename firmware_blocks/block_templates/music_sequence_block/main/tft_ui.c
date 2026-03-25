@@ -64,6 +64,7 @@
 #define PREVIEW_TASK_STACK_SIZE    4096
 #define PREVIEW_TASK_PRIORITY      4
 #define TFT_BACKLIGHT_ON_LEVEL     1
+#define TFT_BOOT_START_DELAY_MS    800
 
 #define PIN_NUM_BK_LIGHT           32
 #define PIN_NUM_SCLK               18
@@ -634,6 +635,8 @@ esp_err_t tft_ui_start(void)
     copy_text_safe(s_status_text, sizeof(s_status_text), "Pick a song and tap Play!");
 
     ESP_LOGI(TAG, "Starting LVGL v9 TFT UI");
+    // Let supply rails settle after switch-on before enabling TFT stack.
+    vTaskDelay(pdMS_TO_TICKS(TFT_BOOT_START_DELAY_MS));
 
     /* Backlight off during panel initialization. */
     gpio_config_t bk_cfg = {
