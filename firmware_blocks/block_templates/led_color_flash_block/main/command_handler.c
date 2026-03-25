@@ -11,6 +11,7 @@
 #include "led_matrix.h"
 #include "audio_speaker.h"
 #include "status_strip.h"
+#include "led_contract.h"
 
 static const char *TAG = "CMD_HANDLER";
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
@@ -66,6 +67,48 @@ typedef struct {
     led_action_type_t type;
     uint8_t value;
 } led_action_t;
+
+static void handle_brain_broadcast(const uint8_t *rx, size_t rx_len)
+{
+    if (rx == NULL || rx_len < 1U) {
+        return;
+    }
+
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
+    switch ((brain_broadcast_event_t)rx[0]) {
+        case BRAIN_BROADCAST_IDLE:
+            matrix_clear();
+            matrix_show();
+            break;
+        case BRAIN_BROADCAST_RUNNING:
+            matrix_fill(identity.r, identity.g, identity.b);
+            matrix_show();
+            (void)speaker_play_boot_sound();
+            break;
+        case BRAIN_BROADCAST_STEP:
+            matrix_fill(identity.r, identity.g, identity.b);
+            matrix_show();
+            (void)speaker_play_tone(880U, 35U);
+            break;
+        case BRAIN_BROADCAST_DONE:
+            matrix_fill(0U, 255U, 0U);
+            matrix_show();
+            speaker_beep_ok();
+            break;
+        case BRAIN_BROADCAST_ERROR:
+            matrix_fill(255U, 0U, 0U);
+            matrix_show();
+            speaker_beep_error();
+            break;
+        case BRAIN_BROADCAST_STOP:
+            matrix_fill(255U, 128U, 0U);
+            matrix_show();
+            (void)speaker_play_tone(220U, 120U);
+            break;
+        default:
+            break;
+    }
+}
 
 static void refresh_status_strip(uint8_t status)
 {
@@ -362,6 +405,11 @@ void handle_command(uint8_t *buffer, int len) {
                     ESP_LOGW(TAG, "Action queue full, dropping EXECUTE");
                 }
             }
+            break;
+
+        case CMD_BRAIN_BROADCAST:
+            handle_brain_broadcast((len > 1) ? &buffer[1] : NULL,
+                                   (len > 1) ? (size_t)(len - 1) : 0U);
             break;
 
         default:

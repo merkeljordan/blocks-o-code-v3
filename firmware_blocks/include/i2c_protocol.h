@@ -60,7 +60,17 @@ typedef enum {
     CMD_MATRIX_DRAW_PATTERN = 0x95,
     CMD_MATRIX_BRIGHTNESS   = 0x96,
     CMD_MATRIX_SHOW         = 0x97,
+    CMD_BRAIN_BROADCAST     = 0x98,  // Shared runtime broadcast from Brain
 } i2c_command_t;
+
+typedef enum {
+    BRAIN_BROADCAST_IDLE    = 0x00,
+    BRAIN_BROADCAST_RUNNING = 0x01,
+    BRAIN_BROADCAST_STEP    = 0x02,
+    BRAIN_BROADCAST_DONE    = 0x03,
+    BRAIN_BROADCAST_ERROR   = 0x04,
+    BRAIN_BROADCAST_STOP    = 0x05,
+} brain_broadcast_event_t;
 
 // ============================================================================
 // BLOCK TYPES (15 total: 1 Brain + 14 Child)
@@ -174,6 +184,7 @@ static inline const char* command_to_string(i2c_command_t cmd) {
         case CMD_MATRIX_DRAW_PATTERN:   return "MATRIX_DRAW_PATTERN";
         case CMD_MATRIX_BRIGHTNESS:     return "MATRIX_BRIGHTNESS";
         case CMD_MATRIX_SHOW:           return "MATRIX_SHOW";
+        case CMD_BRAIN_BROADCAST:       return "BRAIN_BROADCAST";
         default:                        return "UNKNOWN_CMD";
     }
 }

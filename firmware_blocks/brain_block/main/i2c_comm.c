@@ -414,6 +414,39 @@ static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd_byte) {
     return ret;
 }
 
+static esp_err_t i2c_send_cmd_payload(uint8_t address,
+                                      uint8_t cmd_byte,
+                                      const uint8_t *payload,
+                                      size_t payload_len) {
+    if (payload_len > 0 && payload == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(cmd, cmd_byte, true);
+    if (payload_len > 0) {
+        i2c_master_write(cmd, payload, payload_len, true);
+    }
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+    return ret;
+}
+
 // ============================================================================
 // EXECUTE (Trigger configured action)
 // ============================================================================
@@ -466,4 +499,10 @@ esp_err_t i2c_oled_text(uint8_t address, const char *msg) {
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
+}
+
+esp_err_t i2c_broadcast_runtime_event(uint8_t address, uint8_t event_id, uint8_t pc)
+{
+    uint8_t payload[2] = { event_id, pc };
+    return i2c_send_cmd_payload(address, CMD_BRAIN_BROADCAST, payload, sizeof(payload));
 }

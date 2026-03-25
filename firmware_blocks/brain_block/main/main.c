@@ -22,7 +22,7 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define BACKGROUND_BLOCK_SCAN_INTERVAL_MS 5000
 #define ENABLE_BRAIN_EXECUTOR_TASK 1
 #define ENABLE_BRAIN_EXECUTOR_DEMO_VALIDATION_BYPASS 0
-#define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 1
+#define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 0
 #define BRAIN_EXECUTOR_TICK_INTERVAL_MS 10
 #define BRAIN_STATUS_STRIP_GPIO      GPIO_NUM_13
 #define BRAIN_STATUS_STRIP_LED_COUNT 30
@@ -146,7 +146,7 @@ static void block_scan_task(void *arg) {
     }
 }
 
-static bool config_has_block_type(const block_config_state_t *cfg, block_type_t type)
+static bool __attribute__((unused)) config_has_block_type(const block_config_state_t *cfg, block_type_t type)
 {
     if (cfg == NULL) {
         return false;
@@ -326,8 +326,8 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
     s_last_render_block_count = block_count;
 }
 
-static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
-                                           const brain_executor_context_t *ctx)
+static void __attribute__((unused)) brain_led_refresh_child_blocks(const block_config_state_t *cfg,
+                                                                   const brain_executor_context_t *ctx)
 {
     static uint64_t s_last_render_scan_ts = 0;
     static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
@@ -417,16 +417,12 @@ static void brain_executor_task(void *arg)
     (void)arg;
     ESP_LOGI(TAG, "brain_executor_task started");
 
-    brain_event_handler_init();
-
 #if ENABLE_BRAIN_EXECUTOR_DEMO_VALIDATION_BYPASS
     brain_event_handler_set_config_validation(true, 0, (uint64_t)(esp_timer_get_time() / 1000));
     ESP_LOGW(TAG, "Demo mode: app validation bypass enabled for executor");
 #endif
 
     uint64_t last_scan_ts = 0;
-    bool demo_auto_started_once = false;
-
     while (1) {
         const block_config_state_t *cfg = block_config_manager_get_state();
         const brain_executor_context_t *ctx = brain_executor_get_context();
@@ -436,6 +432,7 @@ static void brain_executor_task(void *arg)
         }
 
 #if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START
+        static bool demo_auto_started_once = false;
         ctx = brain_executor_get_context();
         if (!demo_auto_started_once &&
             cfg != NULL &&
@@ -455,7 +452,6 @@ static void brain_executor_task(void *arg)
         }
 #endif
 
-        brain_executor_tick();
         ctx = brain_executor_get_context();
         cfg = block_config_manager_get_state();
 
@@ -463,7 +459,6 @@ static void brain_executor_task(void *arg)
          * - local Brain strip shows the whole program map on the Brain itself
          * - child strip refresh pushes the same logical state out over I2C */
         brain_led_refresh_local_strip(cfg, ctx);
-        brain_led_refresh_child_blocks(cfg, ctx);
         vTaskDelay(pdMS_TO_TICKS(BRAIN_EXECUTOR_TICK_INTERVAL_MS));
     }
 }
@@ -512,6 +507,8 @@ void app_main(void) {
 
     // Forward child block-originated events (e.g., LED flash submit) to brain_event_handler.
     xTaskCreatePinnedToCore(block_event_poll_task, "block_evt", 4096, NULL, 5, NULL, 0);
+
+    brain_event_handler_init();
 
     // Optional debug-only registry logger task.
 #if ENABLE_DEBUG_REGISTRY_SCAN_TASK

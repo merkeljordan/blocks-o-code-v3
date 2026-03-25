@@ -45,9 +45,9 @@ Enhancement:
 
 #include "brain_block.h" // exposes i2c helpers and device registry
 #include "block_config_manager.h"
-#include "brain_event_handler.h"
 #include "cJSON.h"
 #include "tft_ui.h"
+#include "brain_event_handler.h"
 
 
 #define WIFI_SSID       "Jordan" // <-- Set your Wi‑Fi SSID here
@@ -519,7 +519,6 @@ void start_network_client(void)
 
     // Initialize block configuration manager
     block_config_manager_init();
-    brain_event_handler_init();
 
     // Init shared config cache + start scan task (separate from TCP).
     if (s_block_config_event_group == NULL) {

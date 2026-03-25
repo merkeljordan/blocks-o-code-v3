@@ -101,6 +101,48 @@ static void peripherals_show_running(void)
     matrix_show();
 }
 
+static void handle_brain_broadcast(const uint8_t *rx, size_t rx_len)
+{
+    if (rx == NULL || rx_len < 1U) {
+        return;
+    }
+
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_IF);
+    switch ((brain_broadcast_event_t)rx[0]) {
+        case BRAIN_BROADCAST_IDLE:
+            matrix_clear();
+            matrix_show();
+            break;
+        case BRAIN_BROADCAST_RUNNING:
+            matrix_fill(identity.r, identity.g, identity.b);
+            matrix_show();
+            (void)speaker_play_boot_sound();
+            break;
+        case BRAIN_BROADCAST_STEP:
+            matrix_fill(identity.r, identity.g, identity.b);
+            matrix_show();
+            (void)speaker_play_tone(880U, 35U);
+            break;
+        case BRAIN_BROADCAST_DONE:
+            matrix_fill(0U, 255U, 0U);
+            matrix_show();
+            speaker_beep_ok();
+            break;
+        case BRAIN_BROADCAST_ERROR:
+            matrix_fill(255U, 0U, 0U);
+            matrix_show();
+            speaker_beep_error();
+            break;
+        case BRAIN_BROADCAST_STOP:
+            matrix_fill(255U, 128U, 0U);
+            matrix_show();
+            (void)speaker_play_tone(220U, 120U);
+            break;
+        default:
+            break;
+    }
+}
+
 // ============================================================================
 // STATUS ACCESSOR (used by i2c_comm.c register map)
 // ============================================================================
@@ -173,6 +215,10 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_MATRIX_SHOW:
             matrix_show();
+            break;
+
+        case CMD_BRAIN_BROADCAST:
+            handle_brain_broadcast(rx, rx_len);
             break;
 
         case CMD_RESET:
