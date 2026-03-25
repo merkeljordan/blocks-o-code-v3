@@ -11,6 +11,7 @@
 #include "brain_event_handler.h"
 #include "audio_speaker.h"
 #include "status_strip.h"
+#include "led_contract.h"
 
 extern void initArduino(void);
 
@@ -26,11 +27,7 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define BRAIN_STATUS_STRIP_GPIO      GPIO_NUM_13
 #define BRAIN_STATUS_STRIP_LED_COUNT 30
 
-typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} led_rgb_t;
+typedef led_contract_rgb_t led_rgb_t;
 
 static const status_strip_config_t kBrainStatusStripConfig = {
     .gpio_num = BRAIN_STATUS_STRIP_GPIO,
@@ -163,55 +160,6 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
     return false;
 }
 
-static bool block_type_supports_led_mirroring(block_type_t type)
-{
-    switch (type) {
-        case BLOCK_TYPE_IF:
-        case BLOCK_TYPE_THEN:
-        case BLOCK_TYPE_END_IF:
-        case BLOCK_TYPE_LOOP:
-        case BLOCK_TYPE_END_LOOP:
-        case BLOCK_TYPE_DELAY:
-        case BLOCK_TYPE_BUTTON:
-        case BLOCK_TYPE_NOTE:
-        case BLOCK_TYPE_MUSIC_SEQ:
-        case BLOCK_TYPE_LED_FLASH:
-            return true;
-        default:
-            return false;
-    }
-}
-
-static led_rgb_t block_type_led_color(block_type_t type)
-{
-    switch (type) {
-        case BLOCK_TYPE_BRAIN:
-            return (led_rgb_t){255, 0, 0};
-        case BLOCK_TYPE_IF:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_THEN:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_END_IF:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_LOOP:
-            return (led_rgb_t){40, 100, 255};
-        case BLOCK_TYPE_END_LOOP:
-            return (led_rgb_t){40, 100, 255};
-        case BLOCK_TYPE_DELAY:
-            return (led_rgb_t){255, 170, 0};
-        case BLOCK_TYPE_BUTTON:
-            return (led_rgb_t){255, 0, 255};
-        case BLOCK_TYPE_NOTE:
-            return (led_rgb_t){255, 220, 0};
-        case BLOCK_TYPE_MUSIC_SEQ:
-            return (led_rgb_t){0, 210, 170};
-        case BLOCK_TYPE_LED_FLASH:
-            return (led_rgb_t){180, 70, 255};
-        default:
-            return (led_rgb_t){32, 32, 32};
-    }
-}
-
 static uint8_t brain_led_idle_brightness(void)
 {
     return 96U;
@@ -324,7 +272,7 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
      *   strip so the user still gets "I am alive" feedback at boot.
      */
     if (cfg == NULL || cfg->block_count == 0 || status_strip_get_led_count() == 0U) {
-        led_rgb_t brain_color = scale_led_color(block_type_led_color(BLOCK_TYPE_BRAIN),
+        led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
                                                 brain_led_idle_brightness());
         status_strip_fill(brain_color.r, brain_color.g, brain_color.b);
     } else {
@@ -346,8 +294,8 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
 
             const block_config_entry_t *entry = &cfg->blocks[block_index];
             led_rgb_t color = entry->present
-                                  ? block_type_led_color(entry->block_type)
-                                  : block_type_led_color(BLOCK_TYPE_BRAIN);
+                                  ? led_contract_identity_color(entry->block_type)
+                                  : led_contract_identity_color(BLOCK_TYPE_BRAIN);
 
             /* Idle: every segment uses the same medium brightness so the full
              * program remains readable.
@@ -412,11 +360,11 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
      * different hardware paths. */
     for (int i = 0; i < cfg->block_count; i++) {
         const block_config_entry_t *entry = &cfg->blocks[i];
-        if (!entry->present || !block_type_supports_led_mirroring(entry->block_type)) {
+        if (!entry->present || !led_contract_supports_brain_mirroring(entry->block_type)) {
             continue;
         }
 
-        led_rgb_t color = block_type_led_color(entry->block_type);
+        led_rgb_t color = led_contract_identity_color(entry->block_type);
         uint8_t brightness = brain_led_idle_brightness();
         if (is_active_run) {
             brightness = (i == highlight_index)

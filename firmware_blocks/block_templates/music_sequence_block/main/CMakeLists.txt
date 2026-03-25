@@ -4,12 +4,14 @@ idf_component_register(
         "i2c_comm.c"
         "tft_ui.c"
         "speaker_music.c"
+        "../../../shared_components/led_matrix/led_matrix.c"
         "../../../shared_components/status_strip/status_strip.c"
     INCLUDE_DIRS
         "."
         ".."
         "../.."
         "../../../include"
+        "../../../shared_components/led_matrix"
         "../../../shared_components/status_strip"
     REQUIRES
         driver

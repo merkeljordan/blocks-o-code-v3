@@ -7,7 +7,8 @@
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
 #include "led_matrix.h"
-#include "command_handler.h"
+#include "status_strip.h"
+#include "led_contract.h"
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
@@ -23,12 +24,34 @@ extern void initArduino(void);
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
-// Legacy LED status task (still useful for debug output)
-extern void led_status_task(void *arg);
-
 static const char *TAG = "BUTTON_BLOCK";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 static uint8_t g_status_flags = STATUS_READY;
+
+static void render_status_strip(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_BUTTON);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
+    }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status_flags));
+    (void)status_strip_show();
+}
+
+static void set_status_flags(uint8_t status_flags)
+{
+    g_status_flags = status_flags;
+    render_status_strip(g_status_flags);
+}
 
 static struct {
     bool has_event;
@@ -43,7 +66,7 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_BUTTON_PRESS;
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
-    g_status_flags |= STATUS_DATA_READY;
+    set_status_flags(STATUS_DATA_READY);
 }
 
 uint8_t button_block_get_status_flags(void)
@@ -80,7 +103,7 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
         case CMD_PING:
-            g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
+            set_status_flags(g_pending_event.has_event ? STATUS_DATA_READY : STATUS_READY);
             break;
 
         case CMD_GET_STATUS:
@@ -101,19 +124,45 @@ void command_handle(i2c_command_t cmd,
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
                 g_pending_event.payload_len = 0;
-                g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+                set_status_flags(STATUS_READY);
             }
             break;
 
         case CMD_RESET:
             g_pending_event.has_event = false;
             g_pending_event.payload_len = 0;
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             tft_ui_set_idle();
             break;
 
         case CMD_EXECUTE:
+            set_status_flags(STATUS_BUSY);
             tft_ui_trigger_execute();
+            set_status_flags(g_pending_event.has_event ? STATUS_DATA_READY : STATUS_READY);
+            break;
+
+        case CMD_MATRIX_FILL:
+            if (rx_len >= 3U) {
+                matrix_fill(rx[0], rx[1], rx[2]);
+                (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+            }
+            break;
+
+        case CMD_MATRIX_CLEAR:
+            matrix_clear();
+            (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+            break;
+
+        case CMD_MATRIX_BRIGHTNESS:
+            if (rx_len >= 1U) {
+                matrix_set_brightness(rx[0]);
+            }
+            (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+            break;
+
+        case CMD_MATRIX_SHOW:
+            matrix_show();
+            (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
             break;
         default:
             break;
@@ -143,6 +192,7 @@ void app_main(void)
     led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
+    render_status_strip(g_status_flags);
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {
@@ -155,7 +205,6 @@ void app_main(void)
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
 
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

@@ -7,8 +7,8 @@
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
 #include "led_matrix.h"
-#include "command_handler.h"
 #include "status_strip.h"
+#include "led_contract.h"
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
@@ -48,6 +48,24 @@ static block_config_t g_config;
 static bool g_config_valid = false;
 
 static uint8_t g_status_flags = STATUS_READY;
+
+static void render_status_strip(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_DELAY);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
+    }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status_flags));
+    (void)status_strip_show();
+}
+
+static void set_status_flags(uint8_t status_flags)
+{
+    g_status_flags = status_flags;
+    render_status_strip(g_status_flags);
+}
 
 // ============================================================================
 // BLOCK -> BRAIN EVENT (STATUS_DATA_READY + CMD_GET_DATA)
@@ -121,8 +139,8 @@ static void peripherals_show_running(void)
 {
     tft_ui_trigger_execute();
 
-    // Simple "running" indication: brief amber flash on the matrix.
-    matrix_fill(64, 32, 0);
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_DELAY);
+    matrix_fill(identity.r, identity.g, identity.b);
     matrix_show();
     vTaskDelay(pdMS_TO_TICKS(120));
     matrix_clear();
@@ -150,13 +168,11 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
-    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
-        return;
-    }
+    (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
 
     switch (cmd) {
         case CMD_PING:
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             peripherals_ok_feedback();
             break;
 
@@ -176,7 +192,7 @@ void command_handle(i2c_command_t cmd,
                 v |= ((uint32_t)rx[3] << 24);
                 g_config.delay_ms = v;
                 g_config_valid = true;
-                g_status_flags = STATUS_READY;
+                set_status_flags(STATUS_READY);
                 publish_delay_ms_event(g_config.delay_ms);
             }
             break;
@@ -199,12 +215,33 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_EXECUTE:
             if (!config_is_valid()) {
-                g_status_flags = STATUS_ERROR;
+                set_status_flags(STATUS_ERROR);
                 peripherals_error_feedback();
                 break;
             }
+            set_status_flags(STATUS_BUSY);
             peripherals_show_running();
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
+            break;
+
+        case CMD_MATRIX_FILL:
+            if (rx_len >= 3U) {
+                matrix_fill(rx[0], rx[1], rx[2]);
+            }
+            break;
+
+        case CMD_MATRIX_CLEAR:
+            matrix_clear();
+            break;
+
+        case CMD_MATRIX_BRIGHTNESS:
+            if (rx_len >= 1U) {
+                matrix_set_brightness(rx[0]);
+            }
+            break;
+
+        case CMD_MATRIX_SHOW:
+            matrix_show();
             break;
 
         case CMD_RESET:
@@ -213,7 +250,7 @@ void command_handle(i2c_command_t cmd,
             tft_ui_set_idle();
             matrix_clear();
             matrix_show();
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             break;
 
         default:
@@ -245,6 +282,7 @@ void app_main(void) {
 
     tft_ui_start();
     tft_ui_set_idle();
+    render_status_strip(g_status_flags);
 
     // Initialize I²C slave
     ret = i2c_slave_init();
@@ -259,7 +297,6 @@ void app_main(void) {
 
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }
