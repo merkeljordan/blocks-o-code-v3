@@ -605,11 +605,15 @@ void tft_ui_start(void)
     ESP_ERROR_CHECK(esp_lcd_new_panel_ili9341(io_handle, &panel_cfg, &s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel_handle));
+    ESP_LOGI(TAG, "LCD panel init complete, waiting 800ms for stabilization");
+    vTaskDelay(pdMS_TO_TICKS(800));
     ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel_handle, true, false));
     ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(s_panel_handle, true));
+    ESP_LOGI(TAG, "LCD panel display enabled");
 
     /* Backlight on now that the panel is ready. */
     gpio_set_level(PIN_NUM_BK_LIGHT, TFT_BACKLIGHT_ON_LEVEL);
+    ESP_LOGI(TAG, "LCD backlight enabled");
 
     /* Initialize LVGL. */
     lv_init();
@@ -688,10 +692,7 @@ void tft_ui_start(void)
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "Failed to create LVGL task");
         abort();
-        ESP_LOGE(TAG, "Failed to create LVGL task");
-        abort();
     }
 
-    ESP_LOGI(TAG, "LVGL v9 TFT UI started");
     ESP_LOGI(TAG, "LVGL v9 TFT UI started");
 }

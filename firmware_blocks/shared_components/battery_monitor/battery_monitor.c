@@ -2,9 +2,8 @@
 
 #include <stdbool.h>
 
-#include "esp_adc/adc_cali.h"
-#include "esp_adc/adc_cali_scheme.h"
-#include "esp_adc/adc_oneshot.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
 #include "esp_check.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -19,10 +18,18 @@
 #define BATTERY_VOLTAGE_EMPTY_MV 7000.0f
 #define BATTERY_VOLTAGE_FULL_MV  8400.0f
 
-#define ADC_UNIT_USED          ADC_UNIT_1
-#define ADC_CHANNEL_BATTERY    ADC_CHANNEL_6
+#define ADC_CHANNEL_BATTERY    ADC1_CHANNEL_6
 #define ADC_ATTEN_USED         ADC_ATTEN_DB_12
-#define ADC_BITWIDTH_USED      ADC_BITWIDTH_DEFAULT
+#define ADC_REFERENCE_MV       3300.0f
+#define ADC_SAMPLE_COUNT       8
+
+/*
+ * Calibration knobs:
+ * - BATTERY_CAL_SCALE: multiplicative correction for resistor tolerances/ADC gain.
+ * - BATTERY_CAL_OFFSET_MV: additive correction if a fixed offset is observed.
+ */
+#define BATTERY_CAL_SCALE      1.00f
+#define BATTERY_CAL_OFFSET_MV  0.0f
 
 #define DIVIDER_R_TOP_OHMS     2000.0f
 #define DIVIDER_R_BOTTOM_OHMS  1000.0f
@@ -32,10 +39,10 @@
 #define BATTERY_MONITOR_STACK_SIZE 2048
 #define BATTERY_MONITOR_PRIORITY   2
 
-static adc_oneshot_unit_handle_t s_adc_handle;
-static adc_cali_handle_t s_adc_cali_handle = NULL;
 static float s_last_battery_voltage_mv = -1.0f;
 static bool s_monitor_started = false;
+static bool s_adc_cal_ready = false;
+static esp_adc_cal_characteristics_t s_adc_chars;
 
 static const char *TAG = "battery_monitor";
 
@@ -72,30 +79,40 @@ uint8_t battery_monitor_get_percent(void)
     return voltage_to_percentage(s_last_battery_voltage_mv);
 }
 
-static float battery_monitor_read_voltage_mv(void)
+static float battery_monitor_read_voltage_mv(int *raw_out, float *adc_pin_mv_out)
 {
     int raw = 0;
-    int adc_pin_mv = 0;
-    esp_err_t err;
+    int raw_sum = 0;
+    float adc_pin_mv = 0.0f;
+    float battery_mv = 0.0f;
 
-    err = adc_oneshot_read(s_adc_handle, ADC_CHANNEL_BATTERY, &raw);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "adc_oneshot_read failed: %s", esp_err_to_name(err));
-        return -1.0f;
-    }
-
-    if (s_adc_cali_handle != NULL) {
-        if (adc_cali_raw_to_voltage(s_adc_cali_handle, raw, &adc_pin_mv) != ESP_OK) {
+    for (int i = 0; i < ADC_SAMPLE_COUNT; i++) {
+        raw = adc1_get_raw(ADC_CHANNEL_BATTERY);
+        if (raw < 0) {
+            ESP_LOGE(TAG, "adc1_get_raw failed: %d", raw);
             return -1.0f;
         }
+        raw_sum += raw;
+    }
+    raw = raw_sum / ADC_SAMPLE_COUNT;
+
+    if (s_adc_cal_ready) {
+        adc_pin_mv = (float)esp_adc_cal_raw_to_voltage(raw, &s_adc_chars);
     } else {
-        const float adc_reference_mv = 3000.0f;
-        const int adc_max_count = 4095;
-        adc_pin_mv = (int)(((float)raw / (float)adc_max_count) * adc_reference_mv);
+        adc_pin_mv = ((float)raw / 4095.0f) * ADC_REFERENCE_MV;
     }
 
-    return adc_pin_mv *
-           ((DIVIDER_R_TOP_OHMS + DIVIDER_R_BOTTOM_OHMS) / DIVIDER_R_BOTTOM_OHMS);
+    battery_mv = adc_pin_mv *
+                 ((DIVIDER_R_TOP_OHMS + DIVIDER_R_BOTTOM_OHMS) / DIVIDER_R_BOTTOM_OHMS);
+    battery_mv = (battery_mv * BATTERY_CAL_SCALE) + BATTERY_CAL_OFFSET_MV;
+
+    if (raw_out != NULL) {
+        *raw_out = raw;
+    }
+    if (adc_pin_mv_out != NULL) {
+        *adc_pin_mv_out = adc_pin_mv;
+    }
+    return battery_mv;
 }
 
 static void battery_monitor_task(void *arg)
@@ -103,11 +120,19 @@ static void battery_monitor_task(void *arg)
     (void)arg;
 
     while (true) {
-        const float battery_mv = battery_monitor_read_voltage_mv();
+        int raw = 0;
+        float adc_pin_mv = 0.0f;
+        const float battery_mv = battery_monitor_read_voltage_mv(&raw, &adc_pin_mv);
         if (battery_mv > 0.0f) {
             s_last_battery_voltage_mv = battery_mv;
-            ESP_LOGD(TAG, "battery voltage=%.0fmV percent=%u", (double)battery_mv,
-                     (unsigned)battery_monitor_get_percent());
+            ESP_LOGD(
+                TAG,
+                "raw=%d adc_pin=%.0fmV battery=%.0fmV percent=%u",
+                raw,
+                (double)adc_pin_mv,
+                (double)battery_mv,
+                (unsigned)battery_monitor_get_percent()
+            );
         }
 
         vTaskDelay(pdMS_TO_TICKS(BATTERY_MONITOR_PERIOD_MS));
@@ -117,30 +142,32 @@ static void battery_monitor_task(void *arg)
 esp_err_t battery_monitor_start(void)
 {
     BaseType_t task_ok;
-    adc_oneshot_unit_init_cfg_t init_config = {
-        .unit_id = ADC_UNIT_USED,
-    };
-    adc_oneshot_chan_cfg_t chan_config = {
-        .bitwidth = ADC_BITWIDTH_USED,
-        .atten = ADC_ATTEN_USED,
-    };
-    adc_cali_line_fitting_config_t cali_config = {
-        .unit_id = ADC_UNIT_USED,
-        .atten = ADC_ATTEN_USED,
-        .bitwidth = ADC_BITWIDTH_USED,
-    };
+    esp_err_t err;
 
     if (s_monitor_started) {
         return ESP_OK;
     }
 
-    ESP_RETURN_ON_ERROR(adc_oneshot_new_unit(&init_config, &s_adc_handle), TAG,
-                        "adc_oneshot_new_unit failed");
-    ESP_RETURN_ON_ERROR(adc_oneshot_config_channel(s_adc_handle, ADC_CHANNEL_BATTERY, &chan_config),
-                        TAG, "adc_oneshot_config_channel failed");
+    err = adc1_config_width(ADC_WIDTH_BIT_12);
+    ESP_RETURN_ON_ERROR(err, TAG, "adc1_config_width failed");
+    err = adc1_config_channel_atten(ADC_CHANNEL_BATTERY, ADC_ATTEN_USED);
+    ESP_RETURN_ON_ERROR(err, TAG, "adc1_config_channel_atten failed");
 
-    if (adc_cali_create_scheme_line_fitting(&cali_config, &s_adc_cali_handle) != ESP_OK) {
-        s_adc_cali_handle = NULL;
+    // Legacy ADC calibration for improved mV estimation.
+    s_adc_cal_ready = true;
+    esp_adc_cal_value_t cal_type = esp_adc_cal_characterize(
+        ADC_UNIT_1,
+        ADC_ATTEN_USED,
+        ADC_WIDTH_BIT_12,
+        1100,
+        &s_adc_chars
+    );
+    if (cal_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        ESP_LOGI(TAG, "ADC calibration: eFuse Two Point");
+    } else if (cal_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        ESP_LOGI(TAG, "ADC calibration: eFuse Vref");
+    } else {
+        ESP_LOGW(TAG, "ADC calibration: default Vref");
     }
 
     task_ok = xTaskCreate(battery_monitor_task, "battery_monitor",
