@@ -22,6 +22,7 @@
 
 #include "battery_monitor.h"
 #include "i2c_protocol.h"
+#include "music_leds.h"
 #include "speaker.h"
 #include "tft_ui.h"
 
@@ -43,6 +44,7 @@ static const char *TAG = "TPL_MUSIC_SEQ";
 static uint8_t g_selected_song = 0;
 static bool g_config_valid = false;
 static bool g_speaker_ready = false;
+static bool g_leds_ready = false;
 static uint8_t g_status_flags = STATUS_READY;
 
 static void sync_selection_status_flag(void)
@@ -88,6 +90,17 @@ static void peripherals_init(void)
 
     speaker_set_volume(25);
     g_speaker_ready = true;
+
+    err = music_leds_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "music_leds_init failed: %s", esp_err_to_name(err));
+        g_status_flags |= STATUS_ERROR;
+        return;
+    }
+
+    music_leds_show_startup();
+    music_leds_show_idle();
+    g_leds_ready = true;
 }
 
 static void peripherals_error_feedback(void)
@@ -124,7 +137,13 @@ static void handle_play_note(const uint8_t *rx, size_t rx_len)
     g_status_flags |= STATUS_BUSY;
     g_status_flags &= (uint8_t)~STATUS_ERROR;
 
+    if (g_leds_ready) {
+        music_leds_show_note_color(note_id, 0U);
+    }
     err = speaker_play_tone(k_note_freq_hz[note_id], 400U);
+    if (g_leds_ready) {
+        music_leds_show_idle();
+    }
 
     clear_busy_and_refresh_ready_state();
     if (err != ESP_OK) {
@@ -188,8 +207,14 @@ void command_handle(i2c_command_t cmd,
             tft_ui_set_status_message("Brain executing selected song...");
 
             {
+                if (g_leds_ready) {
+                    music_leds_start_song_pattern(g_selected_song);
+                }
                 esp_err_t err = speaker_play_song(g_selected_song);
 
+                if (g_leds_ready) {
+                    music_leds_stop_song_pattern();
+                }
                 tft_ui_set_playback_state(&(music_playback_state_t) {
                     .is_playing = false,
                     .active_song_index = g_selected_song,
@@ -212,6 +237,9 @@ void command_handle(i2c_command_t cmd,
             g_selected_song = 0;
             g_config_valid = false;
             g_status_flags = STATUS_READY;
+            if (g_leds_ready) {
+                music_leds_show_idle();
+            }
             tft_ui_set_playback_state(&(music_playback_state_t) {
                 .is_playing = false,
                 .active_song_index = 0,

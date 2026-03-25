@@ -8,12 +8,17 @@
 static const char *TAG = "LED_MATRIX";
 
 // LED Matrix Configuration (update per block)
-#define LED_GPIO            18
+#define LED_GPIO            15
 #define LED_MATRIX_SIZE     16
 
 // Module-private state
 static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;  // 0-255 (~20% starting)
+
+static uint8_t scale_channel(uint8_t channel)
+{
+    return (uint8_t)((channel * matrix_brightness) / 255);
+}
 
 esp_err_t led_matrix_init(void)
 {
@@ -64,13 +69,26 @@ void matrix_fill(uint8_t r, uint8_t g, uint8_t b)
 {
     ESP_LOGI(TAG, "Filling matrix RGB(%d, %d, %d) @ brightness %d", r, g, b, matrix_brightness);
 
-    r = (r * matrix_brightness) / 255;
-    g = (g * matrix_brightness) / 255;
-    b = (b * matrix_brightness) / 255;
+    r = scale_channel(r);
+    g = scale_channel(g);
+    b = scale_channel(b);
 
     for (int i = 0; i < LED_MATRIX_SIZE; i++) {
         led_strip_set_pixel(led_strip, i, r, g, b);
     }
+}
+
+void matrix_set_pixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (led_strip == NULL || index >= LED_MATRIX_SIZE) {
+        return;
+    }
+
+    led_strip_set_pixel(led_strip,
+                        index,
+                        scale_channel(r),
+                        scale_channel(g),
+                        scale_channel(b));
 }
 
 void matrix_clear(void)

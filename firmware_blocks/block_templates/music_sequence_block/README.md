@@ -14,6 +14,28 @@ At runtime, this block lets a child:
 6. Wait for the Brain Block to issue `CMD_EXECUTE`.
 7. Play the selected song when execute is received.
 
+## LED Behavior
+
+Issue `#66` adds music-linked LED feedback on the block matrix:
+
+- Each selected song runs its own looping animation while audio is playing.
+- `CMD_PLAY_NOTE` now maps each note to a unique matrix color.
+- The matrix returns to a dim idle glow when playback ends.
+
+Current note-to-color lookup used by the firmware:
+
+| Note | Color | RGB |
+| --- | --- | --- |
+| A | Red | `255, 32, 32` |
+| B | Orange | `255, 128, 0` |
+| C | Yellow | `255, 220, 0` |
+| D | Green | `32, 200, 64` |
+| E | Cyan | `0, 170, 255` |
+| F | Blue | `80, 96, 255` |
+| G | Violet | `200, 64, 255` |
+
+The current hardware path is monophonic, so overlapping note-color blending is not implemented yet; the latest note color wins.
+
 ## Runtime Architecture
 
 Main runtime files:

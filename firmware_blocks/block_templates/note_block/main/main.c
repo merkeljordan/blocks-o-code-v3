@@ -25,6 +25,22 @@ extern void i2c_task(void *arg);
 
 static const char *TAG = "NOTE_BLOCK";
 
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} note_color_t;
+
+static const note_color_t k_note_colors[7] = {
+    {255, 32, 32},   /* A */
+    {255, 128, 0},   /* B */
+    {255, 220, 0},   /* C */
+    {32, 200, 64},   /* D */
+    {0, 170, 255},   /* E */
+    {80, 96, 255},   /* F */
+    {200, 64, 255},  /* G */
+};
+
 // ============================================================================
 // CONFIG (payload: single note or custom sequence)
 // ============================================================================
@@ -151,7 +167,24 @@ static void peripherals_ok_feedback(void)
 
 static void peripherals_show_running(void)
 {
-    // No matrix activity indicator.
+    matrix_fill(24, 24, 36);
+    matrix_show();
+}
+
+static void show_note_color(uint8_t note_id)
+{
+    uint8_t idx = (note_id < 7U) ? note_id : 0U;
+
+    matrix_fill(k_note_colors[idx].r,
+                k_note_colors[idx].g,
+                k_note_colors[idx].b);
+    matrix_show();
+}
+
+static void restore_idle_color(void)
+{
+    matrix_fill(24, 24, 36);
+    matrix_show();
 }
 
 // ============================================================================
@@ -171,7 +204,9 @@ static void play_note(uint8_t note_id)
     };
     const uint32_t count = (uint32_t)(sizeof(k_note_freqs_hz) / sizeof(k_note_freqs_hz[0]));
     uint32_t freq = k_note_freqs_hz[note_id < count ? note_id : 0U];
+    show_note_color(note_id);
     (void)speaker_play_tone(freq, 400U);
+    restore_idle_color();
 }
 
 void note_block_preview_note(uint8_t note_id)
@@ -367,6 +402,7 @@ void app_main(void)
     }
 
     led_matrix_startup_animation();
+    restore_idle_color();
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

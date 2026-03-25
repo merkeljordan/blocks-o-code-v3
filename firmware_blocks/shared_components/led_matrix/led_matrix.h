@@ -10,6 +10,7 @@ extern "C" {
 esp_err_t led_matrix_init(void);
 void led_matrix_startup_animation(void);
 
+void matrix_set_pixel(uint16_t index, uint8_t r, uint8_t g, uint8_t b);
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b);
 void matrix_clear(void);
 void matrix_show(void);

@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "main.c"
         "i2c_comm.c"
+        "music_leds.c"
         "tft_ui.c"
         "speaker_music.c"
     INCLUDE_DIRS
@@ -19,6 +20,7 @@ idf_component_register(
         atanisoft__esp_lcd_touch_xpt2046
         audio
         battery_monitor
+        led_matrix
     # Songs are embedded in flash and exposed as linker symbols.
     # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
