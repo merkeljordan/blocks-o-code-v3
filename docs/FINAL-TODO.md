@@ -72,7 +72,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Docs under `docs/`; `firmware_blocks/shared_components/audio/` and block-level `speaker.cpp` / WAV assets.
 - **Branch:** Shared audio + shared LED UX components have landed on `main`. Remaining work can be done on a small `docs-update` / `startup-sound` branch.
 - **Owner:** Jordan
-- **Status:** [ ] Done 
+- **Status:** [x] Done (merged to `main`)
 - **How:**
   1. **Protocol docs (Jordan):** Open `docs/api/firmware-api.md` and `firmware_blocks/include/i2c_protocol.h`. Cross-check: every command in the header (e.g. `CMD_PING`, `CMD_SET_LED`, `CMD_PLAY_NOTE`, `CMD_EXECUTE`, …) is described in the doc; register map (REG_WHOAMI, REG_STATUS, …) matches. Update the doc if you add or rename commands. If there’s a separate “protocol” doc in `docs/`, align it with the same source of truth (`i2c_protocol.h`).
   2. **Startup sound:** The boot (startup) sound is played by `speaker_play_boot_sound()` from shared or block-level audio. Find it: grep for `speaker_play_boot_sound` — it’s in `firmware_blocks/shared_components/audio/speaker.cpp` and in each block’s `speaker.cpp`. The actual sound is usually a WAV file (e.g. `bootupsound.wav`) embedded via the build. To *change* the sound: replace that WAV file (same name or update the embed path in CMakeLists.txt / component config) and rebuild. To make it shared: ensure all blocks that need it use the shared component (see `protocol-docs-consistency` branch for how shared audio/LED is set up) so one WAV change affects all blocks.
@@ -113,7 +113,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Brain and/or child block firmware using LED strip; `led_strip` driver / shared LED UX.
 - **Branch:** `origin/led-strip-behavior` has execution mirroring work pushed (ahead of `main`) — merge, then finish idle mapping + polish.
 - **Owner:** **Destiny** (LEDs / peripherals).
-- **Status:** [x] In progress + needs to be applied to updated control flow block logic ( needs merge to `main`)
+- **Status:** [ ] In progress + needs to be applied to updated control flow block logic (needs merge to `main`)
 - **What was completed:**
   1. Added idle type-color mapping across the system:
      - `BRAIN` = red
@@ -224,7 +224,7 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 - **Where:** Control flow block templates with TFT: `if_block`, `then_block`, `end_if_block`, `loop_block`, `end_loop_block`, `delay_block` under `firmware_blocks/block_templates/`; each block’s display/UI code and execution-state handling (e.g. when Brain sends CMD_EXECUTE or block is “active” in the run).
 - **Branch:** Same as #4 (`control-flow-docs-and-blocks`) or a dedicated branch (e.g. `control-flow-block-tft-ui`). Coordinates with execution behavior from #4.
 - **Owner:** **Destiny** (displays / “what you see”).
-- **Status:** [X] In progress (will then merge `led-strip-behavior` into `main`) 
+- **Status:** [ ] In progress (will then merge `led-strip-behavior` into `main`)
 - **How:**
   1. **Which blocks have a TFT today:** Control flow blocks (if, then, end_if, loop, end_loop, delay) currently use **LED matrix** only (see their `main.c`: `led_matrix_init()`, `led_matrix_startup_animation()`). So either (a) add a small TFT to those blocks later and show the label + disco there, or (b) for now use the **LED matrix** to show the block type (e.g. scrolling "LOOP" or a color) and disco = animations on the matrix (like `led_ux_show_running()` but fancier).
   2. **Block type label:** Each control flow block's `main.c` already has `BLOCK_NAME` (e.g. "LOOP", "IF"). If using TFT: add a small display driver and draw that string on screen (reference: `led_color_flash_block/main/tft_ui.c` for LVGL + display init). If using LED matrix only: drive the matrix to show the text or a distinct pattern per block type (see `led_matrix.c` / pattern helpers in LED Color Flash block).
@@ -247,9 +247,9 @@ Split between **Jordan** and **Destiny**. Branch status and assignment notes bel
 | 8 | Broadcast mirroring parity across blocks | TBD | new or with #6 | [ ] Not started |
 | 9 | Update any docs | Jordan | same as #3 or small branch | [ ] In progress |
 | 10 | GPIO pinout markdown | Jordan / hardware owner | `main` (`docs/hardware/gpio-pinouts.md`) | [✓] Done |
-| 11 | Battery % on each block TFT UI | Destiny | new (e.g. `block-tft-battery`) |  [✓] Done (merged to `main`) | On MSQ + LCF Blocks
+| 11 | Battery % on each block TFT UI (MSQ + LCF) | Destiny | new (e.g. `block-tft-battery`) | [✓] Done (merged to `main`) |
 | 12 | Control flow TFT: block label + disco on execution | Destiny | `origin/control-flow-docs-and-blocks` or `origin/led-strip-behavior` | [ ] In progress (plan to merge into `led-strip-behavior`) |
 
 ---
 
-*Edit the “Owner” lines and checkboxes as you assign and complete. Last updated: 2026-03-23 (audited from local `main` + current remote refs).*
+*Edit the “Owner” lines and checkboxes as you assign and complete. Last updated: 2026-03-25 (audited from local `main` + current remote refs).*

@@ -183,7 +183,10 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Boot sound disabled for music block");
+    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
+    (void)speaker_play_tone(440, 100);
+    (void)speaker_play_tone(660, 100);
+    (void)speaker_play_tone(880, 130);
     return ESP_OK;
 }
 

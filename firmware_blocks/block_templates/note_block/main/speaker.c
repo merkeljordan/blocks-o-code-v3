@@ -115,3 +115,15 @@ void speaker_beep_ok(void) {
 void speaker_beep_error(void) {
     speaker_play_tone(220, 200);
 }
+
+void speaker_play_boot_sound(void)
+{
+    // "do do do" boot sequence on speaker PWM driver.
+    // Keep it short so startup stays responsive.
+    (void)speaker_play_tone(440, 100);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    (void)speaker_play_tone(660, 100);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    (void)speaker_play_tone(880, 130);
+    vTaskDelay(pdMS_TO_TICKS(40));
+}

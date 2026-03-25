@@ -13,6 +13,7 @@
 #include "tft_ui.h"
 
 extern void initArduino(void);
+extern void speaker_play_boot_sound(void);
 
 // I2C glue is implemented in i2c_comm.c following the "new style" template.
 extern esp_err_t i2c_slave_init(void);
@@ -136,7 +137,7 @@ static void peripherals_init(void)
 
 static void peripherals_boot_feedback(void)
 {
-    speaker_beep_ok();
+    speaker_play_boot_sound();
 }
 
 static void peripherals_error_feedback(void)

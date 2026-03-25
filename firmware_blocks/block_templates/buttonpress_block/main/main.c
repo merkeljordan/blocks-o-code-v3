@@ -130,7 +130,7 @@ void app_main(void)
 
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     ret = led_matrix_init();

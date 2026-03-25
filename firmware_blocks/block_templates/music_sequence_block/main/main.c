@@ -94,7 +94,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(25);
+    speaker_set_volume(20);
     g_speaker_ready = true;
 }
 
@@ -298,6 +298,7 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
+    (void)speaker_play_boot_sound();
 
     err = i2c_slave_init();
     if (err != ESP_OK) {

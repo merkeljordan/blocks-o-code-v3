@@ -66,9 +66,9 @@ esp_err_t speaker_play_boot_sound(void) {
 
     ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
     // "do do do" startup noise.
-    (void)speaker_play_tone(440, 80);
-    (void)speaker_play_tone(660, 80);
-    (void)speaker_play_tone(880, 120);
+    (void)speaker_play_tone(440, 100);
+    (void)speaker_play_tone(660, 100);
+    (void)speaker_play_tone(880, 130);
     return ESP_OK;
 }
 
