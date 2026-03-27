@@ -1,5 +1,7 @@
 #include "speaker.h"
+#include "audio_speaker.h"
 
+#include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -9,6 +11,8 @@ static const char *TAG = "SPEAKER";
 
 // Adjust for your wiring.
 #define SPEAKER_GPIO            25
+#define SPEAKER_AMP_ENABLE_GPIO         5
+#define SPEAKER_AMP_ENABLE_ACTIVE_HIGH  0
 
 #define SPEAKER_LEDC_MODE       LEDC_LOW_SPEED_MODE
 #define SPEAKER_LEDC_TIMER      LEDC_TIMER_0
@@ -20,6 +24,13 @@ static const char *TAG = "SPEAKER";
 static bool s_inited = false;
 static uint8_t s_volume = SPEAKER_DEFAULT_VOLUME;
 
+static void speaker_amp_set_enabled(bool on)
+{
+    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
+    int level = on ? level_on : (1 - level_on);
+    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
+}
+
 static uint32_t speaker_get_duty(uint8_t volume_percent) {
     if (volume_percent > 100) {
         volume_percent = 100;
@@ -30,6 +41,20 @@ static uint32_t speaker_get_duty(uint8_t volume_percent) {
 }
 
 esp_err_t speaker_init(void) {
+    gpio_config_t amp_io = {
+        .pin_bit_mask = (1ULL << SPEAKER_AMP_ENABLE_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    esp_err_t err = gpio_config(&amp_io);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Amp enable GPIO config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    speaker_amp_set_enabled(true);
+
     ledc_timer_config_t timer_config = {
         .speed_mode = SPEAKER_LEDC_MODE,
         .timer_num = SPEAKER_LEDC_TIMER,
@@ -38,7 +63,7 @@ esp_err_t speaker_init(void) {
         .clk_cfg = LEDC_AUTO_CLK,
     };
 
-    esp_err_t err = ledc_timer_config(&timer_config);
+    err = ledc_timer_config(&timer_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "LEDC timer init failed: %s", esp_err_to_name(err));
         return err;
@@ -71,6 +96,7 @@ void speaker_deinit(void) {
         return;
     }
     ledc_stop(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
+    speaker_amp_set_enabled(false);
     s_inited = false;
 }
 
@@ -104,6 +130,34 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
     ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
     ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
     return ESP_OK;
+}
+
+uint8_t speaker_get_volume(void) {
+    return s_volume;
+}
+
+esp_err_t speaker_stop(void) {
+    if (!s_inited) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
+    ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_boot_sound(void) {
+    speaker_play_tone(440, 120);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    speaker_play_tone(660, 120);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    speaker_play_tone(880, 160);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_wav(const uint8_t *data, size_t len) {
+    (void)data;
+    (void)len;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 void speaker_beep_ok(void) {

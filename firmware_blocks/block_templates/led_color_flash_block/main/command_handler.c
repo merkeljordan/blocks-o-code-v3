@@ -10,8 +10,17 @@
 #include "command_handler.h"
 #include "led_matrix.h"
 #include "audio_speaker.h"
+#include "status_strip.h"
+#include "led_contract.h"
 
 static const char *TAG = "CMD_HANDLER";
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 30
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
 
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t color_id = 0;
@@ -34,6 +43,43 @@ typedef struct {
     uint8_t value;
 } led_action_t;
 
+static void refresh_status_strip(uint8_t status)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
+    led_contract_rgb_t color = led_contract_status_color(status, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
+    }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status));
+    (void)status_strip_show();
+}
+
+static bool is_status_strip_command(i2c_command_t cmd)
+{
+    return (cmd == CMD_MATRIX_FILL ||
+            cmd == CMD_MATRIX_CLEAR ||
+            cmd == CMD_MATRIX_BRIGHTNESS ||
+            cmd == CMD_MATRIX_SHOW);
+}
+
+static void set_current_status(uint8_t status)
+{
+    current_status = status;
+
+    // BUSY means the local worker is actively rendering a preview/execute effect.
+    // In that mode, the dedicated status strip should mirror matrix frames instead
+    // of showing a solid idle/status color.
+    if ((status & STATUS_BUSY) != 0U) {
+        led_matrix_set_status_mirror(true);
+        return;
+    }
+
+    // Any non-busy state gives the strip back to the simple status-color renderer.
+    led_matrix_set_status_mirror(false);
+    refresh_status_strip(status);
+}
+
 static void command_action_task(void *arg) {
     (void)arg;
     led_action_t action;
@@ -43,7 +89,7 @@ static void command_action_task(void *arg) {
             continue;
         }
 
-        current_status = STATUS_BUSY;
+        set_current_status(STATUS_BUSY);
         switch (action.type) {
             case ACTION_PREVIEW:
                 led_flash_play_preview(action.value);
@@ -71,7 +117,7 @@ static void command_action_task(void *arg) {
             default:
                 break;
         }
-        current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+        set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
     }
 }
 
@@ -95,6 +141,7 @@ esp_err_t command_handler_init(void) {
         return ESP_FAIL;
     }
 
+    refresh_status_strip(current_status);
     return ESP_OK;
 }
 
@@ -133,7 +180,7 @@ bool command_handler_submit_selection(uint8_t digit) {
     s_pending_event_id = LED_FLASH_EVENT_SELECTION_SUBMIT;
     s_pending_event_value = digit;
     s_pending_event_valid = true;
-    current_status = STATUS_DATA_READY;
+    set_current_status(STATUS_DATA_READY);
     return true;
 }
 
@@ -146,7 +193,7 @@ size_t get_data_payload(uint8_t *out, size_t max_len) {
     out[0] = s_pending_event_id;
     out[1] = s_pending_event_value;
     s_pending_event_valid = false;
-    current_status = STATUS_READY;
+    set_current_status(STATUS_READY);
     return 2;
 }
 
@@ -163,10 +210,27 @@ void handle_command(uint8_t *buffer, int len) {
     ESP_LOGI(TAG, "Command: %s (0x%02X), Length: %d bytes",
              command_to_string(cmd), cmd, len);
 
+    // While the local matrix effect owns the strip mirror, ignore Brain-driven
+    // strip paint commands so the mirrored animation is not overwritten mid-run.
+    if ((current_status & STATUS_BUSY) != 0U && is_status_strip_command((i2c_command_t)cmd)) {
+        ESP_LOGD(TAG, "Ignoring external status strip command 0x%02X while local effect is active", cmd);
+        return;
+    }
+
+    // Supported MATRIX_* commands are first offered to the shared status-strip
+    // renderer. This is how the Brain paints idle colors on the child strip.
+    if (status_strip_handle_matrix_command(TAG,
+                                           &kStatusStripConfig,
+                                           (i2c_command_t)cmd,
+                                           (len > 1) ? &buffer[1] : NULL,
+                                           (len > 1) ? (size_t)(len - 1) : 0U)) {
+        return;
+    }
+
     switch (cmd) {
         case CMD_PING:
             ESP_LOGI(TAG, "  → PING");
-            current_status = STATUS_READY;
+            set_current_status(STATUS_READY);
             break;
 
         case CMD_GET_TYPE:
@@ -184,14 +248,14 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_COLOR ID=%d (%s)", color_id, led_pattern_name(color_id));
                 // SET_LED is a configuration update, not a block-originated event.
                 // Only assert DATA_READY when a submit event is actually pending.
-                current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+                set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
             } else if (len >= 4) {
                 led_r = buffer[1];
                 led_g = buffer[2];
                 led_b = buffer[3];
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
-                current_status = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+                set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
             }
             break;
 
@@ -240,14 +304,17 @@ void handle_command(uint8_t *buffer, int len) {
             led_g = 0;
             led_b = 0;
             color_id = 0;
+            (void)status_strip_reset(&kStatusStripConfig);
             matrix_clear();
             matrix_show();
-            current_status = STATUS_READY;
+            set_current_status(STATUS_READY);
             break;
 
         case CMD_EXECUTE:
             ESP_LOGI(TAG, "  → EXECUTE color_id=%d (%s)", color_id, led_pattern_name(color_id));
             if (s_action_queue) {
+                // Queueing does not mean the block is BUSY yet. BUSY is asserted by
+                // the worker task when it actually starts running the effect.
                 led_action_t action = {.type = ACTION_EXECUTE, .value = color_id};
                 if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
                     ESP_LOGW(TAG, "Action queue full, dropping EXECUTE");

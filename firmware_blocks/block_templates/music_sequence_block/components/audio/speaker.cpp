@@ -183,7 +183,13 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Boot sound disabled for music block");
+    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
+    (void)speaker_play_tone(440, 120);
+    delay_ms(40);
+    (void)speaker_play_tone(660, 120);
+    delay_ms(40);
+    (void)speaker_play_tone(880, 160);
+    ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
 }
 
@@ -233,7 +239,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 
     //Change the magnitude to avoid clipping. Keep the volume control.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, 1000, tone_magnitude);
+    SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);

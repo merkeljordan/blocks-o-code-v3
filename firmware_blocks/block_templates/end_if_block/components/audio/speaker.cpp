@@ -8,6 +8,7 @@
 
 #include <Arduino.h>
 
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,8 +19,16 @@ extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
 extern "C" {
 
 static const char *TAG = "AUDIO";
+#define SPEAKER_AMP_ENABLE_GPIO 5
+#define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
 static bool s_inited = false;
 static DACOutput *s_dac = NULL;
+
+static void speaker_amp_set_enabled(bool on) {
+    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
+    int level = on ? level_on : (1 - level_on);
+    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
+}
 
 class SilenceSource : public SampleSource {
 public:
@@ -41,6 +50,20 @@ static void delay_ms(uint32_t ms) {
 esp_err_t speaker_init(void) {
     if (s_inited) return ESP_OK;
 
+    gpio_config_t amp_io = {
+        .pin_bit_mask = (1ULL << SPEAKER_AMP_ENABLE_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    esp_err_t err = gpio_config(&amp_io);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Amp enable GPIO config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    speaker_amp_set_enabled(true);
+
     s_dac = new DACOutput();
     if (!s_dac) return ESP_ERR_NO_MEM;
 
@@ -51,6 +74,7 @@ esp_err_t speaker_init(void) {
 }
 
 void speaker_deinit(void) {
+    speaker_amp_set_enabled(false);
     s_inited = false;
 }
 
@@ -64,11 +88,13 @@ esp_err_t speaker_stop(void) {
 esp_err_t speaker_play_boot_sound(void) {
     if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
 
-    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
-    // "do do do" startup noise.
-    (void)speaker_play_tone(440, 80);
-    (void)speaker_play_tone(660, 80);
-    (void)speaker_play_tone(880, 120);
+    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
+    (void)speaker_play_tone(440, 120);
+    delay_ms(40);
+    (void)speaker_play_tone(660, 120);
+    delay_ms(40);
+    (void)speaker_play_tone(880, 160);
+    ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
 }
 

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -19,6 +20,10 @@ static inline void tft_ui_set_idle(void) {}
 #endif
 
 extern void initArduino(void);
+
+// I2C slave transport implemented in i2c_comm.c
+extern esp_err_t i2c_slave_init(void);
+extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "LOOP"
 #define BLOCK_I2C_ADDRESS     0x0B  // I2C address for Loop block
@@ -50,7 +55,7 @@ static void startup_power_guard(void)
     vTaskDelay(pdMS_TO_TICKS(STARTUP_GUARD_SETTLE_MS));
 }
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
-#define STATUS_STRIP_LED_COUNT 16
+#define STATUS_STRIP_LED_COUNT 30
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
@@ -131,14 +136,15 @@ static void config_reset(void)
 }
 static bool config_is_valid(void) { return g_config_valid; }
 static size_t config_get_payload(uint8_t *out, size_t max_len) {
-    (void)out;
-    (void)max_len;
-    // TODO: write loop_count to payload
-    return 0;
+    if (out == NULL || max_len < 1) {
+        return 0;
+    }
+    out[0] = g_config.loop_count;
+    return 1;
 }
 
 // ============================================================================
-// PERIPHERALS (STUBS)
+// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
@@ -147,7 +153,9 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
-static void peripherals_show_running(void) { /* TODO */ }
+static void peripherals_show_running(void)
+{
+    tft_ui_trigger_execute();
 
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
     matrix_fill(identity.r, identity.g, identity.b);
@@ -158,7 +166,7 @@ static void peripherals_show_running(void) { /* TODO */ }
 }
 
 // ============================================================================
-// I2C COMM (STUB)
+// STATUS ACCESSOR (used by i2c_comm.c register map)
 // ============================================================================
 uint8_t loop_block_get_status_flags(void)
 {

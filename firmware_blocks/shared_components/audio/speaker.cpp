@@ -25,6 +25,7 @@
 
 #include <Arduino.h>
 
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -36,6 +37,14 @@ extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
 extern "C" {
 
 static const char *TAG = "AUDIO";
+#define SPEAKER_AMP_ENABLE_GPIO 5
+#define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
+
+static void speaker_amp_set_enabled(bool on) {
+    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
+    int level = on ? level_on : (1 - level_on);
+    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
+}
 
 // Set true after successful speaker_init().
 static bool s_inited = false;
@@ -98,6 +107,20 @@ esp_err_t speaker_init(void)
         return ESP_OK;
     }
 
+    gpio_config_t amp_io = {
+        .pin_bit_mask = (1ULL << SPEAKER_AMP_ENABLE_GPIO),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    esp_err_t err = gpio_config(&amp_io);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Amp enable GPIO config failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    speaker_amp_set_enabled(true);
+
     s_dac = new DACOutput();
     if (!s_dac) {
         return ESP_ERR_NO_MEM;
@@ -116,7 +139,7 @@ esp_err_t speaker_init(void)
 // Called by: optional shutdown paths (not heavily used right now)
 void speaker_deinit(void)
 {
-    // Lightweight deinit for now (task teardown not implemented yet).
+    speaker_amp_set_enabled(false);
     s_inited = false;
 }
 

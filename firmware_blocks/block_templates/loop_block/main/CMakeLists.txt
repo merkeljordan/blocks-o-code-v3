@@ -3,6 +3,30 @@ idf_component_register(
         "main.c"
         "i2c_comm.c"
         "led_matrix.c"
-    INCLUDE_DIRS "." "../.." "../../../include"
-    REQUIRES driver led_strip audio led_ux espressif__arduino-esp32
+        "tft_ui.c"
+        "../../../shared/control_flow_tft_ui/control_flow_tft_ui.c"
+        "../../../shared/control_flow_tft_ui/control_flow_tft_hw.c"
+        "../../../shared/control_flow_tft_ui/fonts/mochi_boom_28.c"
+        "../../../shared/control_flow_tft_ui/fonts/mochi_boom_34.c"
+        "../../../shared_components/status_strip/status_strip.c"
+    INCLUDE_DIRS "." "../.." "../../../include" "../../../shared/control_flow_tft_ui" "../../../shared_components/status_strip"
+    REQUIRES
+        driver
+        led_strip
+        audio
+        espressif__arduino-esp32
+        lvgl
+        esp_lcd
+        espressif__esp_lcd_ili9341
+        atanisoft__esp_lcd_touch_xpt2046
+        esp_timer
+)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    CONTROL_FLOW_TFT_UI_ENABLED=1
+    CONTROL_FLOW_TFT_PANEL_MIRROR_X=1
+    CONTROL_FLOW_TFT_PANEL_MIRROR_Y=0
+    CONTROL_FLOW_TFT_TOUCH_SWAP_XY=0
+    CONTROL_FLOW_TFT_TOUCH_MIRROR_X=0
+    CONTROL_FLOW_TFT_TOUCH_MIRROR_Y=1
 )

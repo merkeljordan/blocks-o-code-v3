@@ -307,11 +307,14 @@ static void dispatch_output_action(block_type_t step_type) {
         }
     }
 
-    // Phase 2: broadcast execute to all present blocks.
+    // Phase 2: broadcast execute to blocks matching this step type.
     bool measured_music_latency = false;
     for (int i = 0; i < config_snapshot.block_count; i++) {
         const block_config_entry_t *entry = &config_snapshot.blocks[i];
         if (!entry->present) {
+            continue;
+        }
+        if (entry->block_type != step_type) {
             continue;
         }
 

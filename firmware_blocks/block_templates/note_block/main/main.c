@@ -11,6 +11,7 @@
 #include "i2c_protocol.h"
 #include "led_matrix.h"
 #include "speaker.h"
+#include "audio_speaker.h"
 #include "status_strip.h"
 #include "led_contract.h"
 #include "tft_ui.h"
@@ -24,7 +25,7 @@ extern void i2c_task(void *arg);
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
-#define STATUS_STRIP_LED_COUNT 16
+#define STATUS_STRIP_LED_COUNT 30
 
 static const char *TAG = "NOTE_BLOCK";
 #define STARTUP_GUARD_SETTLE_MS 120
@@ -66,10 +67,16 @@ static const note_color_t k_note_colors[7] = {
     {0, 170, 255},   /* E */
     {80, 96, 255},   /* F */
     {200, 64, 255},  /* G */
+};
+
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
     .led_count = STATUS_STRIP_LED_COUNT,
 };
+
+#define STACK_WARN_LOW_WATERMARK_WORDS 128
+#define STACK_MONITOR_PERIOD_MS        5000
+#define STACK_MONITOR_VERBOSE          0
 
 // ============================================================================
 // CONFIG (payload: single note or custom sequence)
@@ -116,7 +123,11 @@ static void render_status_strip(uint8_t status_flags)
 static void set_status_flags(uint8_t status_flags)
 {
     s_status_flags = status_flags;
-    render_status_strip(status_flags);
+    bool busy = (status_flags & STATUS_BUSY) != 0U;
+    led_matrix_set_status_mirror(busy);
+    if (!busy) {
+        render_status_strip(status_flags);
+    }
 }
 
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
@@ -201,7 +212,7 @@ static void peripherals_init(void)
 
 static void peripherals_boot_feedback(void)
 {
-    speaker_beep_ok();
+    speaker_play_boot_sound();
 }
 
 static void peripherals_error_feedback(void)

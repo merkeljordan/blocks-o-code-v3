@@ -34,3 +34,5 @@ idf_component_register(
         "audio/hakuna_matata.wav"
         "audio/babyshark.wav"
 )
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LED_MATRIX_HAS_STATUS_STRIP)

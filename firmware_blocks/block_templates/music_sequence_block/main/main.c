@@ -25,8 +25,8 @@
 #include "i2c_protocol.h"
 #include "music_leds.h"
 #include "speaker.h"
+#include "audio_speaker.h"
 #include "../../../shared_components/led_matrix/led_matrix.h"
-#include "speaker.h"
 #include "status_strip.h"
 #include "led_contract.h"
 #include "tft_ui.h"
@@ -69,6 +69,19 @@ static void startup_power_guard(void)
 
     vTaskDelay(pdMS_TO_TICKS(STARTUP_GUARD_SETTLE_MS));
 }
+
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 30
+
+static const status_strip_config_t kStatusStripConfig = {
+    .gpio_num = STATUS_STRIP_GPIO,
+    .led_count = STATUS_STRIP_LED_COUNT,
+};
+
+#define STACK_WARN_LOW_WATERMARK_WORDS 128
+#define STACK_MONITOR_PERIOD_MS        5000
+#define STACK_MONITOR_VERBOSE          0
+
 static uint8_t g_selected_song = 0;
 static bool g_config_valid = false;
 static bool g_speaker_ready = false;
@@ -92,7 +105,11 @@ static void render_status_strip(uint8_t status_flags)
 static void set_status_flags(uint8_t status_flags)
 {
     g_status_flags = status_flags;
-    render_status_strip(g_status_flags);
+    bool busy = (status_flags & STATUS_BUSY) != 0U;
+    led_matrix_set_status_mirror(busy);
+    if (!busy) {
+        render_status_strip(g_status_flags);
+    }
 }
 
 static void apply_startup_reset_state(void)
@@ -163,6 +180,7 @@ static void sync_selection_status_flag(void)
 static void clear_busy_and_refresh_ready_state(void)
 {
     g_status_flags &= (uint8_t)~STATUS_BUSY;
+    led_matrix_set_status_mirror(false);
     sync_selection_status_flag();
 }
 
@@ -194,6 +212,7 @@ static void peripherals_init(void)
 
     speaker_set_volume(25);
     g_speaker_ready = true;
+    speaker_play_boot_sound();
 
     err = music_leds_init();
     if (err != ESP_OK) {

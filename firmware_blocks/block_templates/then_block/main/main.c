@@ -54,7 +54,7 @@ static void startup_power_guard(void)
     vTaskDelay(pdMS_TO_TICKS(STARTUP_GUARD_SETTLE_MS));
 }
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
-#define STATUS_STRIP_LED_COUNT 16
+#define STATUS_STRIP_LED_COUNT 30
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,

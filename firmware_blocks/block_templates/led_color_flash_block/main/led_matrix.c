@@ -39,8 +39,9 @@
  #include "freertos/FreeRTOS.h"
  #include "freertos/task.h"
  #include "led_strip.h"
- 
+  
  #include "led_matrix.h"
+ #include "status_strip.h"
  
  static const char *TAG = "LED_MATRIX";
  
@@ -49,18 +50,20 @@
 #define LED_MATRIX_SIZE      16       /* Number of LEDs on the matrix      */
  
  /* ── Module state ──────────────────────────────────────────────────────── */
+ typedef struct {
+     uint8_t r, g, b;
+ } rgb_t;
+
  static led_strip_handle_t led_strip = NULL;
  static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
+ static rgb_t matrix_pixels[LED_MATRIX_SIZE];
+ static bool status_mirror_enabled = false;
  
  /* ── Per-pattern colour palette ────────────────────────────────────────
   *
   *  Colours are stored at full brightness; the scale8() helper applies
   *  matrix_brightness before writing to the hardware.  This keeps the
   *  palette readable and allows runtime brightness changes.            */
- 
- typedef struct {
-     uint8_t r, g, b;
- } rgb_t;
  
  static const rgb_t PATTERN_COLORS[10] = {
      [0] = {  0,   0,   0},   /* off   */
@@ -92,18 +95,57 @@
   *  INTERNAL HELPERS
   * ══════════════════════════════════════════════════════════════════════════ */
  
- /* Scale an 8-bit colour channel by an 8-bit brightness (0-255). */
- static inline uint8_t scale8(uint8_t value, uint8_t brightness) {
-     return (uint8_t)(((uint16_t)value * brightness) / 255U);
- }
- 
+/* Scale an 8-bit colour channel by an 8-bit brightness (0-255). */
+static inline uint8_t scale8(uint8_t value, uint8_t brightness) {
+    return (uint8_t)(((uint16_t)value * brightness) / 255U);
+}
+
+static void clear_matrix_buffer(void) {
+    memset(matrix_pixels, 0, sizeof(matrix_pixels));
+}
+
+static void render_status_strip_mirror(void) {
+    if (!status_mirror_enabled) {
+        return;
+    }
+
+    // Repaint the dedicated status strip from the most recent matrix frame.
+    // The source frame lives in matrix_pixels[] and is stretched/compressed to
+    // whatever LED count the status strip is configured to use.
+    uint16_t strip_led_count = status_strip_get_led_count();
+    if (strip_led_count == 0U) {
+        return;
+    }
+
+    status_strip_clear();
+    status_strip_set_brightness(255U);
+
+    for (uint16_t i = 0; i < strip_led_count; i++) {
+        uint16_t src_idx = (uint16_t)(((uint32_t)i * LED_MATRIX_SIZE) / strip_led_count);
+        if (src_idx >= LED_MATRIX_SIZE) {
+            src_idx = LED_MATRIX_SIZE - 1;
+        }
+        status_strip_set_pixel(i,
+                               matrix_pixels[src_idx].r,
+                               matrix_pixels[src_idx].g,
+                               matrix_pixels[src_idx].b);
+    }
+
+    (void)status_strip_show();
+}
+
  /* Write one pixel with software brightness applied. */
  static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b) {
      if (!led_strip || idx >= LED_MATRIX_SIZE) return;
-     led_strip_set_pixel(led_strip, idx,
-                         scale8(r, matrix_brightness),
-                         scale8(g, matrix_brightness),
-                         scale8(b, matrix_brightness));
+     uint8_t sr = scale8(r, matrix_brightness);
+     uint8_t sg = scale8(g, matrix_brightness);
+     uint8_t sb = scale8(b, matrix_brightness);
+     // Keep a software copy of the rendered matrix frame so BUSY mode can mirror
+     // that same visual state onto the separate status strip.
+     matrix_pixels[idx].r = sr;
+     matrix_pixels[idx].g = sg;
+     matrix_pixels[idx].b = sb;
+     led_strip_set_pixel(led_strip, idx, sr, sg, sb);
  }
  
  /* Fill every pixel with the same colour (brightness-scaled). */
@@ -116,10 +158,14 @@
  /* Push pixel buffer to the physical strip. */
  static void show(void) {
      if (led_strip) led_strip_refresh(led_strip);
+     // Whenever the matrix publishes a new frame, BUSY mode also pushes that
+     // frame onto the status strip via render_status_strip_mirror().
+     render_status_strip_mirror();
  }
- 
+  
  /* Blank all pixels and push to strip. */
  static void clear_and_show(void) {
+     clear_matrix_buffer();
      if (led_strip) led_strip_clear(led_strip);
      show();
  }
@@ -395,9 +441,10 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
          return err;
      }
  
-    led_strip_clear(led_strip);
-    ESP_LOGI(TAG, "LED Matrix initialized successfully");
-    return ESP_OK;
+     led_strip_clear(led_strip);
+     clear_matrix_buffer();
+     ESP_LOGI(TAG, "LED Matrix initialized successfully");
+     return ESP_OK;
  }
 
  /* ── Low-level primitives ──────────────────────────────────────────────
@@ -414,6 +461,7 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
  }
  
  void matrix_clear(void) {
+     clear_matrix_buffer();
      if (led_strip) led_strip_clear(led_strip);
  }
  
@@ -432,6 +480,16 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
  
  uint16_t matrix_get_size(void) {
      return LED_MATRIX_SIZE;
+ }
+
+ void led_matrix_set_status_mirror(bool enabled) {
+     status_mirror_enabled = enabled;
+     if (!enabled) {
+         return;
+     }
+     // Enabling mirror mode mid-effect should immediately show the current frame
+     // on the status strip instead of waiting for the next animation tick.
+     render_status_strip_mirror();
  }
  
  /** Return human-readable pattern name for TFT / log display. */
