@@ -34,6 +34,7 @@ typedef struct {
     uint8_t block_count;            // Number of detected blocks
     uint8_t error_count;            // Number of errors detected
     bool has_changed;               // True if configuration changed since last scan
+    uint32_t scan_id;               // Monotonic scan counter for log correlation
     uint64_t last_scan_timestamp;   // Timestamp of last scan (milliseconds)
 } block_config_state_t;
 

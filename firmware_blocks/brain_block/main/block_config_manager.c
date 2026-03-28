@@ -23,12 +23,14 @@ static block_event_map_t s_event_map;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
+static uint32_t s_scan_counter = 0;
 
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
     memset(&s_event_map, 0, sizeof(s_event_map));
     s_previous_state_valid = false;
+    s_scan_counter = 0;
     s_config_state.has_changed = true; // Force initial send
     ESP_LOGI(TAG, "Block configuration manager initialized");
 }
@@ -130,6 +132,59 @@ static bool is_output_or_delay_block_type(block_type_t type) {
             type == BLOCK_TYPE_MUSIC_SEQ ||
             type == BLOCK_TYPE_DISCO ||
             type == BLOCK_TYPE_DELAY);
+}
+
+static int find_scanned_entry_index_by_address(const block_config_entry_t *entries,
+                                               uint8_t count,
+                                               uint8_t address) {
+    for (int i = 0; i < count; i++) {
+        if (entries[i].i2c_address == address) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void assign_first_seen_order(block_config_entry_t *scanned_entries,
+                                    uint8_t scanned_count) {
+    if (scanned_entries == NULL) {
+        s_config_state.block_count = 0;
+        return;
+    }
+
+    block_config_entry_t ordered_entries[BLOCK_CONFIG_MAX_BLOCKS];
+    bool used_scanned[BLOCK_CONFIG_MAX_BLOCKS] = {0};
+    uint8_t ordered_count = 0;
+
+    if (s_previous_state_valid) {
+        for (int i = 0; i < s_previous_state.block_count && ordered_count < scanned_count; i++) {
+            const block_config_entry_t *prev = &s_previous_state.blocks[i];
+            int scanned_idx = find_scanned_entry_index_by_address(scanned_entries,
+                                                                  scanned_count,
+                                                                  prev->i2c_address);
+            if (scanned_idx < 0 || used_scanned[scanned_idx]) {
+                continue;
+            }
+
+            ordered_entries[ordered_count] = scanned_entries[scanned_idx];
+            ordered_entries[ordered_count].connection_order = ordered_count;
+            used_scanned[scanned_idx] = true;
+            ordered_count++;
+        }
+    }
+
+    for (int i = 0; i < scanned_count && ordered_count < scanned_count; i++) {
+        if (used_scanned[i]) {
+            continue;
+        }
+        ordered_entries[ordered_count] = scanned_entries[i];
+        ordered_entries[ordered_count].connection_order = ordered_count;
+        ordered_count++;
+    }
+
+    memset(&s_config_state.blocks, 0, sizeof(s_config_state.blocks));
+    memcpy(s_config_state.blocks, ordered_entries, sizeof(block_config_entry_t) * ordered_count);
+    s_config_state.block_count = ordered_count;
 }
 
 static void recompute_event_map_from_config(void) {
@@ -236,27 +291,30 @@ esp_err_t block_config_manager_scan(void) {
     memset(&s_config_state.blocks, 0, sizeof(s_config_state.blocks));
     s_config_state.block_count = 0;
     s_config_state.error_count = 0;
+    s_config_state.scan_id = ++s_scan_counter;
 
     // Use device registry to scan I2C bus
     device_registry_scan();
     const device_registry_t *registry = device_registry_get();
 
-    // Process detected devices
-    int connection_order = 0;
+    // Process detected devices into raw scan order first. We then transform that
+    // into a stable first-seen order so program order tracks initial detection.
+    block_config_entry_t scanned_entries[BLOCK_CONFIG_MAX_BLOCKS];
+    uint8_t scanned_count = 0;
     for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
         const device_entry_t *entry = &registry->devices[i];
         if (!entry->present) {
             continue;
         }
 
-        if (s_config_state.block_count >= BLOCK_CONFIG_MAX_BLOCKS) {
+        if (scanned_count >= BLOCK_CONFIG_MAX_BLOCKS) {
             ESP_LOGW(TAG, "Maximum block count reached, skipping additional blocks");
             break;
         }
 
-        block_config_entry_t *config_entry = &s_config_state.blocks[s_config_state.block_count];
+        block_config_entry_t *config_entry = &scanned_entries[scanned_count];
         config_entry->i2c_address = entry->address;
-        config_entry->connection_order = connection_order++;
+        config_entry->connection_order = scanned_count;
         config_entry->fw_major = 0;
         config_entry->fw_minor = 0;
         config_entry->caps = 0;
@@ -287,9 +345,10 @@ esp_err_t block_config_manager_scan(void) {
             s_config_state.error_count++;
             ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
         }
-
-        s_config_state.block_count++;
+        scanned_count++;
     }
+
+    assign_first_seen_order(scanned_entries, scanned_count);
 
     // Check for missing blocks (blocks that were present before but not now)
     if (s_previous_state_valid) {
