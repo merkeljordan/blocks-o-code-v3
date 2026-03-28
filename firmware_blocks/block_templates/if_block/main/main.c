@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
@@ -25,7 +26,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "IF"
-#define BLOCK_I2C_ADDRESS     0x10  // I2C address for If block
+#define BLOCK_I2C_ADDRESS     0x08  // I2C address for If block
 #define BLOCK_TYPE            BLOCK_TYPE_IF
 
 static const char *TAG = "IF_BLOCK";
@@ -224,10 +225,12 @@ void app_main(void) {
 
     startup_power_guard();
 
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     // Initialize LED Matrix
@@ -238,11 +241,11 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
     render_status_strip(g_status_flags);
+
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

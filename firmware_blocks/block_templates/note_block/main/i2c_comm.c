@@ -22,7 +22,7 @@ extern uint8_t note_block_get_pending_event_len(void);
 static const char *TAG = "NOTE_BLOCK";
 
 // Fixed child-bus address/type for the Note block.
-#define MY_ADDRESS      0x0F
+#define MY_ADDRESS      0x0E
 #define MY_BLOCK_TYPE   BLOCK_TYPE_NOTE
 
 // Simple register map for Brain-side WHOAMI/status reads.

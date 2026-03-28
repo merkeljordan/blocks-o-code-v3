@@ -30,9 +30,9 @@ static inline led_contract_rgb_t led_contract_identity_color(block_type_t type)
             return (led_contract_rgb_t){0U, 180U, 60U};
         case BLOCK_TYPE_LOOP:
         case BLOCK_TYPE_END_LOOP:
-            return (led_contract_rgb_t){40U, 100U, 255U};
+            return (led_contract_rgb_t){0U, 40U, 255U};
         case BLOCK_TYPE_DELAY:
-            return (led_contract_rgb_t){255U, 170U, 0U};
+            return (led_contract_rgb_t){255U, 60U, 0U};
         case BLOCK_TYPE_BUTTON:
             return (led_contract_rgb_t){255U, 0U, 255U};
         case BLOCK_TYPE_NOTE:

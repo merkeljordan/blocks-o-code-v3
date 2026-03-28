@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "command_handler.h"
 
@@ -67,8 +68,7 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

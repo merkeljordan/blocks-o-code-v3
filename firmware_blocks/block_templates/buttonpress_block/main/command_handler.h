@@ -20,6 +20,7 @@ void command_handle(i2c_command_t cmd,
                     uint8_t *tx,
                     size_t *tx_len);
 uint8_t button_block_get_status_flags(void);
+uint8_t button_block_get_pending_data_len(void);
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
 #include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
@@ -99,6 +100,11 @@ uint8_t button_block_get_status_flags(void)
     return g_status_flags;
 }
 
+uint8_t button_block_get_pending_data_len(void)
+{
+    return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+}
+
 // TFT/UI integration points:
 // - call button_block_execute_from_ui() when the user taps "Execute" (true).
 // - call button_block_pass_from_ui() when the user taps "Pass" (false).
@@ -163,7 +169,6 @@ void command_handle(i2c_command_t cmd,
         case CMD_EXECUTE:
             set_status_flags(STATUS_BUSY);
             tft_ui_trigger_execute();
-            set_status_flags(g_pending_event.has_event ? STATUS_DATA_READY : STATUS_READY);
             break;
 
         case CMD_MATRIX_FILL:
@@ -216,10 +221,11 @@ void app_main(void)
         return;
     }
 
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
     render_status_strip(g_status_flags);
+
+    battery_monitor_start();
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

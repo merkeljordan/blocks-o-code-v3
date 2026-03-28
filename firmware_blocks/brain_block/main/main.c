@@ -11,6 +11,7 @@
 #include "tft_ui.h"
 #include "brain_event_handler.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "status_strip.h"
 #include "led_contract.h"
 
@@ -91,9 +92,11 @@ static void block_event_poll_task(void *arg) {
             if (!entry->present) {
                 continue;
             }
-            // Poll blocks that can emit selection-submit events.
             if (entry->type != BLOCK_TYPE_LED_FLASH &&
-                entry->type != BLOCK_TYPE_NOTE) {
+                entry->type != BLOCK_TYPE_NOTE &&
+                entry->type != BLOCK_TYPE_BUTTON &&
+                entry->type != BLOCK_TYPE_DELAY &&
+                entry->type != BLOCK_TYPE_LOOP) {
                 continue;
             }
 
@@ -552,6 +555,8 @@ void app_main(void) {
     
     // Initial scan
     i2c_safe_scan();
+
+    battery_monitor_start();
 
     tft_ui_start();   // starts LVGL + GUI task (returns after creating tasks)
     ESP_LOGI(TAG, "tft_ui_start() returned");

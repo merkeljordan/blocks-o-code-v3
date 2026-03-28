@@ -199,7 +199,6 @@ void music_leds_show_startup(void)
         return;
     }
 
-    led_matrix_startup_animation();
     music_leds_clear_and_show();
 }
 

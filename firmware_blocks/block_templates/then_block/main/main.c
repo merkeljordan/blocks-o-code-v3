@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
@@ -25,7 +26,7 @@ esp_err_t i2c_slave_init(void);
 void i2c_task(void *arg);
 
 #define BLOCK_NAME            "THEN"
-#define BLOCK_I2C_ADDRESS     0x09  // I2C address for Then block
+#define BLOCK_I2C_ADDRESS     0x0A  // I2C address for Then block
 #define BLOCK_TYPE            BLOCK_TYPE_THEN
 
 static const char *TAG = "THEN_BLOCK";
@@ -214,6 +215,8 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_RESET:
             config_reset();
+            (void)status_strip_reset(&kStatusStripConfig);
+            tft_ui_set_idle();
             matrix_clear();
             matrix_show();
             set_status_flags(STATUS_READY);
@@ -235,10 +238,12 @@ void app_main(void) {
 
     startup_power_guard();
 
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     // Initialize LED Matrix
@@ -249,11 +254,11 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
     render_status_strip(g_status_flags);
+
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

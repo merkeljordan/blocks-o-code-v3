@@ -91,18 +91,6 @@ esp_err_t led_matrix_init(void)
 
 void led_matrix_startup_animation(void)
 {
-    ESP_LOGI(TAG, "Startup animation...");
-
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < LED_MATRIX_SIZE; j++) {
-            led_strip_set_pixel(led_strip, j, 10, 0, 0);
-        }
-        led_strip_refresh(led_strip);
-        vTaskDelay(pdMS_TO_TICKS(200));
-
-        led_strip_clear(led_strip);
-        vTaskDelay(pdMS_TO_TICKS(200));
-    }
 }
 
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b)

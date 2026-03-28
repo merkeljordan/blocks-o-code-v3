@@ -12,6 +12,7 @@
 #include "led_matrix.h"
 #include "speaker.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "status_strip.h"
 #include "led_contract.h"
 #include "tft_ui.h"
@@ -21,7 +22,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME         "NOTE"
-#define BLOCK_I2C_ADDRESS  0x0F
+#define BLOCK_I2C_ADDRESS  0x0E
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
@@ -205,8 +206,11 @@ uint8_t note_block_get_status_flags(void)
 // ============================================================================
 // PERIPHERALS
 // ============================================================================
+extern void initArduino(void);
+
 static void peripherals_init(void)
 {
+    initArduino();
     (void)speaker_init();
 }
 
@@ -494,9 +498,10 @@ void app_main(void)
         return;
     }
 
-    led_matrix_startup_animation();
     restore_idle_color();
     render_status_strip(s_status_flags);
+
+    battery_monitor_start();
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

@@ -9,3 +9,5 @@ idf_component_register(
     INCLUDE_DIRS "." "../.." "../../../include" "../../../shared_components/status_strip"
     REQUIRES driver led_strip lvgl esp_lcd espressif__esp_lcd_ili9341 atanisoft__esp_lcd_touch_xpt2046 esp_timer audio espressif__arduino-esp32 battery_monitor
 )
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE LED_MATRIX_HAS_STATUS_STRIP)

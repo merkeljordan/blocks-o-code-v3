@@ -7,6 +7,7 @@
 #include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
@@ -101,6 +102,11 @@ static struct {
     uint8_t payload[8];
     size_t payload_len;
 } g_pending_event;
+
+uint8_t loop_block_get_pending_data_len(void)
+{
+    return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+}
 
 static void publish_loop_count_event(uint8_t loop_count)
 {
@@ -281,10 +287,12 @@ void app_main(void) {
 
     startup_power_guard();
 
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     // Initialize LED Matrix
@@ -295,11 +303,11 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
     render_status_strip(g_status_flags);
+
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();
