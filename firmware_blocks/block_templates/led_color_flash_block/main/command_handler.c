@@ -310,6 +310,15 @@ void handle_command(uint8_t *buffer, int len) {
             }
             break;
 
+        case CMD_PLAY_NOTE:
+            if (len >= 2 && s_action_queue) {
+                led_action_t action = {.type = ACTION_PLAY_NOTE, .value = buffer[1]};
+                if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
+                    ESP_LOGW(TAG, "Action queue full, dropping PLAY_NOTE");
+                }
+            }
+            break;
+
         case CMD_MATRIX_FILL:
             if (len >= 4) {
                 uint8_t r = buffer[1];
