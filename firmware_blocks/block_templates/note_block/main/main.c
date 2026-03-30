@@ -3,6 +3,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -12,6 +13,7 @@
 #include "tft_ui.h"
 
 extern void initArduino(void);
+extern void speaker_play_boot_sound(void);
 
 // I2C glue is implemented in i2c_comm.c following the "new style" template.
 extern esp_err_t i2c_slave_init(void);
@@ -37,6 +39,23 @@ typedef struct {
 static block_config_t s_config;
 static bool s_config_valid = false;
 
+// Spinlock protecting pending-event shared state accessed from multiple tasks/cores.
+static portMUX_TYPE s_pending_event_spinlock = portMUX_INITIALIZER_UNLOCKED;
+
+// ============================================================================
+// ASYNCHRONOUS NOTE PLAYBACK
+// ============================================================================
+typedef struct {
+    uint8_t note_id;
+} playback_cmd_t;
+
+static QueueHandle_t s_playback_queue = NULL;
+
+// Forward declarations for helpers and status flags used by note_playback_task().
+static void peripherals_show_running(void);
+static void play_note(uint8_t note_id);
+static uint8_t s_status_flags = STATUS_READY;
+
 // Block-originated event payload (Brain reads via CMD_GET_DATA when STATUS_DATA_READY is set).
 #define NOTE_EVENT_SELECTION_SUBMIT 0x01
 static bool s_pending_event_valid = false;
@@ -46,17 +65,42 @@ static bool s_pending_event_valid = false;
 static uint8_t s_pending_event_buf[20] = {0};
 static uint8_t s_pending_event_len = 0;
 
+static void note_playback_task(void *arg)
+{
+    playback_cmd_t cmd;
+
+    for (;;) {
+        if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
+            peripherals_show_running();
+            play_note(cmd.note_id);
+            portENTER_CRITICAL(&s_pending_event_spinlock);
+            s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            portEXIT_CRITICAL(&s_pending_event_spinlock);
+        }
+    }
+}
+
 uint8_t note_block_get_pending_event_len(void)
 {
-    return s_pending_event_valid ? s_pending_event_len : 0U;
+    uint8_t len = 0U;
+
+    portENTER_CRITICAL(&s_pending_event_spinlock);
+    if (s_pending_event_valid) {
+        len = s_pending_event_len;
+    }
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
+
+    return len;
 }
 
 static void config_reset(void)
 {
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     memset(&s_config, 0, sizeof(s_config));
     s_config_valid = false;
     s_pending_event_valid = false;
     s_pending_event_len = 0;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
 }
 
 static bool config_is_valid(void)
@@ -76,7 +120,6 @@ static size_t config_get_payload(uint8_t *out, size_t max_len)
 // ============================================================================
 // STATUS FLAGS (exposed to i2c_comm register map)
 // ============================================================================
-static uint8_t s_status_flags = STATUS_READY;
 
 uint8_t note_block_get_status_flags(void)
 {
@@ -94,7 +137,7 @@ static void peripherals_init(void)
 
 static void peripherals_boot_feedback(void)
 {
-    speaker_beep_ok();
+    speaker_play_boot_sound();
 }
 
 static void peripherals_error_feedback(void)
@@ -151,12 +194,18 @@ bool note_block_submit_selection(uint8_t note_id)
     s_config_valid = true;
 
     // Publish selection-submit event for Brain orchestration.
+    // Use the standard frame: [event_id, count, note0..noteN].
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
-    s_pending_event_buf[1] = note_id;
-    s_pending_event_len = 2;
+    s_pending_event_buf[1] = 1;       // single selected note
+    s_pending_event_buf[2] = note_id; // note0
+    s_pending_event_len = 3;
     s_pending_event_valid = true;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
-        s_status_flags = STATUS_DATA_READY;
+        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
+        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
+        s_status_flags |= STATUS_DATA_READY;
     }
     return true;
 }
@@ -182,6 +231,7 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     }
     s_config_valid = true;
 
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     s_pending_event_buf[0] = NOTE_EVENT_SELECTION_SUBMIT;
     s_pending_event_buf[1] = capped;
     for (uint8_t i = 0; i < capped; i++) {
@@ -189,8 +239,11 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count)
     }
     s_pending_event_len = (uint8_t)(2 + capped);
     s_pending_event_valid = true;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
     if (!was_busy) {
-        s_status_flags = STATUS_DATA_READY;
+        // Clear BUSY/ERROR and mark data as ready without clobbering other flags.
+        s_status_flags &= ~(STATUS_BUSY | STATUS_ERROR);
+        s_status_flags |= STATUS_DATA_READY;
     }
     return true;
 }
@@ -210,7 +263,10 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
     case CMD_PING:
-        s_status_flags = STATUS_READY;
+        // Do not clear STATUS_DATA_READY while an event is pending.
+        if (!(s_pending_event_valid && (s_status_flags == STATUS_DATA_READY))) {
+            s_status_flags = STATUS_READY;
+        }
         break;
 
     case CMD_GET_TYPE:
@@ -229,10 +285,16 @@ void command_handle(i2c_command_t cmd,
 
     case CMD_PLAY_NOTE:
         if (rx && rx_len >= 1) {
-            s_status_flags = STATUS_BUSY;
-            peripherals_show_running();
-            play_note(rx[0]);
-            s_status_flags = s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY;
+            if (s_playback_queue != NULL) {
+                playback_cmd_t cmd_play = { .note_id = rx[0] };
+                if (xQueueSendToBack(s_playback_queue, &cmd_play, 0) == pdPASS) {
+                    s_status_flags = STATUS_BUSY;
+                } else {
+                    s_status_flags = STATUS_ERROR;
+                }
+            } else {
+                s_status_flags = STATUS_ERROR;
+            }
         } else {
             s_status_flags = STATUS_ERROR;
         }
@@ -240,21 +302,23 @@ void command_handle(i2c_command_t cmd,
 
     case CMD_GET_DATA:
         // Only return payload when an event is pending.
-        if (!s_pending_event_valid) {
-            break;
-        }
         if (tx && tx_len && rx_len == 0) {
-            memcpy(tx, s_pending_event_buf, s_pending_event_len);
-            *tx_len = s_pending_event_len;
-            s_pending_event_valid = false;
-            s_pending_event_len = 0;
-            s_status_flags = STATUS_READY;
+            portENTER_CRITICAL(&s_pending_event_spinlock);
+            if (s_pending_event_valid) {
+                memcpy(tx, s_pending_event_buf, s_pending_event_len);
+                *tx_len = s_pending_event_len;
+                s_pending_event_valid = false;
+                s_pending_event_len = 0;
+                s_status_flags = STATUS_READY;
+            }
+            portEXIT_CRITICAL(&s_pending_event_spinlock);
         }
         break;
 
     case CMD_EXECUTE:
         if (!config_is_valid()) {
             peripherals_error_feedback();
+            s_status_flags = STATUS_ERROR;
             break;
         }
         s_status_flags = STATUS_BUSY;
@@ -312,12 +376,20 @@ void app_main(void)
         return;
     }
 
+    s_playback_queue = xQueueCreate(4, sizeof(playback_cmd_t));
+    if (s_playback_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create playback queue!");
+        peripherals_error_feedback();
+        return;
+    }
+
     vTaskDelay(pdMS_TO_TICKS(200));
     ESP_LOGI(TAG, "Block ready and waiting for commands");
 
     // Start TFT UI (runs on Core 1) and keep I2C on Core 0.
     tft_ui_start();
 
+    xTaskCreatePinnedToCore(note_playback_task, "note_playback", 4096, NULL, 4, NULL, 1);
     xTaskCreatePinnedToCore(i2c_task, "i2c", 4096, NULL, 5, NULL, 0);
     ESP_LOGI(TAG, "Tasks started");
 }

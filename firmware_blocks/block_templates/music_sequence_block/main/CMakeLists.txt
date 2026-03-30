@@ -4,13 +4,16 @@ idf_component_register(
         "i2c_comm.c"
         "tft_ui.c"
         "speaker_music.c"
+        "../../../shared_components/status_strip/status_strip.c"
     INCLUDE_DIRS
         "."
         ".."
         "../.."
         "../../../include"
+        "../../../shared_components/status_strip"
     REQUIRES
         driver
+        led_strip
         esp_lcd
         esp_timer
         lvgl
@@ -18,7 +21,13 @@ idf_component_register(
         espressif__esp_lcd_ili9341
         atanisoft__esp_lcd_touch_xpt2046
         audio
+        battery_monitor
     # Songs are embedded in flash and exposed as linker symbols.
+    # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
+        "audio/espresso.wav"
+        "audio/birds_of_a_feather.wav"
+        "audio/beat_it.wav"
+        "audio/hakuna_matata.wav"
         "audio/babyshark.wav"
 )

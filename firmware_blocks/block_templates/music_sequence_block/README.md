@@ -7,11 +7,12 @@ This folder contains the full firmware template for the **Music Sequence child b
 At runtime, this block lets a child:
 
 1. Open a touchscreen UI.
-2. Browse songs.
-3. Tap `Play` to hear a local preview.
-4. Tap `Select` to mark a song as the active configuration.
-5. Wait for the Brain Block to issue `CMD_EXECUTE`.
-6. Play the selected song when execute is received.
+2. Choose an age range.
+3. Browse songs within that age range.
+4. Tap `Play` to hear a local preview.
+5. Tap `Select` to confirm and submit the current song choice.
+6. Wait for the Brain Block to issue `CMD_EXECUTE`.
+7. Play the selected song when execute is received.
 
 ## Runtime Architecture
 
@@ -25,36 +26,36 @@ Main runtime files:
 Execution flow:
 
 1. `app_main()` initializes Arduino compatibility, speaker/audio, and LVGL UI.
-2. `tft_ui_start()` creates:
+2. `tft_ui_start()` creates the intro and song-selection screens, and in firmware builds also starts:
    - `s_action_queue` (UI -> execution task messages)
    - `s_preview_queue` (UI -> preview audio worker)
 3. The UI thread handles touch/buttons and pushes song actions.
 4. `execution_task` consumes UI actions and updates block state:
    - `MUSIC_UI_ACTION_SONG_CHANGED` -> updates index, marks config invalid
    - `MUSIC_UI_ACTION_SONG_SELECTED` -> marks config valid and sets `STATUS_DATA_READY`
-5. On `CMD_EXECUTE`, the block plays the selected song if config is valid.
+5. On `CMD_EXECUTE`, the block plays the selected song once if config is valid, reports `STATUS_BUSY` during playback, then returns to ready.
 
-## Current I2C Status (Important)
+The selector screen now includes an age-range filter so songs can be grouped for younger vs older kids without changing the wire payload. The selected config is still just `song_id`.
 
-`main/main.c` currently contains an **I2C stub** (`i2c_slave_init()` and `i2c_task()` are placeholders).
+## Current I2C Status
 
-That means:
+This template uses an active I2C slave transport in `main/i2c_comm.c`.
 
-- UI and local preview playback work.
-- The command handler logic exists.
-- But the block is not yet wired to an active I2C slave driver in this template, so Brain->Child command transport is incomplete until the I2C stub is replaced.
+- `REG_WHOAMI` and `REG_STATUS` are exposed over the child-bus register map
+- `CMD_GET_DATA` returns `music_seq_payload_v1_t { song_id }`
+- `CMD_EXECUTE` triggers the currently selected song when the config is valid
+- `CMD_RESET` restores startup state
 
 ## Brain Block Integration: When Kids Tap Play In The App
 
 For full classroom flow (Companion App `Play` -> Brain -> Music Block):
 
 1. In Brain firmware, ensure Play starts the executor (`brain_executor_start()`).
-2. In `brain_event_handler.c`, replace `dispatch_output_action()` logging with real I2C dispatch:
+2. In `brain_event_handler.c`, dispatch to music blocks by address:
    - Find child address(es) where `block_type == BLOCK_TYPE_MUSIC_SEQ`
    - Send `CMD_EXECUTE` (`i2c_execute(address)`)
-3. In this music block, replace the I2C stub with real slave RX handling so `CMD_EXECUTE` reaches `command_handle()`.
-4. Keep `CMD_GET_DATA` returning `music_seq_payload_v1_t { song_id }` so Brain/app can inspect selected song.
-5. Optionally add a `CMD_SET_*` command for Brain-driven song assignment if you want remote overrides.
+3. Keep `CMD_GET_DATA` returning `music_seq_payload_v1_t { song_id }` so Brain/app can inspect selected song.
+4. Optionally add a `CMD_SET_*` command for Brain-driven song assignment if you want remote overrides.
 
 ## Suggested Integration Wiring (Brain Side)
 
@@ -68,8 +69,23 @@ Inside Brain `dispatch_output_action(BLOCK_TYPE_MUSIC_SEQ)`:
 ## Build Notes
 
 - Main component links LVGL + TFT/touch drivers.
-- Audio component (`components/audio`) embeds `bootupsound.wav`.
-- Main embeds song assets from `main/audio/`.
+- Main embeds the final 5-song hardware catalog from `main/audio/`:
+  - `Espresso`
+  - `Birds of a Feather`
+  - `Beat It`
+  - `Hakuna Matata`
+  - `Baby Shark`
+- Startup audio is not embedded by this block.
+- The desktop preview target lives at `pc_sim/music_sequence_block/`.
+
+## Simulator Notes
+
+The SDL simulator builds the real `main/tft_ui.c` with `MUSIC_SEQ_UI_SIMULATOR=1`.
+
+- `Play` previews locally in the simulator
+- `Select` still acts as the submit/confirm step
+- song names and selector flow match the real UI
+- real firmware audio/I2C execution still lives in the ESP32 build
 
 ## File Ownership
 

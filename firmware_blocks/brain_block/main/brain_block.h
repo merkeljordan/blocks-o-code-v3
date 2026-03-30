@@ -20,6 +20,7 @@ esp_err_t i2c_master_recover_bus(void);
 esp_err_t i2c_ping(uint8_t addr);
 void i2c_safe_scan(void);
 esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b);
+esp_err_t i2c_matrix_show(uint8_t address);
 esp_err_t i2c_matrix_clear(uint8_t address);
 esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness);
 esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id);

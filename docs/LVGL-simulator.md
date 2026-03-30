@@ -28,7 +28,7 @@ git clone https://github.com/microsoft/vcpkg.git
 
 ## Build + run
 
-From the repo root (`C:\Projects\spring26\blocks-o-code-v3`), replace `<block_name>` with the simulator folder name under `pc_sim/`.
+From your cloned repo root (the folder containing `pc_sim/`), replace `<block_name>` with the simulator folder name under `pc_sim/`.
 
 ### Configure (first time, or after changing CMake)
 

@@ -24,6 +24,8 @@ extern "C" {
  */
 size_t speaker_get_song_count(void);
 const char *speaker_get_song_name(size_t index);
+music_age_range_t speaker_get_song_age_range(size_t index);
+const char *speaker_get_age_range_label(music_age_range_t age_range);
 esp_err_t speaker_play_song(size_t index);
 
 /* Called by: legacy sequence paths or future compose UI. */

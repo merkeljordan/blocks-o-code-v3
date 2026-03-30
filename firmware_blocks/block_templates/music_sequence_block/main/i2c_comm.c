@@ -19,6 +19,9 @@ extern void command_handle(i2c_command_t cmd,
 extern uint8_t music_block_get_status_flags(void);
 
 static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
+#define I2C_VERBOSE_LOGS 0
+#define I2C_SLAVE_RX_BUF_SIZE 256
+#define I2C_SLAVE_TX_BUF_SIZE 256
 
 // Fixed child-bus address/type for the music sequence block.
 #define MY_ADDRESS      0x12
@@ -40,10 +43,12 @@ static void refresh_dynamic_registers(void)
     s_registers[REG_STATUS] = music_block_get_status_flags();
 }
 
-static bool is_register_index_byte(uint8_t v)
+static void reset_i2c_fifos(void)
 {
-    return (v < 0x10U);
+    (void)i2c_reset_rx_fifo(I2C_PORT_NUM);
+    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
 }
+
 
 esp_err_t i2c_slave_init(void)
 {
@@ -68,11 +73,17 @@ esp_err_t i2c_slave_init(void)
         return err;
     }
 
-    err = i2c_driver_install(I2C_PORT_NUM, conf.mode, 128, 128, 0);
+    err = i2c_driver_install(I2C_PORT_NUM,
+                             conf.mode,
+                             I2C_SLAVE_RX_BUF_SIZE,
+                             I2C_SLAVE_TX_BUF_SIZE,
+                             0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(err));
         return err;
     }
+
+    reset_i2c_fifos();
 
     ESP_LOGI(TAG, "I2C slave initialized");
     return ESP_OK;
@@ -82,6 +93,7 @@ void i2c_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    reset_i2c_fifos();
 
     uint8_t rx_buf[128];
     uint8_t tx_buf[64];
@@ -92,38 +104,24 @@ void i2c_task(void *arg)
             continue;
         }
 
+#if I2C_VERBOSE_LOGS
         ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
+#endif
 
         // Keep STATUS register synced with runtime state managed in main.c.
         refresh_dynamic_registers();
 
-        // Brain-side register index writes can arrive coalesced in the slave RX buffer
-        // (e.g. [0x00, 0x00, 0x01]). To avoid leaving stale bytes queued in the slave
-        // TX buffer, reply with exactly one byte for the latest register request only.
-        if (is_register_index_byte(rx_buf[0])) {
-            bool all_register_indexes = true;
-            for (int i = 1; i < len; i++) {
-                if (!is_register_index_byte(rx_buf[i])) {
-                    all_register_indexes = false;
-                    break;
-                }
-            }
+        // Single-byte message with value < 0x10 is a register read request.
+        if (len == 1 && rx_buf[0] < 0x10) {
+            uint8_t reg = rx_buf[0];
+            uint8_t value = s_registers[reg];
 
-            if (all_register_indexes) {
-                uint8_t reg = rx_buf[len - 1];
-                uint8_t value = s_registers[reg];
+            (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
 
-                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
-
-                if (len == 1) {
-                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
-                } else {
-                    ESP_LOGW(TAG,
-                             "Coalesced %d register index byte(s); replied only to last reg 0x%02X -> 0x%02X",
-                             len, reg, value);
-                }
-                continue;
-            }
+#if I2C_VERBOSE_LOGS
+            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
+#endif
+            continue;
         }
 
         size_t tx_len = 0;
@@ -135,7 +133,9 @@ void i2c_task(void *arg)
 
         if (tx_len > 0U) {
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
+#if I2C_VERBOSE_LOGS
             ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+#endif
         }
     }
 }

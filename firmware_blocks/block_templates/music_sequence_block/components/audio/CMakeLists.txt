@@ -8,7 +8,4 @@ idf_component_register(
     REQUIRES
         driver
         espressif__arduino-esp32
-    # Boot audio clip embedded into this component.
-    EMBED_FILES
-        "audio/bootupsound.wav"
 )

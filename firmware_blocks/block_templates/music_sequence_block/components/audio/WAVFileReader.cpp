@@ -65,6 +65,7 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
     m_data = nullptr;
     m_data_bytes = 0;
     m_num_channels = 1;
+    m_bits_per_sample = 16;
     m_sample_rate = 44100;
     m_pos = 0;
     m_gain_q15 = 32768; // Unity gain by default (no attenuation/boost).
@@ -110,6 +111,7 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
                 Serial.printf("ERROR: bit depth %d is not supported\n", bit_depth);
                 return;
             }
+            m_bits_per_sample = (int)bit_depth;
 
             found_fmt = true;
             Serial.printf("fmt: audio_format=%d, num_channels=%d, sample_rate=%d, bit_depth=%d\n",
@@ -189,10 +191,15 @@ void WAVFileReader::getFrames(Frame_t *frames, int number_frames)
         if (m_num_channels == 1) {
             right = left;
         }
-        // If stereo input, read explicit right sample.
+        // If stereo input, read explicit right sample, then downmix so the
+        // single on-board DAC hears the full song instead of only one side.
         else {
             memcpy(&right, m_data + m_pos, sizeof(int16_t));
             m_pos += (int)sizeof(int16_t);
+
+            int32_t mixed = ((int32_t)left + (int32_t)right) / 2;
+            left = (int16_t)mixed;
+            right = (int16_t)mixed;
         }
 
         // Apply user volume/gain before converting to unsigned DAC format.
