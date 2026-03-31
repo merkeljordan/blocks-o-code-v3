@@ -72,7 +72,7 @@ static void wheel_color(uint8_t pos, uint8_t *r, uint8_t *g, uint8_t *b);
   *  palette readable and allows runtime brightness changes.            */
  
 static const rgb_t PATTERN_COLORS[10] = {
-    [0] = {  0,   0,   0},   /* off   */
+    [0] = {  0,   0,   0},   /* cosmic burst (multi-color fx, base unused) */
      [1] = {255,   0,   0},   /* red   */
      [2] = {  0, 255,   0},   /* green */
      [3] = {  0,   0, 255},   /* blue  */
