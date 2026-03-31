@@ -19,6 +19,7 @@ static const char *TAG = "BLOCK_CONFIG";
 // Global configuration state
 static block_config_state_t s_config_state;
 static block_config_state_t s_previous_state;
+static block_event_map_t s_event_map;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
@@ -27,6 +28,7 @@ static uint32_t s_scan_counter = 0;
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
+    memset(&s_event_map, 0, sizeof(s_event_map));
     s_previous_state_valid = false;
     s_scan_counter = 0;
     s_config_state.has_changed = true; // Force initial send
@@ -374,6 +376,7 @@ esp_err_t block_config_manager_scan(void) {
 
     // Update timestamp
     s_config_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
+    recompute_event_map_from_config();
 
     ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
              s_config_state.block_count, s_config_state.error_count,
@@ -392,6 +395,19 @@ uint8_t block_config_manager_get_error_count(void) {
 
 const block_config_state_t* block_config_manager_get_state(void) {
     return &s_config_state;
+}
+
+const block_event_map_t* block_config_manager_get_event_map(void) {
+    return &s_event_map;
+}
+
+esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
+    if (out_state == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    memcpy(out_state, &s_config_state, sizeof(*out_state));
+    return ESP_OK;
 }
 
 static void add_capabilities_array(cJSON *whoami_obj, uint8_t caps) {
@@ -560,13 +576,5 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     ESP_LOGD(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
 
-    return ESP_OK;
-}
-
-esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
-    if (out_state == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    memcpy(out_state, &s_config_state, sizeof(s_config_state));
     return ESP_OK;
 }

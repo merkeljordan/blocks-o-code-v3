@@ -25,6 +25,10 @@ esp_err_t i2c_matrix_clear(uint8_t address);
 esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness);
 esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id);
 esp_err_t i2c_play_note(uint8_t address, uint8_t note_id);
+esp_err_t i2c_runtime_broadcast(uint8_t address,
+                                brain_runtime_broadcast_state_t state,
+                                uint8_t pc,
+                                block_type_t step_type);
 esp_err_t i2c_execute(uint8_t address);
 esp_err_t i2c_reset(uint8_t address);
 esp_err_t i2c_oled_text(uint8_t address, const char *msg);

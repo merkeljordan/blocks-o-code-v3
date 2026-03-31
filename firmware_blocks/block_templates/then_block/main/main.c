@@ -164,6 +164,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_THEN, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

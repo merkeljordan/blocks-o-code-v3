@@ -15,11 +15,13 @@
 #include "freertos/task.h"
 
 #include "brain_block.h"
+#include "status_strip.h"
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
+static brain_runtime_snapshot_t s_runtime_snapshot;
 
 // Per-program-position control-flow parameters (indexed by executor pc).
 static uint16_t s_loop_count_by_pc[BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS];
@@ -88,10 +90,87 @@ static void clear_per_pc_params(void)
     memset(s_delay_ms_valid_by_pc, 0, sizeof(s_delay_ms_valid_by_pc));
 }
 
+static void set_runtime_snapshot(brain_runtime_broadcast_state_t state,
+                                 uint8_t pc,
+                                 block_type_t step_type)
+{
+    s_runtime_snapshot.state = state;
+    s_runtime_snapshot.pc = pc;
+    s_runtime_snapshot.step_type = step_type;
+    s_runtime_snapshot.updated_at_ms = now_ms();
+}
+
 static bool is_output_block(block_type_t type) {
     return type == BLOCK_TYPE_LED_FLASH ||
            type == BLOCK_TYPE_NOTE ||
            type == BLOCK_TYPE_MUSIC_SEQ;
+}
+
+static uint8_t executor_broadcast_pc(void)
+{
+    if (s_executor_ctx.program_len == 0) {
+        return BRAIN_RUNTIME_PC_NONE;
+    }
+
+    if (s_executor_ctx.state == EXECUTOR_WAIT_DELAY || s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
+        return (s_executor_ctx.pc > 0U) ? (uint8_t)(s_executor_ctx.pc - 1U) : 0U;
+    }
+
+    if (s_executor_ctx.pc >= s_executor_ctx.program_len) {
+        return (uint8_t)(s_executor_ctx.program_len - 1U);
+    }
+
+    return s_executor_ctx.pc;
+}
+
+static block_type_t executor_broadcast_step_type(void)
+{
+    if (s_executor_ctx.program_len == 0) {
+        return BLOCK_TYPE_UNKNOWN;
+    }
+
+    uint8_t pc = executor_broadcast_pc();
+    if (pc == BRAIN_RUNTIME_PC_NONE || pc >= s_executor_ctx.program_len) {
+        return BLOCK_TYPE_UNKNOWN;
+    }
+
+    return s_executor_ctx.program[pc];
+}
+
+static void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block_type_t step_type)
+{
+    block_config_state_t config_snapshot;
+    uint8_t pc = executor_broadcast_pc();
+
+    if (step_type == BLOCK_TYPE_UNKNOWN) {
+        step_type = executor_broadcast_step_type();
+    }
+
+    set_runtime_snapshot(state, pc, step_type);
+    status_strip_play_runtime_audio(state);
+
+    if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
+        config_snapshot.block_count == 0) {
+        return;
+    }
+
+    for (int i = 0; i < config_snapshot.block_count; i++) {
+        const block_config_entry_t *entry = &config_snapshot.blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+
+        esp_err_t ret = i2c_runtime_broadcast(entry->i2c_address, state, pc, step_type);
+        if (ret != ESP_OK) {
+            ESP_LOGD(TAG,
+                     "Runtime broadcast failed addr=0x%02X state=%u pc=%u step=%s ret=%d",
+                     entry->i2c_address,
+                     (unsigned)state,
+                     (unsigned)pc,
+                     block_type_to_string(step_type),
+                     (int)ret);
+        }
+    }
 }
 
 static int find_matching_end_index(uint8_t start_index, block_type_t start_type) {
@@ -336,10 +415,12 @@ static bool process_message_event(const char *message) {
             return false;
         }
         ESP_LOGI(TAG, "Handled START: executor started");
+        broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
         return true;
     }
 
     if (strcasecmp(message, "STOP") == 0) {
+        broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
         brain_executor_stop();
         ESP_LOGI(TAG, "Handled STOP: executor stop requested");
         return true;
@@ -515,6 +596,7 @@ void brain_event_handler_init(void) {
     memset(&s_executor_params, 0, sizeof(s_executor_params));
     s_executor_params.loop_count = 1;
     s_executor_params.delay_ms = 500;
+    set_runtime_snapshot(BRAIN_RUNTIME_IDLE, BRAIN_RUNTIME_PC_NONE, BLOCK_TYPE_BRAIN);
     ESP_LOGI(TAG, "brain_event_handler_init");
 
     if (s_event_queue) {
@@ -567,6 +649,10 @@ const brain_validation_state_t *brain_event_handler_get_validation_state(void) {
 
 bool brain_event_handler_can_start_execution(void) {
     return s_validation_state.has_received_validation && s_validation_state.app_config_valid;
+}
+
+const brain_runtime_snapshot_t *brain_event_handler_get_runtime_snapshot(void) {
+    return &s_runtime_snapshot;
 }
 
 void brain_executor_set_params(const brain_executor_params_t *params) {
@@ -643,6 +729,7 @@ void brain_executor_stop(void) {
 
 void brain_executor_tick(void) {
     if (s_executor_ctx.stop_requested) {
+        broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
         brain_executor_reset_context(EXECUTOR_STOPPED);
         ESP_LOGI(TAG, "Executor stopped");
         return;
@@ -668,6 +755,7 @@ void brain_executor_tick(void) {
     }
 
     if (s_executor_ctx.pc >= s_executor_ctx.program_len) {
+        broadcast_runtime_state(BRAIN_RUNTIME_DONE, executor_broadcast_step_type());
         s_executor_ctx.state = EXECUTOR_DONE;
         ESP_LOGI(TAG, "Executor done");
         return;
@@ -677,8 +765,12 @@ void brain_executor_tick(void) {
     ESP_LOGD(TAG, "EXEC pc=%u type=%u", s_executor_ctx.pc, current);
 
     if (is_output_block(current)) {
+        broadcast_runtime_state(BRAIN_RUNTIME_STEP, current);
         dispatch_output_action(current);
         s_executor_ctx.pc++;
+        if (s_executor_ctx.pc < s_executor_ctx.program_len) {
+            broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
+        }
         return;
     }
 
@@ -691,6 +783,7 @@ void brain_executor_tick(void) {
             }
             s_executor_ctx.wait_until_ms = now_ms() + delay_ms;
             s_executor_ctx.state = EXECUTOR_WAIT_DELAY;
+            broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, current);
             s_executor_ctx.pc++;
             return;
         }
@@ -699,6 +792,7 @@ void brain_executor_tick(void) {
             int end_if_index = find_matching_end_index(s_executor_ctx.pc, BLOCK_TYPE_IF);
             if (end_if_index < 0) {
                 ESP_LOGW(TAG, "IF without END_IF at pc=%u", s_executor_ctx.pc);
+                broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
                 s_executor_ctx.state = EXECUTOR_DONE;
                 return;
             }
@@ -724,6 +818,7 @@ void brain_executor_tick(void) {
             int end_loop_index = find_matching_end_index(s_executor_ctx.pc, BLOCK_TYPE_LOOP);
             if (end_loop_index < 0) {
                 ESP_LOGW(TAG, "LOOP without END_LOOP at pc=%u", s_executor_ctx.pc);
+                broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
                 s_executor_ctx.state = EXECUTOR_DONE;
                 return;
             }
@@ -741,6 +836,7 @@ void brain_executor_tick(void) {
 
             if (s_executor_ctx.loop_depth >= BRAIN_EXECUTOR_MAX_LOOP_DEPTH) {
                 ESP_LOGW(TAG, "Loop stack overflow");
+                broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
                 s_executor_ctx.state = EXECUTOR_DONE;
                 return;
             }

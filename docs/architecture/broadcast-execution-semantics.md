@@ -34,6 +34,16 @@ Out of scope:
 3. The Brain **SHOULD** continue fan-out even if one target block returns an I2C error.
 4. The Brain **MUST** log trigger step type and fan-out success counts.
 
+### 3.2a Shared runtime parity transport
+
+1. The Brain **MUST** emit `CMD_RUNTIME_BROADCAST` from the event handler as the shared UX transport for runtime parity.
+2. `CMD_RUNTIME_BROADCAST` **MUST** carry:
+   - runtime state (`IDLE`, `RUNNING`, `STEP`, `DONE`, `ERROR`, `STOP`)
+   - current highlight `pc` (or sentinel when not applicable)
+   - current step `block_type_t` when relevant
+3. Child blocks **MUST** interpret `CMD_RUNTIME_BROADCAST` as synchronized visual/audio state and **MUST NOT** treat it as a substitute for `CMD_EXECUTE`.
+4. Blocks that lack a given peripheral **MUST** degrade to a safe no-op for that part of the contract.
+
 ### 3.3 Delay semantics
 
 1. `DELAY` **MUST** use a shared monotonic Brain timebase (`now_ms`) with `wait_until_ms`.
@@ -108,3 +118,4 @@ If condition false at `IF`:
 2. Existing `IF`/`LOOP`/`DELAY` behaviors remain correct.
 3. No blocking waits inside executor tick (except state transitions driven by time/input).
 4. Logs and tests reflect broadcast fan-out semantics.
+5. Matrix, status-strip, and speaker-capable blocks respond through the shared `CMD_RUNTIME_BROADCAST` path with semantically consistent parity UX.

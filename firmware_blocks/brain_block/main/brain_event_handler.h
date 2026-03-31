@@ -57,11 +57,19 @@ typedef struct {
     bool button_pressed;
 } brain_executor_context_t;
 
+typedef struct {
+    brain_runtime_broadcast_state_t state;
+    uint8_t pc;
+    block_type_t step_type;
+    uint64_t updated_at_ms;
+} brain_runtime_snapshot_t;
+
 void brain_event_handler_init(void);
 void brain_event_handler_reset_validation(void);
 void brain_event_handler_set_config_validation(bool is_valid, uint32_t error_count, uint64_t timestamp_ms);
 const brain_validation_state_t *brain_event_handler_get_validation_state(void);
 bool brain_event_handler_can_start_execution(void);
+const brain_runtime_snapshot_t *brain_event_handler_get_runtime_snapshot(void);
 
 void brain_executor_set_params(const brain_executor_params_t *params);
 const brain_executor_context_t *brain_executor_get_context(void);

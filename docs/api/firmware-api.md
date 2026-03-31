@@ -105,6 +105,29 @@ At each tick (`brain_executor_tick()`), the executor advances `pc` or transition
 - For output/action block types (currently `LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain broadcasts `CMD_EXECUTE` to all present blocks.
 - For `LED_FLASH` steps, the Brain first pushes the current `color_id` to each LED flash block (via `i2c_set_led_color_id`) before broadcasting execute.
 
+### Shared Runtime Broadcast Contract
+
+The Brain also emits `CMD_RUNTIME_BROADCAST` for synchronized cross-peripheral UX parity.
+
+Wire payload:
+- `byte0`: `brain_runtime_broadcast_state_t`
+- `byte1`: highlighted `pc` (or `BRAIN_RUNTIME_PC_NONE`)
+- `byte2`: current `block_type_t` step type (or `BLOCK_TYPE_UNKNOWN`)
+
+Defined states:
+- `BRAIN_RUNTIME_IDLE`
+- `BRAIN_RUNTIME_RUNNING`
+- `BRAIN_RUNTIME_STEP`
+- `BRAIN_RUNTIME_DONE`
+- `BRAIN_RUNTIME_ERROR`
+- `BRAIN_RUNTIME_STOP`
+
+Behavior:
+- Brain event handler is the single source of truth for when runtime broadcasts are emitted.
+- Child blocks treat `CMD_RUNTIME_BROADCAST` as shared UX state, not as an action-execution command.
+- `CMD_EXECUTE` still performs the actual block action.
+- Blocks without a relevant peripheral should no-op safely.
+
 **Optional future extension (not default):**
 - A two-phase sync pattern (`PREPARE` then short-window `GO`) may be added in a future protocol revision for tighter perceived simultaneity across target blocks.
 - Current/default behavior remains deterministic batched fan-out over standard I2C command dispatch.
@@ -142,6 +165,13 @@ For task-6 LED mirroring, these same blocks also accept Brain-driven `CMD_MATRIX
 - the Brain's local strip program map
 - child status strips
 - the control-flow block TFT/matrix local execute feedback
+
+With issue `#67`, canonical blocks additionally accept `CMD_RUNTIME_BROADCAST` and render shared parity UX from the same command path:
+- `IDLE`: identity-color idle visual, no audio
+- `RUNNING`: running visual for the active program step
+- `STEP`: highlighted current action plus a short tick for speaker-capable blocks
+- `DONE`: success visual plus completion tone
+- `ERROR` / `STOP`: error visual plus error/stop tone
 
 ### Block -> Brain control-flow config submit (I2C `STATUS_DATA_READY` + `CMD_GET_DATA`)
 

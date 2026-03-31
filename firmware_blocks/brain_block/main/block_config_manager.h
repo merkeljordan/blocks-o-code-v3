@@ -17,6 +17,33 @@
 // Maximum number of blocks that can be detected
 #define BLOCK_CONFIG_MAX_BLOCKS 15
 
+typedef enum {
+    BLOCK_SEQUENCE_IF = 0,
+    BLOCK_SEQUENCE_LOOP = 1,
+} block_sequence_type_t;
+
+typedef struct {
+    block_sequence_type_t sequence_type;
+    uint8_t start_index;
+    uint8_t end_index;
+    bool has_end_boundary;
+    bool has_input;
+    uint8_t input_count;
+    bool has_output_or_delay;
+    uint8_t output_or_delay_count;
+} block_sequence_metadata_t;
+
+typedef struct {
+    bool is_empty;
+    uint64_t generated_at_ms;
+    uint8_t if_start_count;
+    uint8_t if_end_count;
+    uint8_t loop_start_count;
+    uint8_t loop_end_count;
+    uint8_t sequence_count;
+    block_sequence_metadata_t sequences[BLOCK_CONFIG_MAX_BLOCKS];
+} block_event_map_t;
+
 // Block information structure
 typedef struct {
     uint8_t i2c_address;          // I2C address (0x08-0x16)
@@ -74,6 +101,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size);
  * @return Pointer to configuration state
  */
 const block_config_state_t* block_config_manager_get_state(void);
+const block_event_map_t* block_config_manager_get_event_map(void);
 
 /**
  * @brief Copy current configuration state atomically into caller-provided storage

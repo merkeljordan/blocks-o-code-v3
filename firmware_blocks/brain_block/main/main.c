@@ -63,9 +63,10 @@ static const status_strip_config_t kBrainStatusStripConfig = {
 
 static bool executor_state_is_active(brain_executor_state_t state);
 static uint8_t brain_led_idle_brightness(void);
-static uint8_t brain_led_active_brightness(void);
-static uint8_t brain_led_inactive_running_brightness(void);
 static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness);
+static int brain_led_runtime_highlight_index(const brain_runtime_snapshot_t *runtime,
+                                             const block_config_state_t *cfg);
+static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runtime);
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
@@ -192,16 +193,6 @@ static uint8_t brain_led_idle_brightness(void)
     return 32U;
 }
 
-static uint8_t brain_led_active_brightness(void)
-{
-    return 255U;
-}
-
-static uint8_t brain_led_inactive_running_brightness(void)
-{
-    return 48U;
-}
-
 static void brain_led_show_boot_ready_strip(void)
 {
     esp_err_t err = status_strip_ensure_ready(&kBrainStatusStripConfig);
@@ -240,43 +231,33 @@ static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness)
     };
 }
 
-static int brain_led_highlight_index(const brain_executor_context_t *ctx)
+static int brain_led_runtime_highlight_index(const brain_runtime_snapshot_t *runtime,
+                                             const block_config_state_t *cfg)
 {
-    /* Map executor state to the logical program step that should be highlighted.
-     *
-     * Why this helper exists:
-     * - The executor does not always sit on a "normal running" step.
-     * - During wait states (delay, input wait), the child block that owns the
-     *   visible output is usually the previous program step, not the next one.
-     * - When the executor has advanced past the last step, we still want the
-     *   final block to remain highlighted briefly instead of showing "nothing".
-     *
-     * Result:
-     * - RUNNING       -> highlight current pc
-     * - WAIT_*        -> highlight previous logical step
-     * - past-the-end  -> highlight final step
-     * - idle/inactive -> no highlight
-     */
-    if (ctx == NULL || !executor_state_is_active(ctx->state) || ctx->program_len == 0) {
+    if (runtime == NULL || cfg == NULL || cfg->block_count == 0) {
         return -1;
     }
 
-    if (ctx->state == EXECUTOR_WAIT_DELAY || ctx->state == EXECUTOR_WAIT_INPUT) {
-        return (ctx->pc > 0) ? (int)(ctx->pc - 1) : 0;
+    if (runtime->pc == BRAIN_RUNTIME_PC_NONE) {
+        return (runtime->state == BRAIN_RUNTIME_RUNNING ||
+                runtime->state == BRAIN_RUNTIME_STEP)
+                   ? 0
+                   : -1;
     }
 
-    if (ctx->pc >= ctx->program_len) {
-        return (ctx->program_len > 0) ? (int)(ctx->program_len - 1) : -1;
+    if (runtime->pc >= cfg->block_count) {
+        return (int)(cfg->block_count - 1);
     }
 
-    return (int)ctx->pc;
+    return (int)runtime->pc;
 }
 
 static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
-                                          const brain_executor_context_t *ctx)
+                                          const brain_runtime_snapshot_t *runtime)
 {
-    static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
+    static brain_runtime_broadcast_state_t s_last_render_state = BRAIN_RUNTIME_IDLE;
     static uint8_t s_last_render_pc = 0xFF;
+    static uint8_t s_last_render_step_type = BLOCK_TYPE_UNKNOWN;
     static uint8_t s_last_render_block_count = 0xFF;
     static esp_err_t s_last_init_err = ESP_OK;
 
@@ -284,8 +265,9 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
     static uint8_t s_debounce_consecutive = 0;
     #define BLOCK_COUNT_DEBOUNCE_THRESHOLD 5
 
-    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
-    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
+    brain_runtime_broadcast_state_t state = (runtime != NULL) ? runtime->state : BRAIN_RUNTIME_IDLE;
+    uint8_t pc = (runtime != NULL) ? runtime->pc : BRAIN_RUNTIME_PC_NONE;
+    uint8_t step_type = (runtime != NULL) ? (uint8_t)runtime->step_type : BLOCK_TYPE_UNKNOWN;
     uint8_t raw_block_count = (cfg != NULL) ? cfg->block_count : 0;
 
     if (raw_block_count == s_debounce_block_count) {
@@ -304,7 +286,9 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
     }
 
     bool block_count_changed = (block_count != s_last_render_block_count);
-    bool state_changed = (s_last_render_state != state || s_last_render_pc != pc);
+    bool state_changed = (s_last_render_state != state ||
+                          s_last_render_pc != pc ||
+                          s_last_render_step_type != step_type);
     if (!block_count_changed && !state_changed) {
         return;
     }
@@ -347,10 +331,17 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
         led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
                                                 brain_led_idle_brightness());
         status_strip_fill(brain_color.r, brain_color.g, brain_color.b);
+    } else if (state == BRAIN_RUNTIME_DONE ||
+               state == BRAIN_RUNTIME_ERROR ||
+               state == BRAIN_RUNTIME_STOP) {
+        led_rgb_t terminal_color = status_strip_runtime_color(state, BLOCK_TYPE_BRAIN, step_type);
+        status_strip_fill(terminal_color.r, terminal_color.g, terminal_color.b);
+        status_strip_set_brightness(status_strip_runtime_brightness(state));
     } else {
         uint16_t led_count = status_strip_get_led_count();
-        int highlight_index = brain_led_highlight_index(ctx);
-        bool is_active_run = executor_state_is_active(state);
+        int highlight_index = brain_led_runtime_highlight_index(runtime, cfg);
+        uint8_t active_brightness = status_strip_runtime_brightness(state);
+        uint8_t idle_brightness = brain_led_idle_brightness();
 
         /* Each physical LED is mapped back to a program step by proportion:
          *
@@ -375,11 +366,11 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
              * Busy/running: only the active step gets full brightness. All
              * inactive steps stay visible but dim, which mirrors executor
              * progress without losing the overall program map. */
-            uint8_t brightness = brain_led_idle_brightness();
-            if (is_active_run) {
-                brightness = (block_index == highlight_index)
-                                 ? brain_led_active_brightness()
-                                 : brain_led_inactive_running_brightness();
+            uint8_t brightness = idle_brightness;
+            if (highlight_index >= 0) {
+                brightness = ((int)block_index == highlight_index)
+                                 ? active_brightness
+                                 : idle_brightness;
             }
 
             led_rgb_t scaled = scale_led_color(color, brightness);
@@ -394,86 +385,49 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
 
     s_last_render_state = state;
     s_last_render_pc = pc;
+    s_last_render_step_type = step_type;
     s_last_render_block_count = block_count;
+}
+
+static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runtime)
+{
+    static brain_runtime_broadcast_state_t s_last_matrix_state = BRAIN_RUNTIME_IDLE;
+    static uint8_t s_last_matrix_step_type = BLOCK_TYPE_UNKNOWN;
+    static uint8_t s_last_matrix_pc = 0xFF;
+
+    brain_runtime_broadcast_state_t state = (runtime != NULL) ? runtime->state : BRAIN_RUNTIME_IDLE;
+    uint8_t step_type = (runtime != NULL) ? (uint8_t)runtime->step_type : BLOCK_TYPE_BRAIN;
+    uint8_t pc = (runtime != NULL) ? runtime->pc : BRAIN_RUNTIME_PC_NONE;
+
+    if (state == s_last_matrix_state &&
+        step_type == s_last_matrix_step_type &&
+        pc == s_last_matrix_pc) {
+        return;
+    }
+
+    led_rgb_t color = status_strip_runtime_color(state, BLOCK_TYPE_BRAIN, step_type);
+    uint8_t brightness = status_strip_runtime_brightness(state);
+    matrix_set_brightness(brightness);
+    if (state == BRAIN_RUNTIME_IDLE) {
+        matrix_clear();
+        matrix_show();
+    }
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
+
+    s_last_matrix_state = state;
+    s_last_matrix_step_type = step_type;
+    s_last_matrix_pc = pc;
 }
 
 static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
                                            const brain_executor_context_t *ctx)
 {
-    static uint64_t s_last_render_scan_ts = 0;
-    static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
-    static uint8_t s_last_render_pc = 0xFF;
-    static uint8_t s_last_render_block_count = 0xFF;
-
-    if (cfg == NULL) {
-        return;
-    }
-
-    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
-    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
-    if (s_last_render_scan_ts == cfg->last_scan_timestamp &&
-        s_last_render_state == state &&
-        s_last_render_pc == pc &&
-        s_last_render_block_count == cfg->block_count) {
-        return;
-    }
-
-    int highlight_index = brain_led_highlight_index(ctx);
-    bool is_active_run = executor_state_is_active(state);
-
-    /* Child rendering stays config-driven too:
-     * - scan order determines visual order
-     * - block type determines idle color
-     * - executor state determines highlight brightness
-     *
-     * So the Brain local strip and the child strips are both derived from the
-     * same scanned program shape and the same executor state, just rendered to
-     * different hardware paths. */
-    for (int i = 0; i < cfg->block_count; i++) {
-        const block_config_entry_t *entry = &cfg->blocks[i];
-        if (!entry->present || !led_contract_supports_brain_mirroring(entry->block_type)) {
-            continue;
-        }
-
-        led_rgb_t color = led_contract_identity_color(entry->block_type);
-        uint8_t brightness = brain_led_idle_brightness();
-        if (is_active_run) {
-            brightness = (i == highlight_index)
-                             ? brain_led_active_brightness()
-                             : brain_led_inactive_running_brightness();
-        }
-
-        esp_err_t fill_ret = i2c_matrix_fill(entry->i2c_address, color.r, color.g, color.b);
-        if (fill_ret != ESP_OK) {
-            ESP_LOGD(TAG, "LED mirror fill failed addr=0x%02X type=%s ret=%s",
-                     entry->i2c_address,
-                     block_type_to_string(entry->block_type),
-                     esp_err_to_name(fill_ret));
-            continue;
-        }
-
-        esp_err_t brightness_ret = i2c_matrix_set_brightness(entry->i2c_address, brightness);
-        if (brightness_ret != ESP_OK) {
-            ESP_LOGD(TAG, "LED mirror brightness failed addr=0x%02X type=%s ret=%s",
-                     entry->i2c_address,
-                     block_type_to_string(entry->block_type),
-                     esp_err_to_name(brightness_ret));
-            continue;
-        }
-
-        esp_err_t show_ret = i2c_matrix_show(entry->i2c_address);
-        if (show_ret != ESP_OK) {
-            ESP_LOGD(TAG, "LED mirror show failed addr=0x%02X type=%s ret=%s",
-                     entry->i2c_address,
-                     block_type_to_string(entry->block_type),
-                     esp_err_to_name(show_ret));
-        }
-    }
-
-    s_last_render_scan_ts = cfg->last_scan_timestamp;
-    s_last_render_state = state;
-    s_last_render_pc = pc;
-    s_last_render_block_count = cfg->block_count;
+    (void)cfg;
+    (void)ctx;
+    // Child-facing runtime parity is now driven by brain_event_handler.c via
+    // CMD_RUNTIME_BROADCAST. Keep the local Brain strip renderer here, but
+    // avoid maintaining a second child mirroring path from main.c.
 }
 
 static bool executor_state_is_active(brain_executor_state_t state)
@@ -501,6 +455,7 @@ static void brain_executor_task(void *arg)
     while (1) {
         const block_config_state_t *cfg = block_config_manager_get_state();
         const brain_executor_context_t *ctx = brain_executor_get_context();
+        const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
 
         if (cfg != NULL && cfg->last_scan_timestamp != 0 && cfg->last_scan_timestamp != last_scan_ts) {
             last_scan_ts = cfg->last_scan_timestamp;
@@ -529,8 +484,10 @@ static void brain_executor_task(void *arg)
         brain_executor_tick();
         ctx = brain_executor_get_context();
         cfg = block_config_manager_get_state();
+        runtime = brain_event_handler_get_runtime_snapshot();
 
-        brain_led_refresh_local_strip(cfg, ctx);
+        brain_led_refresh_local_strip(cfg, runtime);
+        brain_led_refresh_local_matrix(runtime);
         brain_led_refresh_child_blocks(cfg, ctx);
         vTaskDelay(pdMS_TO_TICKS(BRAIN_EXECUTOR_TICK_INTERVAL_MS));
     }

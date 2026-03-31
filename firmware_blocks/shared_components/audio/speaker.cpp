@@ -55,13 +55,6 @@ static DACOutput *s_dac = NULL;
 // User-facing volume control (0..100%).
 static uint8_t s_volume_percent = 0;
 
-static void speaker_amp_set_enabled(bool on)
-{
-    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
-    int level = on ? level_on : (1 - level_on);
-    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
-}
-
 // Map UI percent to linear gain scalar.
 static float volume_to_gain(uint8_t pct)
 {

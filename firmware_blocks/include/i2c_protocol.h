@@ -66,6 +66,7 @@ typedef enum {
     CMD_MATRIX_DRAW_PATTERN = 0x95,
     CMD_MATRIX_BRIGHTNESS   = 0x96,
     CMD_MATRIX_SHOW         = 0x97,
+    CMD_RUNTIME_BROADCAST   = 0x98,
 } i2c_command_t;
 
 // ============================================================================
@@ -113,6 +114,31 @@ typedef enum {
 #define BRAIN_BROADCAST_DETERMINISTIC_ORDER 1u
 #define BRAIN_DELAY_SHARED_TICK 1u
 #define BRAIN_IF_LOOP_PER_PC_EVAL 1u
+
+// ============================================================================
+// SHARED RUNTIME BROADCAST CONTRACT (Brain -> Child)
+// ============================================================================
+// Payload wire format for CMD_RUNTIME_BROADCAST:
+//   byte0 = brain_runtime_broadcast_state_t
+//   byte1 = highlight pc / program index
+//   byte2 = current block_type_t step type (or BLOCK_TYPE_UNKNOWN if n/a)
+typedef enum {
+    BRAIN_RUNTIME_IDLE    = 0x00,
+    BRAIN_RUNTIME_RUNNING = 0x01,
+    BRAIN_RUNTIME_STEP    = 0x02,
+    BRAIN_RUNTIME_DONE    = 0x03,
+    BRAIN_RUNTIME_ERROR   = 0x04,
+    BRAIN_RUNTIME_STOP    = 0x05,
+} brain_runtime_broadcast_state_t;
+
+#define BRAIN_RUNTIME_BROADCAST_PAYLOAD_LEN 3u
+#define BRAIN_RUNTIME_PC_NONE               0xFFu
+
+typedef struct __attribute__((packed)) {
+    uint8_t state;
+    uint8_t pc;
+    uint8_t step_type;
+} brain_runtime_broadcast_payload_t;
 
 // ============================================================================
 // LED MATRIX PATTERNS
@@ -224,6 +250,7 @@ static inline const char* command_to_string(i2c_command_t cmd) {
         case CMD_MATRIX_DRAW_PATTERN:   return "MATRIX_DRAW_PATTERN";
         case CMD_MATRIX_BRIGHTNESS:     return "MATRIX_BRIGHTNESS";
         case CMD_MATRIX_SHOW:           return "MATRIX_SHOW";
+        case CMD_RUNTIME_BROADCAST:     return "RUNTIME_BROADCAST";
         default:                        return "UNKNOWN_CMD";
     }
 }
