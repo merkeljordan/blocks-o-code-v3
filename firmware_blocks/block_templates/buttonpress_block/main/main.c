@@ -106,7 +106,7 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_BUTTON_PRESS;
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
-    set_status_flags(STATUS_DATA_READY);
+    set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
 }
 
 uint8_t button_block_get_status_flags(void)
