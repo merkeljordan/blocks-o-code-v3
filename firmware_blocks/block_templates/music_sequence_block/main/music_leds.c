@@ -8,6 +8,7 @@
 
 #include "esp_log.h"
 
+#include "led_contract.h"
 #include "led_matrix.h"
 
 #define MUSIC_LED_COUNT 16U
@@ -204,11 +205,16 @@ void music_leds_show_startup(void)
 
 void music_leds_show_idle(void)
 {
+    led_contract_rgb_t identity;
+    led_contract_rgb_t color;
+
     if (!s_leds_ready) {
         return;
     }
 
-    music_leds_fill_and_show((rgb_t){24, 24, 36});
+    identity = led_contract_identity_color(BLOCK_TYPE_MUSIC_SEQ);
+    color = led_contract_status_color(STATUS_READY, identity);
+    music_leds_fill_and_show((rgb_t){color.r, color.g, color.b});
 }
 
 void music_leds_show_note_color(uint8_t note_id, uint32_t hold_ms)

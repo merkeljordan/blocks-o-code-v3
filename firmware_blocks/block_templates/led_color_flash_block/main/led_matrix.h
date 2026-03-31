@@ -12,7 +12,7 @@
  *   led_flash_play_execute(id)  -- Runs the full animation (~0.5-2 s).
  *
  * Pattern ID table:
- *   0 = Lights Off       5 = Rainbow Cycle
+ *   0 = Cosmic Burst     5 = Rainbow Cycle
  *   1 = Color Wipe       6 = Sparkle
  *   2 = Theater Chase    7 = Running Lights
  *   3 = Larson Scanner   8 = Fire Flicker

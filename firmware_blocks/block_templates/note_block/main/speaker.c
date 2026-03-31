@@ -146,11 +146,11 @@ esp_err_t speaker_stop(void) {
 }
 
 esp_err_t speaker_play_boot_sound(void) {
-    speaker_play_tone(440, 120);
+    speaker_play_tone(440, 100);
     vTaskDelay(pdMS_TO_TICKS(40));
-    speaker_play_tone(660, 120);
+    speaker_play_tone(660, 100);
     vTaskDelay(pdMS_TO_TICKS(40));
-    speaker_play_tone(880, 160);
+    speaker_play_tone(880, 130);
     return ESP_OK;
 }
 

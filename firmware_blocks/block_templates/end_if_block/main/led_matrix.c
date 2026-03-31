@@ -8,7 +8,7 @@
 static const char *TAG = "LED_MATRIX";
 
 // LED Matrix Configuration (update per block)
-#define LED_GPIO            18
+#define LED_GPIO            15
 #define LED_MATRIX_SIZE     16
 
 // Module-private state

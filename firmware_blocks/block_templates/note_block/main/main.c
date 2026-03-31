@@ -66,7 +66,7 @@ static const note_color_t k_note_colors[7] = {
     {255, 220, 0},   /* C */
     {32, 200, 64},   /* D */
     {0, 170, 255},   /* E */
-    {80, 96, 255},   /* F */
+    {255, 0, 0},     /* F */
     {200, 64, 255},  /* G */
 };
 
@@ -119,6 +119,16 @@ static void render_status_strip(uint8_t status_flags)
     status_strip_fill(color.r, color.g, color.b);
     status_strip_set_brightness(led_contract_status_brightness(status_flags));
     (void)status_strip_show();
+}
+
+static void show_boot_ready_matrix(void)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_NOTE);
+    led_contract_rgb_t color = led_contract_status_color(STATUS_READY, identity);
+    matrix_clear();
+    matrix_show();
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
 }
 
 static void set_status_flags(uint8_t status_flags)
@@ -231,7 +241,9 @@ static void peripherals_ok_feedback(void)
 
 static void peripherals_show_running(void)
 {
-    matrix_fill(24, 24, 36);
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_NOTE);
+    led_contract_rgb_t color = led_contract_status_color(STATUS_BUSY, identity);
+    matrix_fill(color.r, color.g, color.b);
     matrix_show();
 }
 
@@ -247,7 +259,9 @@ static void show_note_color(uint8_t note_id)
 
 static void restore_idle_color(void)
 {
-    matrix_fill(24, 24, 36);
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_NOTE);
+    led_contract_rgb_t color = led_contract_status_color(STATUS_READY, identity);
+    matrix_fill(color.r, color.g, color.b);
     matrix_show();
 }
 
@@ -498,7 +512,7 @@ void app_main(void)
         return;
     }
 
-    restore_idle_color();
+    show_boot_ready_matrix();
     render_status_strip(s_status_flags);
 
     battery_monitor_start();

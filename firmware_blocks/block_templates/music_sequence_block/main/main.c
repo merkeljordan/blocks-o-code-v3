@@ -128,8 +128,12 @@ static void apply_startup_reset_state(void)
     });
     tft_ui_set_status_message("Pick a song and tap Play!");
     (void)status_strip_reset(&kStatusStripConfig);
-    matrix_clear();
-    matrix_show();
+    if (g_leds_ready) {
+        music_leds_show_idle();
+    } else {
+        matrix_clear();
+        matrix_show();
+    }
 }
 
 static void stack_monitor_task(void *arg)
@@ -452,14 +456,6 @@ void app_main(void)
     initArduino();
     peripherals_init();
     if (!g_speaker_ready) {
-        peripherals_error_feedback();
-        return;
-    }
-
-    err = led_matrix_init();
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "led_matrix_init failed: %s", esp_err_to_name(err));
-        set_status_flags(STATUS_ERROR);
         peripherals_error_feedback();
         return;
     }

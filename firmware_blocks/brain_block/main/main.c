@@ -12,6 +12,7 @@
 #include "brain_event_handler.h"
 #include "audio_speaker.h"
 #include "battery_monitor.h"
+#include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
 
@@ -64,6 +65,7 @@ static bool executor_state_is_active(brain_executor_state_t state);
 static uint8_t brain_led_idle_brightness(void);
 static uint8_t brain_led_active_brightness(void);
 static uint8_t brain_led_inactive_running_brightness(void);
+static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness);
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
@@ -198,6 +200,35 @@ static uint8_t brain_led_active_brightness(void)
 static uint8_t brain_led_inactive_running_brightness(void)
 {
     return 48U;
+}
+
+static void brain_led_show_boot_ready_strip(void)
+{
+    esp_err_t err = status_strip_ensure_ready(&kBrainStatusStripConfig);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Brain status strip init failed during boot: %s", esp_err_to_name(err));
+        return;
+    }
+
+    led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
+                                            brain_led_idle_brightness());
+
+    status_strip_clear();
+    (void)status_strip_show();
+    status_strip_set_brightness(255U);
+    status_strip_fill(brain_color.r, brain_color.g, brain_color.b);
+    (void)status_strip_show();
+}
+
+static void brain_led_show_boot_ready_matrix(void)
+{
+    led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
+                                            brain_led_idle_brightness());
+
+    matrix_clear();
+    matrix_show();
+    matrix_fill(brain_color.r, brain_color.g, brain_color.b);
+    matrix_show();
 }
 
 static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness)
@@ -544,7 +575,13 @@ void app_main(void) {
 
     initArduino();
     peripherals_boot_feedback();
-    brain_led_refresh_local_strip(NULL, NULL);
+    esp_err_t matrix_err = led_matrix_init();
+    if (matrix_err != ESP_OK) {
+        ESP_LOGW(TAG, "led_matrix_init failed: %s", esp_err_to_name(matrix_err));
+    } else {
+        brain_led_show_boot_ready_matrix();
+    }
+    brain_led_show_boot_ready_strip();
     
     // Initialize I²C Master
     ESP_ERROR_CHECK(i2c_master_init());

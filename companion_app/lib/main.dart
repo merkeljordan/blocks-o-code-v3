@@ -85,6 +85,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       ConfigLatencyCalculator();
   ConfigLatencyMetrics? _configLatencyMetrics;
   bool _hasLastValidationResult = false;
+
   bool _lastConfigIsValid = false;
   int _lastConfigErrorCount = 0;
   

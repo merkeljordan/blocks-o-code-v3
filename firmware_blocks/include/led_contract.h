@@ -34,7 +34,7 @@ static inline led_contract_rgb_t led_contract_identity_color(block_type_t type)
         case BLOCK_TYPE_DELAY:
             return (led_contract_rgb_t){255U, 60U, 0U};
         case BLOCK_TYPE_BUTTON:
-            return (led_contract_rgb_t){255U, 0U, 255U};
+            return (led_contract_rgb_t){255U, 20U, 147U};
         case BLOCK_TYPE_NOTE:
             return (led_contract_rgb_t){255U, 220U, 0U};
         case BLOCK_TYPE_MUSIC_SEQ:

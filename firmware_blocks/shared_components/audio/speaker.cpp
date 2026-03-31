@@ -183,11 +183,11 @@ esp_err_t speaker_play_boot_sound(void)
     }
 
     ESP_LOGI(TAG, "Playing boot PWM tone sequence");
-    speaker_play_tone(440, 120);   // do
+    speaker_play_tone(440, 100);   // do
     delay_ms(40);
-    speaker_play_tone(660, 120);   // do+
+    speaker_play_tone(660, 100);   // do+
     delay_ms(40);
-    speaker_play_tone(880, 160);   // do++
+    speaker_play_tone(880, 130);   // do++
 
     ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;

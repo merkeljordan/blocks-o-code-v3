@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include "lvgl.h"
+#include "battery_monitor.h"
 
 #if !defined(NOTE_UI_SIMULATOR)
 #include "freertos/FreeRTOS.h"
@@ -41,6 +42,7 @@ extern bool note_block_submit_sequence(const uint8_t *notes, uint8_t count);
 
 #define TAG "NOTE_UI_V9"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN 15
+#define BATTERY_REFRESH_MS 3000U
 
 #if !defined(NOTE_UI_SIMULATOR)
 /* TFT + touch wiring and runtime config. */
@@ -86,10 +88,116 @@ static bool s_custom_mode = false;
 static lv_obj_t *s_sequence_label = NULL;
 static uint8_t s_sequence[NOTE_BLOCK_MAX_SEQUENCE_LEN] = {0};
 static uint8_t s_sequence_len = 0;
+static uint32_t s_last_battery_refresh_ms = 0;
+
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *fill;
+    lv_obj_t *text;
+} battery_indicator_t;
+
+static battery_indicator_t s_intro_battery = {0};
+static battery_indicator_t s_mode_battery = {0};
+static battery_indicator_t s_picker_battery = {0};
 
 static const char *note_name(uint8_t note_id);
+static uint32_t battery_color_for_percent(unsigned percent);
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void refresh_battery_indicators(void);
 
 static lv_obj_t *create_mode_screen(void);
+
+static uint32_t battery_color_for_percent(unsigned percent)
+{
+    if (percent >= 60U) {
+        return 0x52F7A6u;
+    }
+    if (percent >= 30U) {
+        return 0xFFE066u;
+    }
+    return 0xFF6B6Bu;
+}
+
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator)
+{
+    lv_obj_t *body = NULL;
+    lv_obj_t *cap = NULL;
+
+    if (parent == NULL || indicator == NULL) {
+        return;
+    }
+
+    indicator->root = lv_obj_create(parent);
+    lv_obj_remove_style_all(indicator->root);
+    lv_obj_set_size(indicator->root, 72, 20);
+    lv_obj_align(indicator->root, LV_ALIGN_TOP_RIGHT, -8, 8);
+    lv_obj_clear_flag(indicator->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->text = lv_label_create(indicator->root);
+    lv_label_set_text(indicator->text, "100%");
+    lv_obj_set_style_text_color(indicator->text, lv_color_hex(0xBBD0FFu), 0);
+    lv_obj_align(indicator->text, LV_ALIGN_LEFT_MID, 0, 0);
+
+    body = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_size(body, 24, 12);
+    lv_obj_align(body, LV_ALIGN_RIGHT_MID, -6, 0);
+    lv_obj_set_style_border_color(body, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_border_width(body, 2, 0);
+    lv_obj_set_style_border_opa(body, LV_OPA_90, 0);
+    lv_obj_set_style_radius(body, 3, 0);
+    lv_obj_set_style_bg_color(body, lv_color_hex(0x0B1220u), 0);
+    lv_obj_set_style_bg_opa(body, LV_OPA_70, 0);
+    lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->fill = lv_obj_create(body);
+    lv_obj_remove_style_all(indicator->fill);
+    lv_obj_set_size(indicator->fill, 20, 8);
+    lv_obj_align(indicator->fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_radius(indicator->fill, 1, 0);
+    lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(100U)), 0);
+    lv_obj_set_style_bg_opa(indicator->fill, LV_OPA_COVER, 0);
+
+    cap = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(cap);
+    lv_obj_set_size(cap, 3, 6);
+    lv_obj_align(cap, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_radius(cap, 1, 0);
+    lv_obj_set_style_bg_color(cap, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
+}
+
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+{
+    uint32_t fill_width = 0;
+
+    if (indicator == NULL || indicator->root == NULL || indicator->fill == NULL || indicator->text == NULL) {
+        return;
+    }
+
+    if (percent > 100U) {
+        percent = 100U;
+    }
+
+    fill_width = (percent * 20U) / 100U;
+    if (percent > 0U && fill_width == 0U) {
+        fill_width = 1U;
+    }
+
+    lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
+    lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(percent)), 0);
+    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+}
+
+static void refresh_battery_indicators(void)
+{
+    const unsigned percent = (unsigned)battery_monitor_get_percent();
+    update_battery_indicator(&s_intro_battery, percent);
+    update_battery_indicator(&s_mode_battery, percent);
+    update_battery_indicator(&s_picker_battery, percent);
+}
+
 static void sequence_clear(void)
 {
     s_sequence_len = 0;
@@ -326,15 +434,22 @@ static lv_obj_t *create_mode_screen(void)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
+    create_battery_indicator(scr, &s_mode_battery);
+    refresh_battery_indicators();
+
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Pick a Mode");
+    lv_obj_set_width(title, 150);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 18);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 18);
 
     lv_obj_t *subtitle = lv_label_create(scr);
     lv_label_set_text(subtitle, "Single note or a sequence?");
+    lv_obj_set_width(subtitle, 180);
     lv_obj_set_style_text_color(subtitle, lv_color_hex(0xFFE88A), 0);
-    lv_obj_align(subtitle, LV_ALIGN_TOP_MID, 0, 44);
+    lv_obj_set_style_text_align(subtitle, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(subtitle, LV_ALIGN_TOP_MID, 0, 72);
 
     // Back arrow (to Intro)
     lv_obj_t *back_btn = lv_button_create(scr);
@@ -393,6 +508,9 @@ static lv_obj_t *create_intro_screen(void)
     lv_obj_set_style_pad_all(scr, 0, 0);
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x0F0F23), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+
+    create_battery_indicator(scr, &s_intro_battery);
+    refresh_battery_indicators();
 
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Blocks o' Code");
@@ -517,10 +635,15 @@ static lv_obj_t *create_picker_screen(void)
     lv_obj_set_style_bg_color(scr, lv_color_hex(0x1A1A2E), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
+    create_battery_indicator(scr, &s_picker_battery);
+    refresh_battery_indicators();
+
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "Choose a Note");
+    lv_obj_set_width(title, 150);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 8);
 
     // Back arrow (to Mode)
     lv_obj_t *back_btn = lv_button_create(scr);
@@ -539,11 +662,11 @@ static lv_obj_t *create_picker_screen(void)
 
     s_status_label = lv_label_create(scr);
     lv_label_set_text(s_status_label, "Tap A-G to preview, then SUBMIT.");
-    lv_obj_set_width(s_status_label, 220);
+    lv_obj_set_width(s_status_label, 190);
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xFFE88A), 0);
     lv_obj_set_style_text_align(s_status_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 34);
+    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 46);
 
     s_sequence_label = lv_label_create(scr);
     lv_label_set_text(s_sequence_label, "");
@@ -582,7 +705,7 @@ static lv_obj_t *create_picker_screen(void)
     create_note_key(scr, "C", x0 + dx * 2, y0 + dy * 0, lv_color_hex(0xFFFFBA), 2);
     create_note_key(scr, "D", x0 + dx * 0, y0 + dy * 1, lv_color_hex(0xBAFFC9), 3);
     create_note_key(scr, "E", x0 + dx * 1, y0 + dy * 1, lv_color_hex(0xBAE1FF), 4);
-    create_note_key(scr, "F", x0 + dx * 2, y0 + dy * 1, lv_color_hex(0xD7BAFF), 5);
+    create_note_key(scr, "F", x0 + dx * 2, y0 + dy * 1, lv_color_hex(0xFF0000), 5);
     create_note_key(scr, "G", x0 + dx * 1, y0 + dy * 2, lv_color_hex(0xB8F2E6), 6);
 
     lv_obj_t *submit_btn = lv_button_create(scr);
@@ -614,6 +737,11 @@ static void lvgl_task(void *arg)
     lv_screen_load(s_intro_screen);
 
     while (1) {
+        uint32_t now_ms = lv_tick_get();
+        if ((now_ms - s_last_battery_refresh_ms) >= BATTERY_REFRESH_MS) {
+            s_last_battery_refresh_ms = now_ms;
+            refresh_battery_indicators();
+        }
         uint32_t delay_ms = lv_timer_handler();
         if (delay_ms < 5) delay_ms = 5;
         else if (delay_ms > 30) delay_ms = 30;
@@ -633,6 +761,7 @@ void tft_ui_start(void)
     if (s_intro_screen == NULL) {
         s_intro_screen = create_intro_screen();
     }
+    s_last_battery_refresh_ms = lv_tick_get();
     lv_screen_load(s_intro_screen);
     return;
 #else

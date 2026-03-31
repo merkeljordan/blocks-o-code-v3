@@ -55,6 +55,16 @@ static void refresh_status_strip(uint8_t status)
     (void)status_strip_show();
 }
 
+static void show_status_matrix(uint8_t status)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
+    led_contract_rgb_t color = led_contract_status_color(status, identity);
+    matrix_clear();
+    matrix_show();
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
+}
+
 static bool is_status_strip_command(i2c_command_t cmd)
 {
     return (cmd == CMD_MATRIX_FILL ||
@@ -77,6 +87,7 @@ static void set_current_status(uint8_t status)
 
     // Any non-busy state gives the strip back to the simple status-color renderer.
     led_matrix_set_status_mirror(false);
+    show_status_matrix(status);
     refresh_status_strip(status);
 }
 
@@ -141,6 +152,7 @@ esp_err_t command_handler_init(void) {
         return ESP_FAIL;
     }
 
+    show_status_matrix(STATUS_READY);
     refresh_status_strip(current_status);
     return ESP_OK;
 }

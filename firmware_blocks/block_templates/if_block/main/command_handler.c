@@ -7,6 +7,7 @@
 
 #include "i2c_protocol.h"
 #include "led_matrix.h"
+#include "led_contract.h"
 #include "status_strip.h"
 
 static const char *TAG = "CMD_HANDLER";
@@ -21,15 +22,23 @@ static const status_strip_config_t kStatusStripConfig = {
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t current_status = STATUS_READY;
 
+static void show_status_matrix(uint8_t status)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_IF);
+    led_contract_rgb_t color = led_contract_status_color(status, identity);
+    matrix_set_brightness(led_contract_status_brightness(status));
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
+}
+
 static void run_execute_feedback(void)
 {
     current_status = STATUS_BUSY;
     matrix_fill(0, 180, 60);
     matrix_show();
     vTaskDelay(pdMS_TO_TICKS(120));
-    matrix_clear();
-    matrix_show();
     current_status = STATUS_READY;
+    show_status_matrix(current_status);
 }
 
 void handle_command(uint8_t *buffer, int len) {
@@ -80,9 +89,8 @@ void handle_command(uint8_t *buffer, int len) {
             led_g = 0;
             led_b = 0;
             (void)status_strip_reset(&kStatusStripConfig);
-            matrix_clear();
-            matrix_show();
             current_status = STATUS_READY;
+            show_status_matrix(current_status);
             break;
 
         default:

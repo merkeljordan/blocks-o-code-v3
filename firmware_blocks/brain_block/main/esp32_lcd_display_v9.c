@@ -23,6 +23,7 @@
 #include "tft_ui.h"
 #include "brain_block.h"
 #include "brain_event_handler.h"
+#include "battery_monitor.h"
 
 /*
  * Brain Block LVGL v9 display/touch bring-up + basic home screen
@@ -104,6 +105,7 @@ static const char *TAG = "brain_ui_v9";
 #define TOUCH_SW_CAL_MIN_Y             12
 #define TOUCH_SW_CAL_MAX_Y             (BRAIN_LCD_V_RES - 12)
 #define HOME_ACTION_DEBOUNCE_US        150000
+#define BATTERY_REFRESH_MS             3000U
 
 /*
  * Touch coordinate pipeline (important when debugging wrong touch orientation):
@@ -178,6 +180,15 @@ static lv_obj_t *s_status_label = NULL;
 static lv_obj_t *s_blocks_status_label = NULL;
 static bool s_last_wifi_connected = false;
 
+typedef struct {
+    lv_obj_t *root;
+    lv_obj_t *fill;
+    lv_obj_t *text;
+} battery_indicator_t;
+
+static battery_indicator_t s_home_battery = {0};
+static battery_indicator_t s_blocks_battery = {0};
+
 static touch_debug_state_t s_touch_debug = {
     .last_read_err = ESP_OK,
     .transform_preset_index = TOUCH_PRESET_DEFAULT_INDEX,
@@ -192,6 +203,89 @@ static void open_blocks_screen(void);
 static lv_obj_t *create_blocks_screen(void);
 static void blocks_back_event_cb(lv_event_t *e);
 static void block_card_event_cb(lv_event_t *e);
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void refresh_battery_indicators(void);
+
+static lv_color_t battery_color_for_percent(unsigned percent)
+{
+    if (percent <= 20U) {
+        return lv_color_hex(0xFF5C5C);
+    }
+    if (percent <= 50U) {
+        return lv_color_hex(0xFFD166);
+    }
+    return lv_color_hex(0x69F0AE);
+}
+
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator)
+{
+    lv_obj_t *body = NULL;
+    lv_obj_t *cap = NULL;
+
+    indicator->root = lv_obj_create(parent);
+    lv_obj_remove_style_all(indicator->root);
+    lv_obj_set_size(indicator->root, 72, 20);
+    lv_obj_align(indicator->root, LV_ALIGN_TOP_RIGHT, -30, 10);
+    lv_obj_clear_flag(indicator->root, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->text = lv_label_create(indicator->root);
+    lv_label_set_text(indicator->text, "100%");
+    lv_obj_set_style_text_color(indicator->text, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(indicator->text, LV_ALIGN_LEFT_MID, 6, 0);
+
+    body = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_size(body, 24, 12);
+    lv_obj_align(body, LV_ALIGN_RIGHT_MID, -6, 0);
+    lv_obj_set_style_border_width(body, 2, 0);
+    lv_obj_set_style_border_color(body, lv_color_hex(0xE2E8F0), 0);
+    lv_obj_set_style_radius(body, 3, 0);
+    lv_obj_set_style_bg_color(body, lv_color_hex(0x0B1220), 0);
+    lv_obj_set_style_bg_opa(body, LV_OPA_70, 0);
+    lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
+    indicator->fill = lv_obj_create(body);
+    lv_obj_remove_style_all(indicator->fill);
+    lv_obj_set_size(indicator->fill, 20, 8);
+    lv_obj_align(indicator->fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_radius(indicator->fill, 1, 0);
+    lv_obj_set_style_bg_color(indicator->fill, battery_color_for_percent(100U), 0);
+    lv_obj_set_style_bg_opa(indicator->fill, LV_OPA_COVER, 0);
+
+    cap = lv_obj_create(indicator->root);
+    lv_obj_remove_style_all(cap);
+    lv_obj_set_size(cap, 3, 6);
+    lv_obj_align(cap, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_radius(cap, 1, 0);
+    lv_obj_set_style_bg_color(cap, lv_color_hex(0xE2E8F0), 0);
+    lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
+}
+
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+{
+    uint32_t fill_width = 0;
+
+    if (indicator->root == NULL) {
+        return;
+    }
+
+    fill_width = (percent * 20U) / 100U;
+    if (percent > 0U && fill_width == 0U) {
+        fill_width = 1U;
+    }
+
+    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
+    lv_obj_set_style_bg_color(indicator->fill, battery_color_for_percent(percent), 0);
+}
+
+static void refresh_battery_indicators(void)
+{
+    const unsigned percent = (unsigned)battery_monitor_get_percent();
+    update_battery_indicator(&s_home_battery, percent);
+    update_battery_indicator(&s_blocks_battery, percent);
+}
 
 /* ESP timer callback that feeds LVGL's internal timing system.
  * LVGL uses this timing for animations, input repeat, timers, etc. */
@@ -359,6 +453,7 @@ static void lvgl_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "LVGL task started");
+    TickType_t last_battery_refresh = xTaskGetTickCount();
 
     while (1) {
         if (s_wifi_icon_label != NULL) {
@@ -371,6 +466,12 @@ static void lvgl_task(void *arg)
                 }
                 s_last_wifi_connected = connected;
             }
+        }
+
+        TickType_t now = xTaskGetTickCount();
+        if ((now - last_battery_refresh) >= pdMS_TO_TICKS(BATTERY_REFRESH_MS)) {
+            refresh_battery_indicators();
+            last_battery_refresh = now;
         }
 
         uint32_t delay_ms = lv_timer_handler();
@@ -735,9 +836,12 @@ static lv_obj_t *create_blocks_screen(void)
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
+    create_battery_indicator(header, &s_blocks_battery);
+    refresh_battery_indicators();
+
     lv_obj_t *count_chip = lv_obj_create(header);
     lv_obj_set_size(count_chip, 56, 22);
-    lv_obj_align(count_chip, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_align(count_chip, LV_ALIGN_RIGHT_MID, 0, 12);
     lv_obj_clear_flag(count_chip, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(count_chip, 11, 0);
     lv_obj_set_style_border_width(count_chip, 0, 0);
@@ -876,9 +980,12 @@ static lv_obj_t *create_home_screen(void)
     s_wifi_icon_label = lv_label_create(header);
     lv_label_set_text(s_wifi_icon_label, LV_SYMBOL_WIFI);
     lv_obj_set_style_text_color(s_wifi_icon_label, UI_COLOR_SUCCESS, 0);
-    lv_obj_align(s_wifi_icon_label, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_align(s_wifi_icon_label, LV_ALIGN_RIGHT_MID, -4, 0);
     lv_obj_add_flag(s_wifi_icon_label, LV_OBJ_FLAG_HIDDEN);
     s_last_wifi_connected = false;
+
+    create_battery_indicator(header, &s_home_battery);
+    refresh_battery_indicators();
 
     /* ---------------- Main content shell ----------------
      * Use a flex column container so sections stack naturally.

@@ -86,9 +86,21 @@ static void render_status_strip(uint8_t status_flags)
     (void)status_strip_show();
 }
 
+static void show_status_matrix(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_END_IF);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    matrix_set_brightness(led_contract_status_brightness(status_flags));
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
+}
+
 static void set_status_flags(uint8_t status_flags)
 {
     g_status_flags = status_flags;
+    if ((status_flags & STATUS_BUSY) == 0U) {
+        show_status_matrix(g_status_flags);
+    }
     render_status_strip(g_status_flags);
 }
 
@@ -115,16 +127,25 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
+static void animate_control_flow_pulse(led_contract_rgb_t color, uint8_t pulses, uint32_t on_ms, uint32_t off_ms)
+{
+    for (uint8_t pulse = 0; pulse < pulses; ++pulse) {
+        matrix_fill(color.r, color.g, color.b);
+        matrix_show();
+        vTaskDelay(pdMS_TO_TICKS(on_ms));
+        matrix_clear();
+        matrix_show();
+        if (pulse + 1U < pulses) {
+            vTaskDelay(pdMS_TO_TICKS(off_ms));
+        }
+    }
+}
 static void peripherals_show_running(void)
 {
     tft_ui_trigger_execute();
 
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_END_IF);
-    matrix_fill(identity.r, identity.g, identity.b);
-    matrix_show();
-    vTaskDelay(pdMS_TO_TICKS(120));
-    matrix_clear();
-    matrix_show();
+    animate_control_flow_pulse(identity, 2U, 70U, 30U);
 }
 
 // ============================================================================
@@ -188,7 +209,11 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_MATRIX_CLEAR:
-            matrix_clear();
+            if ((g_status_flags & STATUS_BUSY) != 0U) {
+                matrix_clear();
+            } else {
+                show_status_matrix(g_status_flags);
+            }
             break;
 
         case CMD_MATRIX_BRIGHTNESS:
@@ -205,8 +230,6 @@ void command_handle(i2c_command_t cmd,
             config_reset();
             (void)status_strip_reset(&kStatusStripConfig);
             tft_ui_set_idle();
-            matrix_clear();
-            matrix_show();
             set_status_flags(STATUS_READY);
             break;
 
@@ -240,10 +263,8 @@ void app_main(void) {
         speaker_beep_error();
         return;
     }
-
     tft_ui_start();
     tft_ui_set_idle();
-    render_status_strip(g_status_flags);
 
     battery_monitor_start();
 
@@ -255,7 +276,10 @@ void app_main(void) {
         return;
     }
 
+    set_status_flags(g_status_flags);
+
     vTaskDelay(pdMS_TO_TICKS(500));
+    set_status_flags(g_status_flags);
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
 
     // Create tasks
