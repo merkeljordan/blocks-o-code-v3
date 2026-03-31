@@ -5,20 +5,14 @@ idf_component_register(
         "music_leds.c"
         "tft_ui.c"
         "speaker_music.c"
-<<<<<<< HEAD
         "../../../shared_components/led_matrix/led_matrix.c"
-=======
->>>>>>> origin/main
         "../../../shared_components/status_strip/status_strip.c"
     INCLUDE_DIRS
         "."
         ".."
         "../.."
         "../../../include"
-<<<<<<< HEAD
         "../../../shared_components/led_matrix"
-=======
->>>>>>> origin/main
         "../../../shared_components/status_strip"
     REQUIRES
         driver
@@ -31,6 +25,7 @@ idf_component_register(
         atanisoft__esp_lcd_touch_xpt2046
         audio
         battery_monitor
+        startup_guard
         led_matrix
     # Songs are embedded in flash and exposed as linker symbols.
     # The 4 MB hardware target embeds the final 5-song catalog here.

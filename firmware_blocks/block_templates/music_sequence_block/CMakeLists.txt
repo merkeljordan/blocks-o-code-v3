@@ -7,6 +7,7 @@ set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON CACHE BOOL "" FORCE)
 set(EXTRA_COMPONENT_DIRS
     "components"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor"
+    "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/led_matrix"
 )
 

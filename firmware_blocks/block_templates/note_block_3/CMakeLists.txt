@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.5)
 set(EXTRA_COMPONENT_DIRS
     "../../brain_block/components"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor"
+    "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard"
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
