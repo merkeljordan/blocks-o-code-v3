@@ -1,4 +1,5 @@
 #include "speaker.h"
+#include "audio_speaker.h"
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
@@ -129,6 +130,34 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms) {
     ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
     ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
     return ESP_OK;
+}
+
+uint8_t speaker_get_volume(void) {
+    return s_volume;
+}
+
+esp_err_t speaker_stop(void) {
+    if (!s_inited) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    ledc_set_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL, 0);
+    ledc_update_duty(SPEAKER_LEDC_MODE, SPEAKER_LEDC_CHANNEL);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_boot_sound(void) {
+    speaker_play_tone(440, 100);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    speaker_play_tone(660, 100);
+    vTaskDelay(pdMS_TO_TICKS(40));
+    speaker_play_tone(880, 130);
+    return ESP_OK;
+}
+
+esp_err_t speaker_play_wav(const uint8_t *data, size_t len) {
+    (void)data;
+    (void)len;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 void speaker_beep_ok(void) {

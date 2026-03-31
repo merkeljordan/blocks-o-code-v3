@@ -6,16 +6,20 @@
 
 #include "esp_log.h"
 #include "esp_err.h"
+#include "driver/gpio.h"
 
 #include "battery_monitor.h"
 #include "speaker.h"
 #include "led_dual_ws2812.h"
 #include "tft_test_ui.h"
+#include "startup_guard.h"
 
 static const char *TAG = "TEST_BLOCK";
 
 void app_main(void)
 {
+    startup_power_guard();
+
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "    Peripheral Test Block BOOT");
     ESP_LOGI(TAG, "========================================");

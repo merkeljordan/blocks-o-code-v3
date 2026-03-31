@@ -19,7 +19,7 @@ extern uint8_t end_loop_block_get_status_flags(void);
 static const char *TAG = "END_LOOP_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x0C
+#define MY_ADDRESS      0x10
 #define MY_BLOCK_TYPE   BLOCK_TYPE_END_LOOP
 
 // ============================================================================

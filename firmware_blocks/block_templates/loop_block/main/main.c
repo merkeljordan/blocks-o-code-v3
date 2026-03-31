@@ -4,11 +4,13 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
-#include "command_handler.h"
 #include "status_strip.h"
+#include "led_contract.h"
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
@@ -17,6 +19,8 @@ static inline void tft_ui_start(void) {}
 static inline void tft_ui_trigger_execute(void) {}
 static inline void tft_ui_set_idle(void) {}
 #endif
+
+#include "startup_guard.h"
 
 extern void initArduino(void);
 
@@ -29,8 +33,9 @@ extern void i2c_task(void *arg);
 #define BLOCK_TYPE            BLOCK_TYPE_LOOP
 
 static const char *TAG = "LOOP_BLOCK";
+
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
-#define STATUS_STRIP_LED_COUNT 16
+#define STATUS_STRIP_LED_COUNT 30
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
@@ -49,59 +54,39 @@ static bool g_config_valid = false;
 
 static uint8_t g_status_flags = STATUS_READY;
 
-// ============================================================================
-// BLOCK -> BRAIN EVENT (STATUS_DATA_READY + CMD_GET_DATA)
-// ============================================================================
-static struct {
-    bool has_event;
-    uint8_t event_id;
-    uint8_t payload[8];
-    size_t payload_len;
-} g_pending_event;
-
-static void publish_loop_count_event(uint8_t loop_count)
+static void render_status_strip(uint8_t status_flags)
 {
-    g_pending_event.has_event = true;
-    g_pending_event.event_id = BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT;
-    g_pending_event.payload[0] = loop_count;
-    g_pending_event.payload_len = 1;
-    g_status_flags |= STATUS_DATA_READY;
-}
-
-static void on_local_loop_count_changed(uint8_t loop_count)
-{
-    g_config.loop_count = (loop_count == 0) ? 1 : loop_count;
-    g_config_valid = true;
-    g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
-    publish_loop_count_event(g_config.loop_count);
-    speaker_beep_ok();
-}
-
-// Entry point for TFT/UI code running on this block:
-// call this when the user picks a new loop count.
-void loop_block_set_loop_count_from_ui(uint8_t loop_count)
-{
-    on_local_loop_count_changed(loop_count);
-}
-
-static void config_reset(void)
-{
-    g_config.loop_count = 1;
-    g_config_valid = true;
-    g_status_flags = STATUS_READY;
-    publish_loop_count_event(g_config.loop_count);
-}
-static bool config_is_valid(void) { return g_config_valid; }
-static size_t config_get_payload(uint8_t *out, size_t max_len) {
-    if (out == NULL || max_len < 1) {
-        return 0;
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
+        return;
     }
-    out[0] = g_config.loop_count;
-    return 1;
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status_flags));
+    (void)status_strip_show();
 }
 
-// ============================================================================
-// PERIPHERALS
+static void show_status_matrix(uint8_t status_flags)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
+    led_contract_rgb_t color = led_contract_status_color(status_flags, identity);
+    matrix_set_brightness(led_contract_status_brightness(status_flags));
+    matrix_clear();
+    matrix_show();
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
+}
+
+static void set_status_flags(uint8_t status_flags)
+{
+    g_status_flags = status_flags;
+    if ((status_flags & STATUS_BUSY) == 0U) {
+        show_status_matrix(g_status_flags);
+    }
+    render_status_strip(g_status_flags);
+}
+
+// =====================================================================// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
@@ -110,16 +95,25 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
+static void animate_control_flow_pulse(led_contract_rgb_t color, uint8_t pulses, uint32_t on_ms, uint32_t off_ms)
+{
+    for (uint8_t pulse = 0; pulse < pulses; ++pulse) {
+        matrix_fill(color.r, color.g, color.b);
+        matrix_show();
+        vTaskDelay(pdMS_TO_TICKS(on_ms));
+        matrix_clear();
+        matrix_show();
+        if (pulse + 1U < pulses) {
+            vTaskDelay(pdMS_TO_TICKS(off_ms));
+        }
+    }
+}
 static void peripherals_show_running(void)
 {
     tft_ui_trigger_execute();
 
-    // Simple "running" indication: brief green flash on the matrix.
-    matrix_fill(0, 64, 0);
-    matrix_show();
-    vTaskDelay(pdMS_TO_TICKS(120));
-    matrix_clear();
-    matrix_show();
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
+    animate_control_flow_pulse(identity, 2U, 110U, 40U);
 }
 
 // ============================================================================
@@ -143,13 +137,11 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
-    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
-        return;
-    }
+    (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
 
     switch (cmd) {
         case CMD_PING:
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             peripherals_ok_feedback();
             break;
 
@@ -164,7 +156,7 @@ void command_handle(i2c_command_t cmd,
             if (rx_len >= 1) {
                 g_config.loop_count = (rx[0] == 0) ? 1 : rx[0];
                 g_config_valid = true;
-                g_status_flags = STATUS_READY;
+                set_status_flags(STATUS_READY);
                 publish_loop_count_event(g_config.loop_count);
             }
             break;
@@ -187,21 +179,40 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_EXECUTE:
             if (!config_is_valid()) {
-                g_status_flags = STATUS_ERROR;
+                set_status_flags(STATUS_ERROR);
                 peripherals_error_feedback();
                 break;
             }
+            set_status_flags(STATUS_BUSY);
             peripherals_show_running();
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
+            break;
+
+        case CMD_MATRIX_FILL:
+            if (rx_len >= 3U) {
+                matrix_fill(rx[0], rx[1], rx[2]);
+            }
+            break;
+
+        case CMD_MATRIX_CLEAR:
+            matrix_clear();
+            break;
+
+        case CMD_MATRIX_BRIGHTNESS:
+            if (rx_len >= 1U) {
+                matrix_set_brightness(rx[0]);
+            }
+            break;
+
+        case CMD_MATRIX_SHOW:
+            matrix_show();
             break;
 
         case CMD_RESET:
             config_reset();
             (void)status_strip_reset(&kStatusStripConfig);
             tft_ui_set_idle();
-            matrix_clear();
-            matrix_show();
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             break;
 
         default:
@@ -217,10 +228,14 @@ void app_main(void) {
     ESP_LOGI(TAG, "    LOOP BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
 
+    startup_power_guard();
+
+    initArduino();
+
     // Initialize speaker early for boot/error beeps
     esp_err_t ret = speaker_init();
     if (ret == ESP_OK) {
-        speaker_beep_ok();
+        speaker_play_boot_sound();
     }
 
     // Initialize LED Matrix
@@ -230,11 +245,11 @@ void app_main(void) {
         speaker_beep_error();
         return;
     }
-
-    // Show startup animation
-    led_matrix_startup_animation();
     tft_ui_start();
     tft_ui_set_idle();
+    set_status_flags(g_status_flags);
+
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();
@@ -244,12 +259,14 @@ void app_main(void) {
         return;
     }
 
+    set_status_flags(g_status_flags);
+
     vTaskDelay(pdMS_TO_TICKS(500));
+    set_status_flags(g_status_flags);
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
 
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
-    xTaskCreate(led_status_task, "led_status", 2048, NULL, 3, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

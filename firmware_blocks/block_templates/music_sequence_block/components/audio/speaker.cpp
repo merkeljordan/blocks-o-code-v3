@@ -183,10 +183,13 @@ esp_err_t speaker_play_boot_sound(void)
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
+    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
     (void)speaker_play_tone(440, 100);
+    delay_ms(40);
     (void)speaker_play_tone(660, 100);
+    delay_ms(40);
     (void)speaker_play_tone(880, 130);
+    ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
 }
 
@@ -239,7 +242,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 
     // Keep requested frequency, but lower magnitude to avoid clipping.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, hz, tone_magnitude);
+    SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);

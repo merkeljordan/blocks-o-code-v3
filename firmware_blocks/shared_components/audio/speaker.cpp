@@ -40,6 +40,12 @@ static const char *TAG = "AUDIO";
 #define SPEAKER_AMP_ENABLE_GPIO 5
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
 
+static void speaker_amp_set_enabled(bool on) {
+    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
+    int level = on ? level_on : (1 - level_on);
+    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
+}
+
 // Set true after successful speaker_init().
 static bool s_inited = false;
 
@@ -140,7 +146,6 @@ esp_err_t speaker_init(void)
 // Called by: optional shutdown paths (not heavily used right now)
 void speaker_deinit(void)
 {
-    // Lightweight deinit for now (task teardown not implemented yet).
     speaker_amp_set_enabled(false);
     s_inited = false;
 }
@@ -185,11 +190,11 @@ esp_err_t speaker_play_boot_sound(void)
     }
 
     ESP_LOGI(TAG, "Playing boot PWM tone sequence");
-    speaker_play_tone(440, 120);   // do
+    speaker_play_tone(440, 100);   // do
     delay_ms(40);
-    speaker_play_tone(660, 120);   // do+
+    speaker_play_tone(660, 100);   // do+
     delay_ms(40);
-    speaker_play_tone(880, 160);   // do++
+    speaker_play_tone(880, 130);   // do++
 
     ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;

@@ -13,7 +13,7 @@
 static const char *TAG = "BUTTONPRESS_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x0E
+#define MY_ADDRESS      0x09
 #define MY_BLOCK_TYPE   BLOCK_TYPE_BUTTON
 
 // ============================================================================
@@ -31,6 +31,7 @@ static void init_registers(void) {
 static void refresh_dynamic_registers(void)
 {
     registers[REG_STATUS] = button_block_get_status_flags();
+    registers[REG_DATA_LEN] = button_block_get_pending_data_len();
 }
 
 

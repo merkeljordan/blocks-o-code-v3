@@ -11,6 +11,7 @@
 #include "led_matrix.h"
 #include "audio_speaker.h"
 #include "status_strip.h"
+#include "led_contract.h"
 
 static const char *TAG = "CMD_HANDLER";
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
@@ -20,31 +21,6 @@ static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
     .led_count = STATUS_STRIP_LED_COUNT,
 };
-
-/*
- * Status strip behavior summary:
- *
- * - Idle states (READY / DATA_READY) use a simple solid status color.
- * - BUSY means the local LED effect worker is actively rendering frames.
- * - While BUSY, the dedicated status strip stops acting like a plain status LED
- *   and mirrors the live matrix frame output from led_matrix.c.
- * - Brain-driven idle colors still arrive through CMD_MATRIX_* commands, but
- *   those strip paint commands are ignored while BUSY so the local mirror
- *   cannot be overwritten mid-effect.
- */
-
-#define LED_FLASH_READY_R 180U
-#define LED_FLASH_READY_G 70U
-#define LED_FLASH_READY_B 255U
-#define LED_FLASH_BUSY_R 40U
-#define LED_FLASH_BUSY_G 100U
-#define LED_FLASH_BUSY_B 255U
-#define LED_FLASH_DATA_READY_R LED_FLASH_READY_R
-#define LED_FLASH_DATA_READY_G LED_FLASH_READY_G
-#define LED_FLASH_DATA_READY_B LED_FLASH_READY_B
-#define LED_FLASH_STATUS_IDLE_BRIGHTNESS 96U
-#define LED_FLASH_STATUS_ACTIVE_BRIGHTNESS 255U
-#define LED_FLASH_STATUS_ERROR_BRIGHTNESS 160U
 
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t color_id = 0;
@@ -69,32 +45,25 @@ typedef struct {
 
 static void refresh_status_strip(uint8_t status)
 {
-    esp_err_t err = status_strip_ensure_ready(&kStatusStripConfig);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Status strip unavailable: %s", esp_err_to_name(err));
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
+    led_contract_rgb_t color = led_contract_status_color(status, identity);
+    if (status_strip_ensure_ready(&kStatusStripConfig) != ESP_OK) {
         return;
     }
+    status_strip_fill(color.r, color.g, color.b);
+    status_strip_set_brightness(led_contract_status_brightness(status));
+    (void)status_strip_show();
+}
 
-    if ((status & STATUS_ERROR) != 0U) {
-        status_strip_fill(255, 0, 0);
-        status_strip_set_brightness(LED_FLASH_STATUS_ERROR_BRIGHTNESS);
-    } else if ((status & STATUS_BUSY) != 0U) {
-        status_strip_fill(LED_FLASH_BUSY_R, LED_FLASH_BUSY_G, LED_FLASH_BUSY_B);
-        status_strip_set_brightness(LED_FLASH_STATUS_ACTIVE_BRIGHTNESS);
-    } else if ((status & STATUS_DATA_READY) != 0U) {
-        status_strip_fill(LED_FLASH_DATA_READY_R,
-                          LED_FLASH_DATA_READY_G,
-                          LED_FLASH_DATA_READY_B);
-        status_strip_set_brightness(LED_FLASH_STATUS_IDLE_BRIGHTNESS);
-    } else {
-        status_strip_fill(LED_FLASH_READY_R, LED_FLASH_READY_G, LED_FLASH_READY_B);
-        status_strip_set_brightness(LED_FLASH_STATUS_IDLE_BRIGHTNESS);
-    }
-
-    err = status_strip_show();
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Status strip show failed: %s", esp_err_to_name(err));
-    }
+static void show_status_matrix(uint8_t status)
+{
+    led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
+    led_contract_rgb_t color = led_contract_status_color(status, identity);
+    matrix_set_brightness(led_contract_status_brightness(status));
+    matrix_clear();
+    matrix_show();
+    matrix_fill(color.r, color.g, color.b);
+    matrix_show();
 }
 
 static bool is_status_strip_command(i2c_command_t cmd)
@@ -119,6 +88,7 @@ static void set_current_status(uint8_t status)
 
     // Any non-busy state gives the strip back to the simple status-color renderer.
     led_matrix_set_status_mirror(false);
+    show_status_matrix(status);
     refresh_status_strip(status);
 }
 
@@ -183,6 +153,7 @@ esp_err_t command_handler_init(void) {
         return ESP_FAIL;
     }
 
+    show_status_matrix(STATUS_READY);
     refresh_status_strip(current_status);
     return ESP_OK;
 }
@@ -298,15 +269,6 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
                 set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
-            }
-            break;
-
-        case CMD_PLAY_NOTE:
-            if (len >= 2 && s_action_queue) {
-                led_action_t action = {.type = ACTION_PLAY_NOTE, .value = buffer[1]};
-                if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
-                    ESP_LOGW(TAG, "Action queue full, dropping PLAY_NOTE");
-                }
             }
             break;
 

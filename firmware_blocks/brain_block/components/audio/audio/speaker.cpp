@@ -40,6 +40,12 @@ static const char *TAG = "AUDIO";
 #define SPEAKER_AMP_ENABLE_GPIO 5
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
 
+static void speaker_amp_set_enabled(bool on) {
+    int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
+    int level = on ? level_on : (1 - level_on);
+    gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
+}
+
 // Set true after successful speaker_init().
 static bool s_inited = false;
 
@@ -140,7 +146,6 @@ esp_err_t speaker_init(void)
 // Called by: optional shutdown paths (not heavily used right now)
 void speaker_deinit(void)
 {
-    // Lightweight deinit for now (task teardown not implemented yet).
     speaker_amp_set_enabled(false);
     s_inited = false;
 }
@@ -177,38 +182,20 @@ esp_err_t speaker_stop(void)
 // speaker_play_boot_sound
 // --------------------------------------------------------------------------
 // Called by: startup flow in main.
-// Calls: WAVFileReader + DACOutput::setSampleSource + delay_ms.
+// Calls: speaker_play_tone + delay_ms.
 esp_err_t speaker_play_boot_sound(void)
 {
     if (!s_inited || !s_dac) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot sound");
-
-    // Reader parses embedded WAV and becomes the active sample source.
-    WAVFileReader reader(bootupsound_wav_start, bootupsound_wav_end);
-    reader.setGain(volume_to_gain(s_volume_percent));
-
-    // Convert data length into rough playback duration.
-    int data_bytes = reader.getDataBytes();
-    int bytes_per_sec = reader.sampleRate() * 4; // 16-bit stereo => 4 bytes/frame
-    uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 /
-                                      (bytes_per_sec ? bytes_per_sec : 1));
-
-    // Add margin so buffered data drains fully before switching back to silence.
-    duration_ms += 300;
-
-    s_dac->setSampleSource(&reader);
-    delay_ms(duration_ms);
-
-    // Return to idle source after playback window.
-    s_dac->setSampleSource(&s_silence);
-
-    // Short settle delay so in-flight frame reads complete.
-    delay_ms(50);
-
-    ESP_LOGI(TAG, "Boot sound finished");
+    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
+    (void)speaker_play_tone(440, 100);
+    delay_ms(40);
+    (void)speaker_play_tone(660, 100);
+    delay_ms(40);
+    (void)speaker_play_tone(880, 130);
+    ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
 }
 
@@ -258,7 +245,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 
     // Keep requested frequency, but lower magnitude to avoid clipping.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, hz, tone_magnitude);
+    SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);

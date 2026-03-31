@@ -3,11 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "battery_monitor.h"
+
 LV_FONT_DECLARE(mochi_boom_28);
 LV_FONT_DECLARE(mochi_boom_34);
 
 #define CONTROL_FLOW_ANIM_PERIOD_MS 70U
 #define CONTROL_FLOW_ANIM_TICKS     28U
+#define BATTERY_REFRESH_MS          3000U
 #define CONTROL_FLOW_SCREEN_W       240
 #define CONTROL_FLOW_SCREEN_H       320
 #define CONTROL_FLOW_CARD_IDLE_X    14
@@ -34,6 +37,12 @@ typedef struct {
     uint8_t b;
 } rgb8_t;
 
+typedef struct {
+    lv_obj_t *container;
+    lv_obj_t *fill;
+    lv_obj_t *label;
+} battery_indicator_t;
+
 static lv_obj_t *s_screen;
 static lv_obj_t *s_disco_layer;
 static lv_obj_t *s_disco_tiles[DISCO_TILE_COUNT];
@@ -45,6 +54,7 @@ static lv_obj_t *s_running_status_label;
 static lv_obj_t *s_title_label;
 static lv_obj_t *s_center_icon_label;
 static lv_obj_t *s_value_label;
+static battery_indicator_t s_battery;
 static lv_obj_t *s_submit_button;
 static lv_obj_t *s_secondary_button;
 static lv_obj_t *s_minus_button;
@@ -54,6 +64,7 @@ static lv_timer_t *s_state_timer;
 static control_flow_ui_config_t s_cfg;
 static uint32_t s_current_value;
 static uint32_t s_anim_tick;
+static uint32_t s_last_battery_refresh_ms;
 static bool s_running;
 static volatile bool s_pending_execute;
 static volatile bool s_pending_idle;
@@ -65,6 +76,10 @@ static void set_button_palette(lv_obj_t *button, uint32_t color);
 static void start_running_state(void);
 static void disco_layer_create(lv_obj_t *parent);
 static void disco_anim_apply(uint32_t tick);
+static uint32_t battery_color_for_percent(unsigned percent);
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void refresh_battery_indicator(void);
 
 static uint32_t clamp_value(uint32_t value)
 {
@@ -109,6 +124,88 @@ static uint32_t disco_neon(uint32_t index)
         0xFFAA33u, 0xCC66FFu,
     };
     return k_neon[index % (sizeof(k_neon) / sizeof(k_neon[0]))];
+}
+
+static uint32_t battery_color_for_percent(unsigned percent)
+{
+    if (percent >= 60U) {
+        return 0x52F7A6u;
+    }
+    if (percent >= 30U) {
+        return 0xFFE066u;
+    }
+    return 0xFF6B6Bu;
+}
+
+static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator)
+{
+    if (parent == NULL || indicator == NULL) {
+        return;
+    }
+
+    indicator->container = lv_obj_create(parent);
+    lv_obj_remove_style_all(indicator->container);
+    lv_obj_set_size(indicator->container, 74, 28);
+    lv_obj_align(indicator->container, LV_ALIGN_TOP_RIGHT, -10, 10);
+    lv_obj_set_style_bg_color(indicator->container, lv_color_hex(0x0E1628u), 0);
+    lv_obj_set_style_bg_opa(indicator->container, LV_OPA_70, 0);
+    lv_obj_set_style_border_color(indicator->container, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_border_opa(indicator->container, LV_OPA_30, 0);
+    lv_obj_set_style_border_width(indicator->container, 1, 0);
+    lv_obj_set_style_radius(indicator->container, 14, 0);
+    lv_obj_clear_flag(indicator->container, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *body = lv_obj_create(indicator->container);
+    lv_obj_remove_style_all(body);
+    lv_obj_set_size(body, 28, 14);
+    lv_obj_align(body, LV_ALIGN_RIGHT_MID, -8, 0);
+    lv_obj_set_style_border_color(body, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_border_width(body, 2, 0);
+    lv_obj_set_style_border_opa(body, LV_OPA_90, 0);
+    lv_obj_set_style_radius(body, 4, 0);
+    lv_obj_set_style_bg_opa(body, LV_OPA_TRANSP, 0);
+
+    lv_obj_t *cap = lv_obj_create(indicator->container);
+    lv_obj_remove_style_all(cap);
+    lv_obj_set_size(cap, 4, 8);
+    lv_obj_align_to(cap, body, LV_ALIGN_OUT_RIGHT_MID, 2, 0);
+    lv_obj_set_style_bg_color(cap, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_bg_opa(cap, LV_OPA_80, 0);
+    lv_obj_set_style_radius(cap, 2, 0);
+
+    indicator->fill = lv_obj_create(body);
+    lv_obj_remove_style_all(indicator->fill);
+    lv_obj_set_size(indicator->fill, 20, 8);
+    lv_obj_align(indicator->fill, LV_ALIGN_LEFT_MID, 2, 0);
+    lv_obj_set_style_radius(indicator->fill, 2, 0);
+    lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(100U)), 0);
+    lv_obj_set_style_bg_opa(indicator->fill, LV_OPA_COVER, 0);
+
+    indicator->label = lv_label_create(indicator->container);
+    lv_obj_set_style_text_color(indicator->label, lv_color_hex(0xFFFFFFu), 0);
+    lv_obj_set_style_text_font(indicator->label, LV_FONT_DEFAULT, 0);
+    lv_obj_align(indicator->label, LV_ALIGN_LEFT_MID, 0, 0);
+}
+
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+{
+    if (indicator == NULL || indicator->container == NULL || indicator->fill == NULL || indicator->label == NULL) {
+        return;
+    }
+
+    if (percent > 100U) {
+        percent = 100U;
+    }
+
+    uint32_t fill_width = 4U + (percent * 16U) / 100U;
+    lv_obj_set_width(indicator->fill, (int32_t)fill_width);
+    lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(percent)), 0);
+    lv_label_set_text_fmt(indicator->label, "%u%%", percent);
+}
+
+static void refresh_battery_indicator(void)
+{
+    update_battery_indicator(&s_battery, (unsigned)battery_monitor_get_percent());
 }
 
 /* Integer triangle wave in [0, span] for smooth bouncing without libm. */
@@ -426,6 +523,12 @@ static void state_timer_cb(lv_timer_t *timer)
         update_value_label();
     }
 
+    uint32_t now_ms = lv_tick_get();
+    if ((now_ms - s_last_battery_refresh_ms) >= BATTERY_REFRESH_MS) {
+        s_last_battery_refresh_ms = now_ms;
+        refresh_battery_indicator();
+    }
+
     if (s_pending_execute) {
         s_pending_execute = false;
         if (s_running) {
@@ -598,6 +701,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_pending_execute = false;
     s_pending_idle = false;
     s_pending_value_refresh = false;
+    s_last_battery_refresh_ms = 0;
     s_screen = NULL;
     s_disco_layer = NULL;
     memset(s_disco_tiles, 0, sizeof(s_disco_tiles));
@@ -609,6 +713,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_title_label = NULL;
     s_center_icon_label = NULL;
     s_value_label = NULL;
+    memset(&s_battery, 0, sizeof(s_battery));
     s_submit_button = NULL;
     s_secondary_button = NULL;
     s_minus_button = NULL;
@@ -631,6 +736,10 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_remove_style_all(s_screen);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
     lv_obj_clear_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    create_battery_indicator(s_screen, &s_battery);
+    refresh_battery_indicator();
+    s_last_battery_refresh_ms = lv_tick_get();
 
     disco_layer_create(s_screen);
 
@@ -683,6 +792,9 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_move_foreground(s_title_label);
     lv_obj_move_foreground(s_status_label);
     lv_obj_move_foreground(s_running_status_label);
+    if (s_battery.container != NULL) {
+        lv_obj_move_foreground(s_battery.container);
+    }
 
     if (s_cfg.supports_value) {
         s_control_card = lv_obj_create(s_screen);

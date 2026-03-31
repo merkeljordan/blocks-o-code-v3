@@ -1,3 +1,5 @@
-# Matches sdkconfig: Arduino + esp_adc need this so legacy adc_legacy.c does not
-# abort() at startup (see Driver Configurations -> Legacy ADC Driver).
+CONFIG_FREERTOS_HZ=1000
 CONFIG_ADC_SKIP_LEGACY_CONFLICT_CHECK=y
+CONFIG_LV_USE_GIF=n
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"

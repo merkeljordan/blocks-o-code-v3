@@ -3,11 +3,13 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
 #include "battery_monitor.h"
 #include "tft_ui.h"
 #include "command_handler.h"
+#include "startup_guard.h"
 
 extern void initArduino(void);
 
@@ -39,6 +41,8 @@ void app_main(void) {
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "    LED COLOR FLASH BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
+
+    startup_power_guard();
 
     initArduino();
 

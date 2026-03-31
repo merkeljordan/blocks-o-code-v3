@@ -19,7 +19,7 @@ extern uint8_t end_if_block_get_status_flags(void);
 static const char *TAG = "END_IF_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x0A
+#define MY_ADDRESS      0x11
 #define MY_BLOCK_TYPE   BLOCK_TYPE_END_IF
 
 // ============================================================================

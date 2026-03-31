@@ -3,10 +3,13 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "driver/gpio.h"
 #include "i2c_protocol.h"
 #include "audio_speaker.h"
+#include "battery_monitor.h"
 #include "led_matrix.h"
 #include "command_handler.h"
+#include "startup_guard.h"
 
 extern void initArduino(void);
 
@@ -15,6 +18,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 static const char *TAG = "BLOCK_TEMPLATE";
+// Keep high-current peripherals quiescent while rails settle.
 
 // ============================================================================
 // MAIN - Only initialization and task creation
@@ -24,6 +28,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "    BLOCK TEMPLATE BOOT");
     ESP_LOGI(TAG, "========================================");
 
+    startup_power_guard();
     initArduino();
 
     esp_err_t ret = speaker_init();
@@ -39,8 +44,7 @@ void app_main(void) {
         return;
     }
 
-    // Show startup animation
-    led_matrix_startup_animation();
+    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

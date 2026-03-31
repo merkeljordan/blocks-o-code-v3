@@ -21,7 +21,7 @@ extern uint8_t then_block_get_status_flags(void);
 static const char *TAG = "THEN_BLOCK";
 
 // Fixed child-bus address/type for the THEN block.
-#define MY_ADDRESS      0x09
+#define MY_ADDRESS      0x0A
 #define MY_BLOCK_TYPE   BLOCK_TYPE_THEN
 
 // Simple register map for Brain-side WHOAMI/status reads.

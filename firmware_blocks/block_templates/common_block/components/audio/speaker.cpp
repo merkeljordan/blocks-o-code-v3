@@ -89,12 +89,15 @@ esp_err_t speaker_play_boot_sound(void) {
     if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
 
     ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
-    // "do do do" startup noise.
     (void)speaker_play_tone(440, 100);
+    delay_ms(40);
     (void)speaker_play_tone(660, 100);
+    delay_ms(40);
     (void)speaker_play_tone(880, 130);
+    ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
 }
+
 
 esp_err_t speaker_play_wav(const uint8_t *data, size_t len) {
     if (!s_inited || !s_dac || !data || len == 0) return ESP_ERR_INVALID_ARG;

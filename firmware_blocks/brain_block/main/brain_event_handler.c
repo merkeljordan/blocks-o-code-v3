@@ -320,11 +320,14 @@ static void dispatch_output_action(block_type_t step_type) {
         }
     }
 
-    // Phase 2: broadcast execute to all present blocks.
+    // Phase 2: broadcast execute to blocks matching this step type.
     bool measured_music_latency = false;
     for (int i = 0; i < config_snapshot.block_count; i++) {
         const block_config_entry_t *entry = &config_snapshot.blocks[i];
         if (!entry->present) {
+            continue;
+        }
+        if (entry->block_type != step_type) {
             continue;
         }
 
@@ -611,7 +614,6 @@ static bool process_block_event(uint8_t block_addr,
     }
 
     if (event_id == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
-        // Any press sets the condition true; executor will clear after consuming.
         uint8_t pressed = 1;
         if (payload && payload_len >= 1) {
             pressed = payload[0];
@@ -795,7 +797,6 @@ void brain_executor_tick(void) {
     } else if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
         if (s_executor_ctx.button_pressed) {
             s_executor_ctx.state = EXECUTOR_RUNNING;
-            // Auto-clear after a single press is consumed.
             s_executor_ctx.button_pressed = false;
         } else {
             return;
@@ -822,8 +823,7 @@ void brain_executor_tick(void) {
     }
 
     switch (current) {
-        case BLOCK_TYPE_DELAY:
-        {
+        case BLOCK_TYPE_DELAY: {
             uint32_t delay_ms = s_executor_params.delay_ms;
             if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
                 s_delay_ms_valid_by_pc[s_executor_ctx.pc]) {
@@ -849,7 +849,6 @@ void brain_executor_tick(void) {
                 return;
             }
 
-            // Condition true: consume the press so IF gates on "any press" once.
             s_executor_ctx.button_pressed = false;
             int then_index = find_then_index(s_executor_ctx.pc, (uint8_t)end_if_index);
             s_executor_ctx.pc = (then_index >= 0) ? (uint8_t)(then_index + 1) : (uint8_t)(s_executor_ctx.pc + 1);

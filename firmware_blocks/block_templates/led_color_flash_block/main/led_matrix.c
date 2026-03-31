@@ -54,10 +54,16 @@
      uint8_t r, g, b;
  } rgb_t;
 
- static led_strip_handle_t led_strip = NULL;
- static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
- static rgb_t matrix_pixels[LED_MATRIX_SIZE];
- static bool status_mirror_enabled = false;
+static led_strip_handle_t led_strip = NULL;
+static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
+static rgb_t matrix_pixels[LED_MATRIX_SIZE];
+static bool status_mirror_enabled = false;
+
+static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
+static void fill_scaled(uint8_t r, uint8_t g, uint8_t b);
+static void show(void);
+static void clear_and_show(void);
+static void wheel_color(uint8_t pos, uint8_t *r, uint8_t *g, uint8_t *b);
  
  /* ── Per-pattern colour palette ────────────────────────────────────────
   *
@@ -65,8 +71,8 @@
   *  matrix_brightness before writing to the hardware.  This keeps the
   *  palette readable and allows runtime brightness changes.            */
  
- static const rgb_t PATTERN_COLORS[10] = {
-     [0] = {  0,   0,   0},   /* off   */
+static const rgb_t PATTERN_COLORS[10] = {
+    [0] = {  0,   0,   0},   /* cosmic burst (multi-color fx, base unused) */
      [1] = {255,   0,   0},   /* red   */
      [2] = {  0, 255,   0},   /* green */
      [3] = {  0,   0, 255},   /* blue  */
@@ -78,11 +84,11 @@
      [9] = {255, 255, 255},   /* white  */
  };
  
- static const char *PATTERN_NAMES[10] = {
-     "Lights Off",
-     "Color Wipe",
-     "Theater Chase",
-     "Larson Scanner",
+static const char *PATTERN_NAMES[10] = {
+    "Cosmic Burst",
+    "Color Wipe",
+    "Theater Chase",
+    "Larson Scanner",
      "Breathe",
      "Rainbow Cycle",
      "Sparkle",
@@ -102,6 +108,88 @@ static inline uint8_t scale8(uint8_t value, uint8_t brightness) {
 
 static void clear_matrix_buffer(void) {
     memset(matrix_pixels, 0, sizeof(matrix_pixels));
+}
+
+static void fx_preview_magic_idle(void) {
+    static const rgb_t k_preview_colors[] = {
+        {255, 80, 0},
+        {255, 0, 180},
+        {0, 200, 255},
+        {160, 255, 40},
+    };
+    const size_t color_count = sizeof(k_preview_colors) / sizeof(k_preview_colors[0]);
+
+    clear_and_show();
+    for (uint8_t frame = 0; frame < 12U; ++frame) {
+        clear_matrix_buffer();
+        for (uint16_t i = 0; i < LED_MATRIX_SIZE; ++i) {
+            uint8_t wave = (uint8_t)((frame * 17U) + (i * 13U));
+            if ((wave % 32U) < 16U) {
+                rgb_t color = k_preview_colors[(frame + i) % color_count];
+                set_pixel_scaled(i, color.r, color.g, color.b);
+            }
+        }
+        show();
+        vTaskDelay(pdMS_TO_TICKS(35));
+    }
+
+    for (int fade = 200; fade >= 0; fade -= 40) {
+        uint8_t level = (uint8_t)fade;
+        fill_scaled(level, (uint8_t)(level / 3U), level);
+        show();
+        vTaskDelay(pdMS_TO_TICKS(24));
+    }
+
+    clear_and_show();
+}
+
+static void fx_cosmic_burst(uint8_t cycles)
+{
+    clear_and_show();
+
+    for (uint8_t cycle = 0; cycle < cycles; ++cycle) {
+        for (uint8_t frame = 0; frame < 36U; ++frame) {
+            clear_matrix_buffer();
+
+            for (uint16_t i = 0; i < LED_MATRIX_SIZE; ++i) {
+                uint8_t wheel_pos = (uint8_t)((frame * 9U) + (i * 17U) + (cycle * 23U));
+                uint8_t r = 0U, g = 0U, b = 0U;
+                wheel_color(wheel_pos, &r, &g, &b);
+
+                uint8_t shimmer = (uint8_t)((frame * 5U) + (i * 11U));
+                if ((shimmer % 24U) < 18U) {
+                    set_pixel_scaled(i, r, g, b);
+                }
+            }
+
+            // Add a bright center-out burst every few frames to make digit 0 feel special.
+            if ((frame % 9U) == 0U) {
+                uint16_t mid = LED_MATRIX_SIZE / 2U;
+                for (uint16_t offset = 0; offset < 3U; ++offset) {
+                    uint16_t left = (mid > offset) ? (mid - 1U - offset) : 0U;
+                    uint16_t right = mid + offset;
+                    if (left < LED_MATRIX_SIZE) {
+                        set_pixel_scaled(left, 255U, 255U, 255U);
+                    }
+                    if (right < LED_MATRIX_SIZE) {
+                        set_pixel_scaled(right, 255U, 255U, 255U);
+                    }
+                }
+            }
+
+            show();
+            vTaskDelay(pdMS_TO_TICKS(28));
+        }
+    }
+
+    for (int fade = 255; fade >= 0; fade -= 32) {
+        uint8_t level = (uint8_t)fade;
+        fill_scaled(level, (uint8_t)(level / 2U), 255U);
+        show();
+        vTaskDelay(pdMS_TO_TICKS(18));
+    }
+
+    clear_and_show();
 }
 
 static void render_status_strip_mirror(void) {
@@ -514,7 +602,7 @@ void led_flash_play_preview(uint8_t color_id) {
     ESP_LOGI(TAG, "Preview pattern %u: %s", id, PATTERN_NAMES[id]);
 
     switch (id) {
-        case 0: clear_and_show();                          break;
+        case 0: fx_preview_magic_idle();                  break;
         case 1: fx_color_wipe(c.r, c.g, c.b, 1);         break;
         case 2: fx_theater_chase(c.r, c.g, c.b, 5);       break;
         case 3: fx_larson_scanner(c.r, c.g, c.b, 2);      break;
@@ -535,7 +623,7 @@ void led_flash_play_preview(uint8_t color_id) {
      ESP_LOGI(TAG, "Execute pattern %u: %s", id, PATTERN_NAMES[id]);
  
     switch (id) {
-        case 0: clear_and_show();                          break;
+        case 0: fx_cosmic_burst(2);                       break;
         case 1: fx_color_wipe(c.r, c.g, c.b, 2);         break;
         case 2: fx_theater_chase(c.r, c.g, c.b, 10);      break;
         case 3: fx_larson_scanner(c.r, c.g, c.b, 4);      break;

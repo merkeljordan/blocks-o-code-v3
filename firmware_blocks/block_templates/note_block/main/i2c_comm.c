@@ -22,7 +22,7 @@ extern uint8_t note_block_get_pending_event_len(void);
 static const char *TAG = "NOTE_BLOCK";
 
 // Fixed child-bus address/type for the Note block.
-#define MY_ADDRESS      0x0F
+#define MY_ADDRESS      0x0E
 #define MY_BLOCK_TYPE   BLOCK_TYPE_NOTE
 
 // Simple register map for Brain-side WHOAMI/status reads.
@@ -48,12 +48,23 @@ static int is_command_byte(uint8_t b)
 {
     switch ((i2c_command_t)b) {
         case CMD_PING:
-        case CMD_GET_STATUS:
         case CMD_GET_TYPE:
+        case CMD_SET_LED:
+        case CMD_GET_STATUS:
         case CMD_GET_DATA:
+        case CMD_PLAY_NOTE:
         case CMD_EXECUTE:
         case CMD_RESET:
-        case CMD_PLAY_NOTE:
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_MATRIX_FILL:
+        case CMD_MATRIX_SET_PIXEL:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SET_ROW:
+        case CMD_MATRIX_SET_COLUMN:
+        case CMD_MATRIX_DRAW_PATTERN:
+        case CMD_MATRIX_BRIGHTNESS:
+        case CMD_MATRIX_SHOW:
             return 1;
         default:
             return 0;
