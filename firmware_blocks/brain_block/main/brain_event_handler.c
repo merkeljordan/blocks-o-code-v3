@@ -15,7 +15,6 @@
 #include "freertos/task.h"
 
 #include "brain_block.h"
-#include "audio_speaker.h"
 
 static const char *TAG = "brain_evt";
 static brain_validation_state_t s_validation_state;
@@ -34,7 +33,6 @@ static uint64_t s_last_validation_block_log_ms;
 static uint32_t s_validation_block_attempts_since_last_log;
 
 #define MUSIC_EXEC_BUSY_TIMEOUT_MS   200U
-#define MUSIC_EXEC_LATENCY_TARGET_MS 50U
 
 static uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
@@ -130,31 +128,6 @@ static int find_then_index(uint8_t start_index, uint8_t end_index) {
     return -1;
 }
 
-static bool find_first_block_address_by_type(block_type_t type, uint8_t *out_addr) {
-    if (out_addr == NULL) {
-        return false;
-    }
-
-    const block_config_state_t *config = block_config_manager_get_state();
-    if (config == NULL) {
-        return false;
-    }
-
-    for (int i = 0; i < config->block_count; i++) {
-        const block_config_entry_t *entry = &config->blocks[i];
-        if (!entry->present) {
-            continue;
-        }
-        if (entry->block_type != type) {
-            continue;
-        }
-        *out_addr = entry->i2c_address;
-        return true;
-    }
-
-    return false;
-}
-
 static block_type_t get_block_type_by_addr(uint8_t addr)
 {
     const block_config_state_t *config = block_config_manager_get_state();
@@ -177,8 +150,9 @@ static block_type_t get_block_type_by_addr(uint8_t addr)
 static void dispatch_output_action(block_type_t step_type) {
     /*
      * Broadcast execution model:
-     * - Output steps are broadcast to all blocks of the relevant output type.
-     * - Some output types require a pre-exec config push (e.g., LED_FLASH color_id).
+    * - Any output step triggers ALL present blocks.
+     * - Pre-exec config pushes are applied to matching block classes first
+     *   (e.g., LED_FLASH color_id) before broadcast EXECUTE.
      */
     block_config_state_t config_snapshot;
     if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
@@ -190,119 +164,10 @@ static void dispatch_output_action(block_type_t step_type) {
     uint8_t block_present = 0;
     uint8_t exec_ok = 0;
 
-    // NOTE: Prefer executing the child NOTE block's configured playback (CMD_EXECUTE),
-    // so it always plays the exact sequence stored in the NOTE block UI (after SUBMIT).
-    // If no NOTE blocks are present, fall back to the legacy behavior that plays
-    // from Brain-side remembered parameters (CMD_PLAY_NOTE).
-    if (step_type == BLOCK_TYPE_NOTE) {
-        uint8_t executed_note_blocks = 0;
-        for (int i = 0; i < config_snapshot.block_count; i++) {
-            const block_config_entry_t *entry = &config_snapshot.blocks[i];
-            if (!entry->present) {
-                continue;
-            }
-            if (entry->block_type != BLOCK_TYPE_NOTE) {
-                continue;
-            }
-
-            esp_err_t exec_ret = i2c_execute(entry->i2c_address);
-            if (exec_ret == ESP_OK) {
-                executed_note_blocks++;
-            } else {
-                ESP_LOGW(TAG, "NOTE CMD_EXECUTE failed addr=0x%02X (ret=%d)",
-                         entry->i2c_address, (int)exec_ret);
-            }
-        }
-
-        if (executed_note_blocks > 0) {
-            ESP_LOGI(TAG, "NOTE executed on %u NOTE block(s)", (unsigned)executed_note_blocks);
-            return;
-        }
-
-        // Legacy fallback: play tones based on Brain-side note parameters.
-        uint8_t played = 0;
-        static const uint32_t k_note_freq_hz[7] = {
-            220U, /* A */
-            247U, /* B (246.94) */
-            262U, /* C (261.63) */
-            294U, /* D (293.66) */
-            330U, /* E (329.63) */
-            349U, /* F (349.32) */
-            392U, /* G */
-        };
-
-        uint8_t seq_len = s_executor_params.note_seq_len;
-        if (seq_len > 15) {
-            seq_len = 15;
-        }
-
-        if (seq_len == 0) {
-            uint8_t note_id = s_executor_params.note_id;
-            if (note_id >= 7) {
-                note_id = 0;
-            }
-
-            for (int i = 0; i < config_snapshot.block_count; i++) {
-                const block_config_entry_t *entry = &config_snapshot.blocks[i];
-                if (!entry->present) {
-                    continue;
-                }
-                // Any block type with a speaker should respond to CMD_PLAY_NOTE.
-                if (entry->block_type != BLOCK_TYPE_NOTE &&
-                    entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
-                    continue;
-                }
-                esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
-                if (play_ret != ESP_OK) {
-                    ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
-                             entry->i2c_address, (int)play_ret);
-                } else {
-                    played++;
-                }
-            }
-
-            // Also play on the Brain speaker (only for fallback mode).
-            (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
-
-            ESP_LOGI(TAG, "NOTE fallback broadcast played=%u note_id=%u",
-                     (unsigned)played, (unsigned)note_id);
-        } else {
-            for (uint8_t s = 0; s < seq_len; s++) {
-                uint8_t note_id = s_executor_params.note_seq[s];
-                if (note_id >= 7) {
-                    note_id = 0;
-                }
-
-                for (int i = 0; i < config_snapshot.block_count; i++) {
-                    const block_config_entry_t *entry = &config_snapshot.blocks[i];
-                    if (!entry->present) {
-                        continue;
-                    }
-                    if (entry->block_type != BLOCK_TYPE_NOTE &&
-                        entry->block_type != BLOCK_TYPE_MUSIC_SEQ) {
-                        continue;
-                    }
-                    esp_err_t play_ret = i2c_play_note(entry->i2c_address, note_id);
-                    if (play_ret != ESP_OK) {
-                        ESP_LOGW(TAG, "NOTE play failed addr=0x%02X (ret=%d)",
-                                 entry->i2c_address, (int)play_ret);
-                    } else {
-                        played++;
-                    }
-                }
-
-                (void)speaker_play_tone(k_note_freq_hz[note_id], 400U);
-            }
-
-            ESP_LOGI(TAG, "NOTE fallback broadcast played=%u seq_len=%u",
-                     (unsigned)played, (unsigned)seq_len);
-        }
-
-        return;
-    }
-
-    // Phase 1: push shared config updates (only needed for some step types).
-    if (step_type == BLOCK_TYPE_LED_FLASH) {
+    // Phase 1: push shared config updates required by specific classes.
+    // Because every output step fans out to every present block, keep LED params
+    // synchronized before issuing CMD_EXECUTE fan-out.
+    {
         for (int i = 0; i < config_snapshot.block_count; i++) {
             const block_config_entry_t *entry = &config_snapshot.blocks[i];
             if (!entry->present) {
@@ -320,14 +185,11 @@ static void dispatch_output_action(block_type_t step_type) {
         }
     }
 
-    // Phase 2: broadcast execute to blocks matching this step type.
+    // Phase 2: broadcast execute to ALL present blocks.
     bool measured_music_latency = false;
     for (int i = 0; i < config_snapshot.block_count; i++) {
         const block_config_entry_t *entry = &config_snapshot.blocks[i];
         if (!entry->present) {
-            continue;
-        }
-        if (entry->block_type != step_type) {
             continue;
         }
 
@@ -342,9 +204,7 @@ static void dispatch_output_action(block_type_t step_type) {
         }
 
         // Optional demo/metrics: only for MUSIC_SEQ steps, measure just the first block.
-        if (!measured_music_latency &&
-            step_type == BLOCK_TYPE_MUSIC_SEQ &&
-            entry->block_type == BLOCK_TYPE_MUSIC_SEQ) {
+        if (!measured_music_latency && entry->block_type == BLOCK_TYPE_MUSIC_SEQ) {
             uint32_t elapsed_ms = 0;
             uint8_t status = 0;
             esp_err_t busy_ret = wait_for_status_busy(entry->i2c_address,
@@ -365,7 +225,7 @@ static void dispatch_output_action(block_type_t step_type) {
         }
     }
 
-    ESP_LOGI(TAG, "BROADCAST action step=%s -> blocks=%u exec_ok=%u",
+    ESP_LOGI(TAG, "BROADCAST action step=%s -> targets=%u exec_ok=%u",
              block_type_to_string(step_type), (unsigned)block_present, (unsigned)exec_ok);
 }
 

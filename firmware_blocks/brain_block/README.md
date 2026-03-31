@@ -134,6 +134,14 @@ typedef enum {
 
 ## Code Flow
 
+### **Runtime Execution Semantics (Current)**
+
+- **Deterministic batched broadcast:** when the executor reaches an output step (`LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain fans out `CMD_EXECUTE` to **all present blocks** in deterministic configuration order.
+- **Shared delay tick:** `DELAY` steps are scheduled on the Brain's shared monotonic timebase (`wait_until_ms = now + delay_ms`) and resume on expiry.
+- **Per-context IF/LOOP evaluation:** `IF` and `LOOP` are interpreted at the current program-counter position, including nested boundary matching and per-position overrides (`loop_count`, `delay_ms`).
+
+See also: [Broadcast Execution Semantics](../../docs/architecture/broadcast-execution-semantics.md)
+
 ### **Initialization Sequence**
 ```
 1. app_main() starts

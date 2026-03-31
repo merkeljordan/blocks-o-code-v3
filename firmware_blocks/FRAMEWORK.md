@@ -6,7 +6,9 @@ This document defines the minimum contract and implementation checklist for ever
 ## System Model (Short)
 - The Brain Block is I2C master and discovers blocks by reading `REG_WHOAMI`.
 - Each block exposes a local configuration (via TFT or numpad).
-- When the Brain starts a program, it pulls each block's config and then sends execute commands in order.
+- When the Brain starts a program, it uses a tick-driven executor with deterministic program-counter flow.
+- On output trigger steps, the Brain broadcasts `CMD_EXECUTE` to all present blocks in deterministic order.
+- `DELAY` is Brain-scheduled on a shared monotonic tick; `IF/LOOP` are evaluated at current program-counter context.
 - Every block has: LED matrix, addressable LEDs, and a speaker.
 
 ## Common Block Contract (All Child Blocks)

@@ -2,6 +2,8 @@
 
 This document provides API reference for the ESP32 Brain Block firmware.
 
+Related decision spec: [Broadcast Execution Semantics](../architecture/broadcast-execution-semantics.md)
+
 ## App -> Brain Events
 
 ### `config_validation`
@@ -102,6 +104,10 @@ At each tick (`brain_executor_tick()`), the executor advances `pc` or transition
 **Output steps**:
 - For output/action block types (currently `LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain broadcasts `CMD_EXECUTE` to all present blocks.
 - For `LED_FLASH` steps, the Brain first pushes the current `color_id` to each LED flash block (via `i2c_set_led_color_id`) before broadcasting execute.
+
+**Optional future extension (not default):**
+- A two-phase sync pattern (`PREPARE` then short-window `GO`) may be added in a future protocol revision for tighter perceived simultaneity across target blocks.
+- Current/default behavior remains deterministic batched fan-out over standard I2C command dispatch.
 
 **DELAY** (`BLOCK_TYPE_DELAY`):
 - On a DELAY step, the executor sets `wait_until_ms = now + delay_ms` and enters `EXECUTOR_WAIT_DELAY`.

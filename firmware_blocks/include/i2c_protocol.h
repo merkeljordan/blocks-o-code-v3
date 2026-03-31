@@ -101,6 +101,20 @@ typedef enum {
 #define CHILD_I2C_ADDR_MAX 0x16u
 
 // ============================================================================
+// BRAIN EXECUTOR BROADCAST POLICY (v3)
+// ============================================================================
+// Policy is intentionally deterministic and matches Brain runtime behavior:
+// - Output trigger steps fan out CMD_EXECUTE to all present blocks.
+// - Fan-out order is deterministic (configuration snapshot order).
+// - DELAY timing uses Brain-side shared monotonic tick scheduling.
+// - IF/LOOP are evaluated at each program-counter context (not pre-frozen globally).
+#define BRAIN_BROADCAST_ALL_BLOCKS 1u
+#define BRAIN_BROADCAST_ALL_OUTPUTS BRAIN_BROADCAST_ALL_BLOCKS
+#define BRAIN_BROADCAST_DETERMINISTIC_ORDER 1u
+#define BRAIN_DELAY_SHARED_TICK 1u
+#define BRAIN_IF_LOOP_PER_PC_EVAL 1u
+
+// ============================================================================
 // LED MATRIX PATTERNS
 // ============================================================================
 

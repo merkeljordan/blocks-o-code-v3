@@ -57,6 +57,71 @@ class LedContractFlowTests(unittest.TestCase):
             with self.subTest(block=block):
                 self.assertIn(block, header)
 
+    def test_brain_broadcasts_all_present_blocks_on_output_trigger(self):
+        handler = (FW_ROOT / "brain_block" / "main" / "brain_event_handler.c").read_text(encoding="utf-8")
+        self.assertNotIn("if (!is_output_block(entry->block_type))", handler)
+        self.assertIn("BROADCAST action step=", handler)
+        self.assertIn("targets=", handler)
+        self.assertIn("i2c_set_led_color_id", handler)
+
+    def test_brain_preserves_delay_if_loop_executor_logic(self):
+        handler = (FW_ROOT / "brain_block" / "main" / "brain_event_handler.c").read_text(encoding="utf-8")
+        self.assertIn("s_executor_ctx.wait_until_ms = now_ms() + delay_ms;", handler)
+        self.assertIn("if (!s_executor_ctx.button_pressed)", handler)
+        self.assertIn("case BLOCK_TYPE_LOOP", handler)
+        self.assertIn("case BLOCK_TYPE_END_LOOP", handler)
+
+    def test_each_canonical_block_template_handles_cmd_execute(self):
+        # With all-block broadcast, every present child block must safely
+        # handle CMD_EXECUTE (even if behavior is marker/visual-only).
+        templates = [
+            "if_block",
+            "then_block",
+            "end_if_block",
+            "loop_block",
+            "end_loop_block",
+            "delay_block",
+            "buttonpress_block",
+            "note_block",
+            "music_sequence_block",
+            "led_color_flash_block",
+        ]
+
+        for template in templates:
+            with self.subTest(template=template):
+                main_dir = FW_ROOT / "block_templates" / template / "main"
+                c_files = sorted(main_dir.glob("*.c"))
+                self.assertTrue(c_files, f"No C sources found for template {template}")
+
+                merged = "\n".join(path.read_text(encoding="utf-8") for path in c_files)
+                self.assertIn(
+                    "case CMD_EXECUTE",
+                    merged,
+                    f"Template {template} must handle CMD_EXECUTE for all-block broadcast",
+                )
+
+    def test_long_running_templates_expose_busy_ready_status_on_execute(self):
+        # Long-running/actuation templates should advertise BUSY/READY state
+        # while handling CMD_EXECUTE so Brain-side orchestration can reason
+        # about execution progress.
+        templates = [
+            "delay_block",
+            "note_block",
+            "music_sequence_block",
+            "led_color_flash_block",
+        ]
+
+        for template in templates:
+            with self.subTest(template=template):
+                main_dir = FW_ROOT / "block_templates" / template / "main"
+                c_files = sorted(main_dir.glob("*.c"))
+                self.assertTrue(c_files, f"No C sources found for template {template}")
+
+                merged = "\n".join(path.read_text(encoding="utf-8") for path in c_files)
+                self.assertIn("case CMD_EXECUTE", merged)
+                self.assertIn("STATUS_BUSY", merged)
+                self.assertIn("STATUS_READY", merged)
+
 
 if __name__ == "__main__":
     unittest.main()
