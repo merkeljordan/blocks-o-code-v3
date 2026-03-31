@@ -107,7 +107,8 @@ static void set_status_flags(uint8_t status_flags)
     render_status_strip(g_status_flags);
 }
 
-// =====================================================================// PERIPHERALS
+// ============================================================================
+// PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
     initArduino();
