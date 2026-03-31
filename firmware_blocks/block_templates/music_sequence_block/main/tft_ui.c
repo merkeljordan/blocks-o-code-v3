@@ -74,6 +74,7 @@ static uint8_t battery_monitor_get_percent(void)
 #define PREVIEW_TASK_STACK_SIZE    4096
 #define PREVIEW_TASK_PRIORITY      4
 #define TFT_BACKLIGHT_ON_LEVEL     1
+#define TFT_BOOT_START_DELAY_MS    800
 
 #define PIN_NUM_BK_LIGHT           32
 #define PIN_NUM_SCLK               18
@@ -1045,6 +1046,7 @@ esp_err_t tft_ui_start(void)
         return ESP_ERR_NO_MEM;
     }
 
+    vTaskDelay(pdMS_TO_TICKS(TFT_BOOT_START_DELAY_MS));
     {
         gpio_config_t bk_cfg = {
             .pin_bit_mask = 1ULL << PIN_NUM_BK_LIGHT,

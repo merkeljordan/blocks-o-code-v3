@@ -65,6 +65,7 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
     m_data = nullptr;
     m_data_bytes = 0;
     m_num_channels = 1;
+    m_bits_per_sample = 16;
     m_sample_rate = 44100;
     m_pos = 0;
     m_gain_q15 = 32768; // Unity gain by default (no attenuation/boost).
@@ -110,6 +111,7 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
                 Serial.printf("ERROR: bit depth %d is not supported\n", bit_depth);
                 return;
             }
+            m_bits_per_sample = (int)bit_depth;
 
             found_fmt = true;
             Serial.printf("fmt: audio_format=%d, num_channels=%d, sample_rate=%d, bit_depth=%d\n",

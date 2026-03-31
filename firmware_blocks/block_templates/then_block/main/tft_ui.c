@@ -28,6 +28,10 @@ void tft_ui_start(void)
     };
 
 #if defined(ESP_PLATFORM)
+<<<<<<< HEAD
+=======
+    // Let supply rails settle after switch-on before enabling TFT stack.
+>>>>>>> origin/main
     vTaskDelay(pdMS_TO_TICKS(TFT_BOOT_START_DELAY_MS));
     esp_err_t err = control_flow_tft_hw_start(&k_cfg);
     if (err != ESP_OK) {

@@ -20,7 +20,15 @@ idf_component_register(
         espressif__esp_lcd_ili9341
         atanisoft__esp_lcd_touch_xpt2046
         esp_timer
+<<<<<<< HEAD
         battery_monitor
+=======
+)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    CONTROL_FLOW_TFT_UI_ENABLED=1
+    CONTROL_FLOW_TFT_PANEL_MIRROR_X=1
+>>>>>>> origin/main
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE CONTROL_FLOW_TFT_UI_ENABLED=1)

@@ -13,7 +13,11 @@ static const char *TAG = "SPEAKER";
 
 // Amplifier enable / shutdown. Set SPEAKER_AMP_ENABLE_ACTIVE_HIGH to 0 if low = enabled.
 #define SPEAKER_AMP_ENABLE_GPIO         5
+<<<<<<< HEAD
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH  0
+=======
+#define SPEAKER_AMP_ENABLE_ACTIVE_HIGH  0 // works if 0, but not 1
+>>>>>>> origin/main
 
 #define SPEAKER_LEDC_MODE       LEDC_LOW_SPEED_MODE
 #define SPEAKER_LEDC_TIMER      LEDC_TIMER_0

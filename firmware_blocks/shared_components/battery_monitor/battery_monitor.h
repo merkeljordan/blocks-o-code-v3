@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "esp_err.h"
@@ -10,6 +11,7 @@ extern "C" {
 
 void battery_monitor_update_voltage(float volts);
 uint8_t battery_monitor_get_percent(void);
+bool battery_monitor_is_charging(void);
 esp_err_t battery_monitor_start(void);
 
 #ifdef __cplusplus

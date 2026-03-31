@@ -88,7 +88,7 @@ esp_err_t speaker_stop(void) {
 esp_err_t speaker_play_boot_sound(void) {
     if (!s_inited || !s_dac) return ESP_ERR_INVALID_STATE;
 
-    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
+    ESP_LOGI(TAG, "Playing boot sound (440/660/880)");
     (void)speaker_play_tone(440, 100);
     delay_ms(40);
     (void)speaker_play_tone(660, 100);

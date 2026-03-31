@@ -9,11 +9,15 @@ sdkconfig.old
 # Dependency lock
 dependencies.lock
 
+# Dependency lock
+dependencies.lock
+
 # ESP-IDF managed dependencies (generated)
 **/managed_components/
 
 # VSCode
 .vscode/
+
 
 # IDE caches
 .cache/

@@ -15,7 +15,10 @@ extern void command_handle(i2c_command_t cmd,
                            uint8_t *tx,
                            size_t *tx_len);
 extern uint8_t loop_block_get_status_flags(void);
+<<<<<<< HEAD
 extern uint8_t loop_block_get_pending_data_len(void);
+=======
+>>>>>>> origin/main
 
 static const char *TAG = "LOOP_BLOCK";
 
@@ -38,7 +41,10 @@ static void init_registers(void) {
 static void refresh_dynamic_registers(void)
 {
     registers[REG_STATUS] = loop_block_get_status_flags();
+<<<<<<< HEAD
     registers[REG_DATA_LEN] = loop_block_get_pending_data_len();
+=======
+>>>>>>> origin/main
 }
 
 

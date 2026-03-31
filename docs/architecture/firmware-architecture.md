@@ -103,6 +103,15 @@ firmware_blocks/brain_block/
 - `brain_executor_stop()`
 - `brain_executor_tick()`
 
+### 6. Control-Flow Child UX + LED Mirroring
+
+Control-flow child firmware under `firmware_blocks/block_templates/if_block`, `then_block`, `end_if_block`, `loop_block`, `end_loop_block`, and `delay_block` now shares a common interaction model:
+
+- Local TFT UI renders the block-type label in idle mode.
+- `CMD_EXECUTE` triggers a short local "disco" running state so execution is visible on the child itself.
+- The shared `status_strip` component handles Brain-originated `CMD_MATRIX_*` commands so the Brain can paint idle type colors and execution brightness to each child strip.
+- `CMD_RESET` restores the idle TFT state and clears both matrix and status-strip surfaces.
+
 ## Task Architecture
 
 ### FreeRTOS Tasks

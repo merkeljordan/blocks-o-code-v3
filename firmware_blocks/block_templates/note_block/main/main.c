@@ -17,6 +17,12 @@
 #include "led_contract.h"
 #include "tft_ui.h"
 
+<<<<<<< HEAD
+=======
+extern void initArduino(void);
+extern void speaker_play_boot_sound(void);
+
+>>>>>>> origin/main
 // I2C glue is implemented in i2c_comm.c following the "new style" template.
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);

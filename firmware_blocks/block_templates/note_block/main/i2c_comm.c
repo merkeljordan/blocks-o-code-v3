@@ -48,6 +48,10 @@ static int is_command_byte(uint8_t b)
 {
     switch ((i2c_command_t)b) {
         case CMD_PING:
+<<<<<<< HEAD
+=======
+        case CMD_GET_STATUS:
+>>>>>>> origin/main
         case CMD_GET_TYPE:
         case CMD_SET_LED:
         case CMD_GET_STATUS:
@@ -166,6 +170,18 @@ void i2c_task(void *arg)
                      (unsigned)sizeof(tx_buf));
             continue;
         }
+
+        if (tx_len > 0U) {
+            (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
+            ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+        }
+
+        size_t tx_len = 0;
+        i2c_command_t cmd = (i2c_command_t)rx_buf[0];
+        const uint8_t *payload = (len > 1) ? &rx_buf[1] : NULL;
+        size_t payload_len = (len > 1) ? (size_t)(len - 1) : 0U;
+
+        command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
 
         if (tx_len > 0U) {
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));

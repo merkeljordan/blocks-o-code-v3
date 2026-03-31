@@ -25,10 +25,14 @@
 #include "i2c_protocol.h"
 #include "music_leds.h"
 #include "speaker.h"
+<<<<<<< HEAD
 #include "audio_speaker.h"
 #include "../../../shared_components/led_matrix/led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
+=======
+#include "status_strip.h"
+>>>>>>> origin/main
 #include "tft_ui.h"
 
 extern void initArduino(void);
@@ -40,11 +44,21 @@ void i2c_task(void *arg);
 
 #if CONFIG_FREERTOS_UNICORE
 #define EXEC_CORE_ID 0
+#define I2C_CORE_ID 0
 #else
-#define EXEC_CORE_ID 0
+#define EXEC_CORE_ID 1
+#define I2C_CORE_ID 1
 #endif
 
+#define EXEC_TASK_STACK_SIZE 6144
+#define I2C_TASK_STACK_SIZE 6144
+#define STACK_MONITOR_TASK_STACK_SIZE 3072
+#define STACK_MONITOR_PERIOD_MS 5000
+#define STACK_WARN_LOW_WATERMARK_WORDS 256
+#define STACK_MONITOR_VERBOSE 0
+
 static const char *TAG = "TPL_MUSIC_SEQ";
+<<<<<<< HEAD
 #define STARTUP_GUARD_SETTLE_MS 120
 static void startup_power_guard(void)
 {
@@ -72,15 +86,22 @@ static void startup_power_guard(void)
 
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 30
+=======
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+>>>>>>> origin/main
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
     .led_count = STATUS_STRIP_LED_COUNT,
 };
+<<<<<<< HEAD
 
 #define STACK_WARN_LOW_WATERMARK_WORDS 128
 #define STACK_MONITOR_PERIOD_MS        5000
 #define STACK_MONITOR_VERBOSE          0
+=======
+>>>>>>> origin/main
 
 static uint8_t g_selected_song = 0;
 static bool g_config_valid = false;
@@ -90,6 +111,7 @@ static uint8_t g_status_flags = STATUS_READY;
 static TaskHandle_t g_exec_task_handle = NULL;
 static TaskHandle_t g_i2c_task_handle = NULL;
 
+<<<<<<< HEAD
 static void render_status_strip(uint8_t status_flags)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_MUSIC_SEQ);
@@ -112,11 +134,17 @@ static void set_status_flags(uint8_t status_flags)
     }
 }
 
+=======
+>>>>>>> origin/main
 static void apply_startup_reset_state(void)
 {
     g_selected_song = 0;
     g_config_valid = false;
+<<<<<<< HEAD
     set_status_flags(STATUS_READY);
+=======
+    g_status_flags = STATUS_READY;
+>>>>>>> origin/main
 
     if (g_speaker_ready) {
         (void)speaker_stop();
@@ -128,12 +156,15 @@ static void apply_startup_reset_state(void)
     });
     tft_ui_set_status_message("Pick a song and tap Play!");
     (void)status_strip_reset(&kStatusStripConfig);
+<<<<<<< HEAD
     if (g_leds_ready) {
         music_leds_show_idle();
     } else {
         matrix_clear();
         matrix_show();
     }
+=======
+>>>>>>> origin/main
 }
 
 static void stack_monitor_task(void *arg)
@@ -214,7 +245,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(25);
+    speaker_set_volume(30);
     g_speaker_ready = true;
     speaker_play_boot_sound();
 
@@ -292,7 +323,11 @@ void command_handle(i2c_command_t cmd,
                                            cmd,
                                            rx,
                                            rx_len)) {
+<<<<<<< HEAD
         // Keep handling command below so matrix and strip stay mirrored.
+=======
+        return;
+>>>>>>> origin/main
     }
 
     switch (cmd) {
@@ -385,6 +420,7 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_RESET:
+<<<<<<< HEAD
             g_selected_song = 0;
             g_config_valid = false;
             g_status_flags = STATUS_READY;
@@ -396,6 +432,9 @@ void command_handle(i2c_command_t cmd,
                 .active_song_index = 0,
             });
             tft_ui_set_status_message("Pick a song and tap Play!");
+=======
+            apply_startup_reset_state();
+>>>>>>> origin/main
             break;
 
         default:
@@ -459,6 +498,7 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
+    (void)speaker_play_boot_sound();
 
     err = i2c_slave_init();
     if (err != ESP_OK) {
@@ -477,7 +517,10 @@ void app_main(void)
     }
 
     apply_startup_reset_state();
+<<<<<<< HEAD
     render_status_strip(g_status_flags);
+=======
+>>>>>>> origin/main
 
     err = battery_monitor_start();
     if (err != ESP_OK) {
@@ -488,9 +531,11 @@ void app_main(void)
     }
 
     ok_exec = xTaskCreatePinnedToCore(execution_task, "music_exec",
-                                      4096, NULL, 4, NULL, EXEC_CORE_ID);
+                                      EXEC_TASK_STACK_SIZE, NULL, 4,
+                                      &g_exec_task_handle, EXEC_CORE_ID);
     ok_i2c = xTaskCreatePinnedToCore(i2c_task, "music_i2c",
-                                     4096, NULL, 5, NULL, EXEC_CORE_ID);
+                                     I2C_TASK_STACK_SIZE, NULL, 5,
+                                     &g_i2c_task_handle, I2C_CORE_ID);
 
     if (ok_exec != pdPASS || ok_i2c != pdPASS) {
         ESP_LOGE(TAG, "Failed to create execution or I2C tasks");
@@ -498,6 +543,9 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
+
+    (void)xTaskCreate(stack_monitor_task, "music_stack_mon",
+                      STACK_MONITOR_TASK_STACK_SIZE, NULL, 1, NULL);
 
     ESP_LOGI(TAG, "%s block ready", BLOCK_NAME);
 }

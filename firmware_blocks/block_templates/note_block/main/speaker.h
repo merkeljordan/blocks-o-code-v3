@@ -12,3 +12,6 @@ esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms);
 // Common UX beeps
 void speaker_beep_ok(void);
 void speaker_beep_error(void);
+
+// Boot UX sound: 440 Hz -> 660 Hz -> 880 Hz.
+void speaker_play_boot_sound(void);

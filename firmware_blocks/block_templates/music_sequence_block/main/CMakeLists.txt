@@ -5,17 +5,24 @@ idf_component_register(
         "music_leds.c"
         "tft_ui.c"
         "speaker_music.c"
+<<<<<<< HEAD
         "../../../shared_components/led_matrix/led_matrix.c"
+=======
+>>>>>>> origin/main
         "../../../shared_components/status_strip/status_strip.c"
     INCLUDE_DIRS
         "."
         ".."
         "../.."
         "../../../include"
+<<<<<<< HEAD
         "../../../shared_components/led_matrix"
+=======
+>>>>>>> origin/main
         "../../../shared_components/status_strip"
     REQUIRES
         driver
+        led_strip
         esp_lcd
         esp_timer
         lvgl

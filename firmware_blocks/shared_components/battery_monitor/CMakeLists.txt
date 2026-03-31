@@ -1,6 +1,5 @@
 idf_component_register(
     SRCS "battery_monitor.c"
     INCLUDE_DIRS "."
-    REQUIRES driver
+    REQUIRES driver esp_adc esp_common log
 )
-

@@ -20,11 +20,20 @@ static inline void tft_ui_trigger_execute(void) {}
 static inline void tft_ui_set_idle(void) {}
 #endif
 
+#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
+#include "tft_ui.h"
+#else
+static inline void tft_ui_start(void) {}
+static inline void tft_ui_trigger_execute(void) {}
+static inline void tft_ui_set_idle(void) {}
+#endif
+
 extern void initArduino(void);
 
 // I2C slave transport implemented in i2c_comm.c
 extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
+<<<<<<< HEAD
 
 static const char *TAG = "BUTTON_BLOCK";
 #define STARTUP_GUARD_SETTLE_MS 120
@@ -93,6 +102,16 @@ static void set_status_flags(uint8_t status_flags)
     render_status_strip(g_status_flags);
 }
 
+=======
+
+// Legacy LED status task (still useful for debug output)
+extern void led_status_task(void *arg);
+
+static const char *TAG = "BUTTON_BLOCK";
+
+static uint8_t g_status_flags = STATUS_READY;
+
+>>>>>>> origin/main
 static struct {
     bool has_event;
     uint8_t event_id;
@@ -106,7 +125,11 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_BUTTON_PRESS;
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
+<<<<<<< HEAD
     set_status_flags(STATUS_DATA_READY);
+=======
+    g_status_flags |= STATUS_DATA_READY;
+>>>>>>> origin/main
 }
 
 uint8_t button_block_get_status_flags(void)
@@ -114,11 +137,14 @@ uint8_t button_block_get_status_flags(void)
     return g_status_flags;
 }
 
+<<<<<<< HEAD
 uint8_t button_block_get_pending_data_len(void)
 {
     return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
 }
 
+=======
+>>>>>>> origin/main
 // TFT/UI integration points:
 // - call button_block_execute_from_ui() when the user taps "Execute" (true).
 // - call button_block_pass_from_ui() when the user taps "Pass" (false).
@@ -148,7 +174,11 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
         case CMD_PING:
+<<<<<<< HEAD
             set_status_flags(g_pending_event.has_event ? STATUS_DATA_READY : STATUS_READY);
+=======
+            g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
+>>>>>>> origin/main
             break;
 
         case CMD_GET_STATUS:
@@ -169,18 +199,27 @@ void command_handle(i2c_command_t cmd,
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
                 g_pending_event.payload_len = 0;
+<<<<<<< HEAD
                 set_status_flags(STATUS_READY);
+=======
+                g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+>>>>>>> origin/main
             }
             break;
 
         case CMD_RESET:
             g_pending_event.has_event = false;
             g_pending_event.payload_len = 0;
+<<<<<<< HEAD
             set_status_flags(STATUS_READY);
+=======
+            g_status_flags = STATUS_READY;
+>>>>>>> origin/main
             tft_ui_set_idle();
             break;
 
         case CMD_EXECUTE:
+<<<<<<< HEAD
             set_status_flags(STATUS_BUSY);
             tft_ui_trigger_execute();
             break;
@@ -208,6 +247,10 @@ void command_handle(i2c_command_t cmd,
             matrix_show();
             (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
             break;
+=======
+            tft_ui_trigger_execute();
+            break;
+>>>>>>> origin/main
         default:
             break;
     }
@@ -219,8 +262,11 @@ void app_main(void)
     ESP_LOGI(TAG, "    BUTTON BLOCK BOOT");
     ESP_LOGI(TAG, "========================================");
 
+<<<<<<< HEAD
     startup_power_guard();
 
+=======
+>>>>>>> origin/main
     initArduino();
 
     esp_err_t ret = speaker_init();
@@ -237,7 +283,13 @@ void app_main(void)
     tft_ui_start();
     tft_ui_set_idle();
 
+<<<<<<< HEAD
     battery_monitor_start();
+=======
+    led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
+>>>>>>> origin/main
 
     ret = i2c_slave_init();
     if (ret != ESP_OK) {

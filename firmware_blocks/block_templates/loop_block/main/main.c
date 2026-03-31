@@ -9,8 +9,13 @@
 #include "audio_speaker.h"
 #include "battery_monitor.h"
 #include "led_matrix.h"
+<<<<<<< HEAD
 #include "status_strip.h"
 #include "led_contract.h"
+=======
+#include "command_handler.h"
+#include "status_strip.h"
+>>>>>>> origin/main
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
@@ -31,6 +36,7 @@ extern void i2c_task(void *arg);
 #define BLOCK_TYPE            BLOCK_TYPE_LOOP
 
 static const char *TAG = "LOOP_BLOCK";
+<<<<<<< HEAD
 #define STARTUP_GUARD_SETTLE_MS 120
 static void startup_power_guard(void)
 {
@@ -57,6 +63,10 @@ static void startup_power_guard(void)
 }
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 30
+=======
+#define STATUS_STRIP_GPIO      GPIO_NUM_13
+#define STATUS_STRIP_LED_COUNT 16
+>>>>>>> origin/main
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
@@ -75,6 +85,7 @@ static bool g_config_valid = false;
 
 static uint8_t g_status_flags = STATUS_READY;
 
+<<<<<<< HEAD
 static void render_status_strip(uint8_t status_flags)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
@@ -164,6 +175,60 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
 }
 
 // ============================================================================
+=======
+// ============================================================================
+// BLOCK -> BRAIN EVENT (STATUS_DATA_READY + CMD_GET_DATA)
+// ============================================================================
+static struct {
+    bool has_event;
+    uint8_t event_id;
+    uint8_t payload[8];
+    size_t payload_len;
+} g_pending_event;
+
+static void publish_loop_count_event(uint8_t loop_count)
+{
+    g_pending_event.has_event = true;
+    g_pending_event.event_id = BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT;
+    g_pending_event.payload[0] = loop_count;
+    g_pending_event.payload_len = 1;
+    g_status_flags |= STATUS_DATA_READY;
+}
+
+static void on_local_loop_count_changed(uint8_t loop_count)
+{
+    g_config.loop_count = (loop_count == 0) ? 1 : loop_count;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY | (g_pending_event.has_event ? STATUS_DATA_READY : 0);
+    publish_loop_count_event(g_config.loop_count);
+    speaker_beep_ok();
+}
+
+// Entry point for TFT/UI code running on this block:
+// call this when the user picks a new loop count.
+void loop_block_set_loop_count_from_ui(uint8_t loop_count)
+{
+    on_local_loop_count_changed(loop_count);
+}
+
+static void config_reset(void)
+{
+    g_config.loop_count = 1;
+    g_config_valid = true;
+    g_status_flags = STATUS_READY;
+    publish_loop_count_event(g_config.loop_count);
+}
+static bool config_is_valid(void) { return g_config_valid; }
+static size_t config_get_payload(uint8_t *out, size_t max_len) {
+    if (out == NULL || max_len < 1) {
+        return 0;
+    }
+    out[0] = g_config.loop_count;
+    return 1;
+}
+
+// ============================================================================
+>>>>>>> origin/main
 // PERIPHERALS
 // ============================================================================
 static void peripherals_init(void) {
@@ -173,6 +238,7 @@ static void peripherals_init(void) {
 static void peripherals_boot_feedback(void) { speaker_play_boot_sound(); }
 static void peripherals_error_feedback(void) { speaker_beep_error(); }
 static void peripherals_ok_feedback(void) { speaker_beep_ok(); }
+<<<<<<< HEAD
 static void animate_control_flow_pulse(led_contract_rgb_t color, uint8_t pulses, uint32_t on_ms, uint32_t off_ms)
 {
     for (uint8_t pulse = 0; pulse < pulses; ++pulse) {
@@ -186,12 +252,23 @@ static void animate_control_flow_pulse(led_contract_rgb_t color, uint8_t pulses,
         }
     }
 }
+=======
+>>>>>>> origin/main
 static void peripherals_show_running(void)
 {
     tft_ui_trigger_execute();
 
+<<<<<<< HEAD
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LOOP);
     animate_control_flow_pulse(identity, 2U, 110U, 40U);
+=======
+    // Simple "running" indication: brief green flash on the matrix.
+    matrix_fill(0, 64, 0);
+    matrix_show();
+    vTaskDelay(pdMS_TO_TICKS(120));
+    matrix_clear();
+    matrix_show();
+>>>>>>> origin/main
 }
 
 // ============================================================================
@@ -215,11 +292,21 @@ void command_handle(i2c_command_t cmd,
         *tx_len = 0;
     }
 
+<<<<<<< HEAD
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
 
     switch (cmd) {
         case CMD_PING:
             set_status_flags(STATUS_READY);
+=======
+    if (status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len)) {
+        return;
+    }
+
+    switch (cmd) {
+        case CMD_PING:
+            g_status_flags = STATUS_READY;
+>>>>>>> origin/main
             peripherals_ok_feedback();
             break;
 
@@ -234,7 +321,11 @@ void command_handle(i2c_command_t cmd,
             if (rx_len >= 1) {
                 g_config.loop_count = (rx[0] == 0) ? 1 : rx[0];
                 g_config_valid = true;
+<<<<<<< HEAD
                 set_status_flags(STATUS_READY);
+=======
+                g_status_flags = STATUS_READY;
+>>>>>>> origin/main
                 publish_loop_count_event(g_config.loop_count);
             }
             break;
@@ -257,6 +348,7 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_EXECUTE:
             if (!config_is_valid()) {
+<<<<<<< HEAD
                 set_status_flags(STATUS_ERROR);
                 peripherals_error_feedback();
                 break;
@@ -284,13 +376,27 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_MATRIX_SHOW:
             matrix_show();
+=======
+                g_status_flags = STATUS_ERROR;
+                peripherals_error_feedback();
+                break;
+            }
+            peripherals_show_running();
+            g_status_flags = STATUS_READY;
+>>>>>>> origin/main
             break;
 
         case CMD_RESET:
             config_reset();
             (void)status_strip_reset(&kStatusStripConfig);
             tft_ui_set_idle();
+<<<<<<< HEAD
             set_status_flags(STATUS_READY);
+=======
+            matrix_clear();
+            matrix_show();
+            g_status_flags = STATUS_READY;
+>>>>>>> origin/main
             break;
 
         default:
@@ -327,7 +433,14 @@ void app_main(void) {
     tft_ui_set_idle();
     set_status_flags(g_status_flags);
 
+<<<<<<< HEAD
     battery_monitor_start();
+=======
+    // Show startup animation
+    led_matrix_startup_animation();
+    tft_ui_start();
+    tft_ui_set_idle();
+>>>>>>> origin/main
 
     // Initialize I²C slave
     ret = i2c_slave_init();

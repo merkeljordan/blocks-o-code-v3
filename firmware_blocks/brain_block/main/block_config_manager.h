@@ -38,33 +38,6 @@ typedef struct {
     uint64_t last_scan_timestamp;   // Timestamp of last scan (milliseconds)
 } block_config_state_t;
 
-typedef enum {
-    BLOCK_SEQUENCE_IF = 0,
-    BLOCK_SEQUENCE_LOOP
-} block_sequence_type_t;
-
-typedef struct {
-    block_sequence_type_t sequence_type;
-    uint8_t start_index;
-    uint8_t end_index;
-    bool has_input;
-    bool has_output_or_delay;
-    uint8_t input_count;
-    uint8_t output_or_delay_count;
-    bool has_end_boundary;
-} block_sequence_metadata_t;
-
-typedef struct {
-    uint8_t if_start_count;
-    uint8_t if_end_count;
-    uint8_t loop_start_count;
-    uint8_t loop_end_count;
-    uint8_t sequence_count;
-    block_sequence_metadata_t sequences[BLOCK_CONFIG_MAX_BLOCKS];
-    uint64_t generated_at_ms;
-    bool is_empty;
-} block_event_map_t;
-
 /**
  * @brief Initialize the block configuration manager
  */
@@ -103,24 +76,11 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size);
 const block_config_state_t* block_config_manager_get_state(void);
 
 /**
- * @brief Get derived event-handler metadata from latest scanned configuration
- * @return Pointer to event map metadata
- */
-const block_event_map_t* block_config_manager_get_event_map(void);
-
-/**
  * @brief Copy current configuration state atomically into caller-provided storage
  * @param out_state Destination buffer
  * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_state is NULL
  */
 esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state);
-
-/**
- * @brief Copy current event map atomically into caller-provided storage
- * @param out_event_map Destination buffer
- * @return ESP_OK on success, ESP_ERR_INVALID_ARG if out_event_map is NULL
- */
-esp_err_t block_config_manager_get_event_map_snapshot(block_event_map_t *out_event_map);
 
 /**
  * @brief Convert block_type_t to string identifier for JSON

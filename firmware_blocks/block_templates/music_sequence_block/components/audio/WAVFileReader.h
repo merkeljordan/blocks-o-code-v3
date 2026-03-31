@@ -16,6 +16,7 @@ class WAVFileReader : public SampleSource
 {
 private:
     int m_num_channels;
+    int m_bits_per_sample;
     int m_sample_rate;
     const uint8_t *m_data;
     int m_data_bytes;
@@ -34,6 +35,8 @@ public:
 
     /* Called by: playback helpers to estimate blocking duration. */
     int getDataBytes() { return m_data_bytes; }
+    int getNumChannels() { return m_num_channels; }
+    int getBitsPerSample() { return m_bits_per_sample; }
 
     /* Debug/inspection helpers */
     int getPos() { return m_pos; }
