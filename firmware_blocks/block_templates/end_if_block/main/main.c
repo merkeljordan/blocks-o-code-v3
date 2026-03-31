@@ -28,8 +28,8 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "END_IF"
-#define BLOCK_I2C_ADDRESS     0x11  // I2C address for End If block
 #define BLOCK_TYPE            BLOCK_TYPE_END_IF
+#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
 
 static const char *TAG = "END_IF_BLOCK";
 

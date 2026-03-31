@@ -24,7 +24,7 @@ static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
 #define I2C_SLAVE_TX_BUF_SIZE 256
 
 // Fixed child-bus address/type for the music sequence block.
-#define MY_ADDRESS      0x0F
+#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
 #define MY_BLOCK_TYPE   BLOCK_TYPE_MUSIC_SEQ
 
 // Simple register map for Brain-side WHOAMI/status reads.

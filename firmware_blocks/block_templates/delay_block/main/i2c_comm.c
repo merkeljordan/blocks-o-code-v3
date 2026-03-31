@@ -20,7 +20,7 @@ extern uint8_t delay_block_get_pending_data_len(void);
 static const char *TAG = "DELAY_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x0D
+#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
 #define MY_BLOCK_TYPE   BLOCK_TYPE_DELAY
 
 // ============================================================================

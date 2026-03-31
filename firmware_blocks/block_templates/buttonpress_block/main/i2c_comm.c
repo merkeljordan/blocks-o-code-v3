@@ -12,8 +12,8 @@
 
 static const char *TAG = "BUTTONPRESS_BLOCK";
 
-// TODO: Change per block
-#define MY_ADDRESS      0x09
+// Dynamic child-bus address (derived from chip identity + block type)
+#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
 #define MY_BLOCK_TYPE   BLOCK_TYPE_BUTTON
 
 // ============================================================================

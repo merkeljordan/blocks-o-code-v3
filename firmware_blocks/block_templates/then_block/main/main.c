@@ -28,8 +28,8 @@ esp_err_t i2c_slave_init(void);
 void i2c_task(void *arg);
 
 #define BLOCK_NAME            "THEN"
-#define BLOCK_I2C_ADDRESS     0x0A  // I2C address for Then block
 #define BLOCK_TYPE            BLOCK_TYPE_THEN
+#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
 
 static const char *TAG = "THEN_BLOCK";
 

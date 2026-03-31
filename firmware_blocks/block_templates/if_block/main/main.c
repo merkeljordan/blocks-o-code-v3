@@ -28,8 +28,8 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "IF"
-#define BLOCK_I2C_ADDRESS     0x08  // I2C address for If block
 #define BLOCK_TYPE            BLOCK_TYPE_IF
+#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
 
 static const char *TAG = "IF_BLOCK";
 

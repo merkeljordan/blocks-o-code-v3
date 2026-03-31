@@ -20,7 +20,7 @@ extern uint8_t loop_block_get_pending_data_len(void);
 static const char *TAG = "LOOP_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      0x0B
+#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
 #define MY_BLOCK_TYPE   BLOCK_TYPE_LOOP
 
 // ============================================================================

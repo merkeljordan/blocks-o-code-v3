@@ -5,6 +5,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "driver/i2c.h"  // Add this for I2C_NUM_0
+#if __has_include("esp_mac.h")
+#include "esp_mac.h"
+#define BLOCK_HAS_ESP_MAC 1
+#else
+#define BLOCK_HAS_ESP_MAC 0
+#endif
 
 // ============================================================================
 // I2C HARDWARE CONFIGURATION
@@ -90,6 +96,10 @@ typedef enum {
     BLOCK_TYPE_UNKNOWN     = 0xFF
 } block_type_t;
 
+// Child-block dynamic address window (inclusive): 0x08-0x16
+#define CHILD_I2C_ADDR_MIN 0x08u
+#define CHILD_I2C_ADDR_MAX 0x16u
+
 // ============================================================================
 // LED MATRIX PATTERNS
 // ============================================================================
@@ -152,6 +162,32 @@ static inline const char* block_type_to_string(block_type_t type) {
         case BLOCK_TYPE_DISCO:      return "DISCO";
         default:                    return "UNKNOWN";
     }
+}
+
+static inline uint8_t block_compute_i2c_address(block_type_t type) {
+    // Lightweight deterministic hash from chip MAC + block type.
+    // Keeps address inside the child scan window used by Brain.
+    uint32_t hash = 2166136261u;
+
+#if BLOCK_HAS_ESP_MAC
+    uint8_t mac[6] = {0};
+    (void)esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    for (int i = 0; i < 6; i++) {
+        hash ^= mac[i];
+        hash *= 16777619u;
+    }
+#else
+    hash ^= (uint32_t)((uint8_t)type);
+    hash *= 16777619u;
+    hash ^= 0xA5u;
+    hash *= 16777619u;
+#endif
+
+    hash ^= (uint32_t)((uint8_t)type);
+    hash *= 16777619u;
+
+    const uint8_t span = (uint8_t)(CHILD_I2C_ADDR_MAX - CHILD_I2C_ADDR_MIN + 1u);
+    return (uint8_t)(CHILD_I2C_ADDR_MIN + (hash % span));
 }
 
 static inline const char* command_to_string(i2c_command_t cmd) {

@@ -29,8 +29,8 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "DELAY"
-#define BLOCK_I2C_ADDRESS     0x0D  // I2C address for Delay block
 #define BLOCK_TYPE            BLOCK_TYPE_DELAY
+#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
 
 static const char *TAG = "DELAY_BLOCK";
 

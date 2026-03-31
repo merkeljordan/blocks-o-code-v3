@@ -23,7 +23,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME         "NOTE"
-#define BLOCK_I2C_ADDRESS  0x12
+#define BLOCK_I2C_ADDRESS  block_compute_i2c_address(BLOCK_TYPE_NOTE)
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 #define STATUS_STRIP_GPIO      GPIO_NUM_13

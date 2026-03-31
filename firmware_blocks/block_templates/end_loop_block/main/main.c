@@ -28,8 +28,8 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "END_LOOP"
-#define BLOCK_I2C_ADDRESS     0x10  // I2C address for End Loop block
 #define BLOCK_TYPE            BLOCK_TYPE_END_LOOP
+#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
 
 static const char *TAG = "END_LOOP_BLOCK";
 
