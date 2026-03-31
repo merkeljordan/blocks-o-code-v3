@@ -20,14 +20,6 @@ static inline void tft_ui_trigger_execute(void) {}
 static inline void tft_ui_set_idle(void) {}
 #endif
 
-#if defined(CONTROL_FLOW_TFT_UI_ENABLED)
-#include "tft_ui.h"
-#else
-static inline void tft_ui_start(void) {}
-static inline void tft_ui_trigger_execute(void) {}
-static inline void tft_ui_set_idle(void) {}
-#endif
-
 extern void initArduino(void);
 
 // I2C slave transport implemented in i2c_comm.c
