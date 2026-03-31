@@ -59,6 +59,7 @@ static void show_status_matrix(uint8_t status)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_LED_FLASH);
     led_contract_rgb_t color = led_contract_status_color(status, identity);
+    matrix_set_brightness(led_contract_status_brightness(status));
     matrix_clear();
     matrix_show();
     matrix_fill(color.r, color.g, color.b);

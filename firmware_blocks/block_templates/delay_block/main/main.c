@@ -54,6 +54,35 @@ static bool g_config_valid = false;
 
 static uint8_t g_status_flags = STATUS_READY;
 
+static struct {
+    bool has_event;
+    uint8_t event_id;
+    uint8_t payload[BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN];
+    size_t payload_len;
+} g_pending_event;
+
+static bool config_is_valid(void)
+{
+    return g_config_valid;
+}
+
+static void publish_delay_ms_event(uint32_t delay_ms)
+{
+    g_pending_event.has_event = true;
+    g_pending_event.event_id = BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT;
+    g_pending_event.payload[0] = (uint8_t)(delay_ms & 0xFFU);
+    g_pending_event.payload[1] = (uint8_t)((delay_ms >> 8)  & 0xFFU);
+    g_pending_event.payload[2] = (uint8_t)((delay_ms >> 16) & 0xFFU);
+    g_pending_event.payload[3] = (uint8_t)((delay_ms >> 24) & 0xFFU);
+    g_pending_event.payload_len = BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN;
+    set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
+}
+
+uint8_t delay_block_get_pending_data_len(void)
+{
+    return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+}
+
 static void render_status_strip(uint8_t status_flags)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_DELAY);
