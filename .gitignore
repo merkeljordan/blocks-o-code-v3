@@ -1,12 +1,16 @@
 # ESP-IDF build output
 build/
 build_full.log
+build-sandbox/
 
 # ESP-IDF config backups
 sdkconfig.old
 
 # Dependency lock
 dependencies.lock
+
+# ESP-IDF managed dependencies (generated)
+**/managed_components/
 
 # VSCode
 .vscode/

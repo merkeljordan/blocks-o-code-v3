@@ -19,7 +19,7 @@
 
 // Block information structure
 typedef struct {
-    uint8_t i2c_address;          // I2C address (0x08-0x15)
+    uint8_t i2c_address;          // I2C address (0x08-0x16)
     block_type_t block_type;       // Block type from REG_WHOAMI
     uint8_t fw_major;              // Firmware major version (0 if unavailable)
     uint8_t fw_minor;              // Firmware minor version (0 if unavailable)

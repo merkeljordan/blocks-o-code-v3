@@ -138,7 +138,7 @@ typedef enum {
 ```
 1. app_main() starts
 2. i2c_master_init() initializes I²C master on GPIO 21/22
-3. i2c_safe_scan() scans bus (0x08-0x0F) for devices
+3. i2c_safe_scan() scans bus (0x08-0x16) for devices
 4. xTaskCreate() starts demo_task in background
 5. Brain Block ready!
 ```
@@ -190,9 +190,19 @@ All commands follow this structure:
 | OLED_TEXT | 0xF1 | Len | char[] | - | Display text on OLED |
 
 ### **I²C Address Map**
-- `0x08` - Child Block 1 (LED Matrix)
-- `0x09` - Child Block 2 (OLED Display)
-- `0x0A-0x15` - Reserved for future child blocks
+- `0x08` - IF block
+- `0x09` - BUTTONPRESS block
+- `0x0A` - THEN block
+- `0x0B` - LOOP block
+- `0x0C` - LED COLOR FLASH block
+- `0x0D` - DELAY block
+- `0x0E` - NOTE block
+- `0x0F` - MUSIC SEQUENCE block
+- `0x10` - END LOOP block
+- `0x11` - END IF block
+- `0x12-0x14` - Reserved for future child blocks
+- `0x15` - COMMON block
+- `0x16` - Reserved for future child blocks
 
 ---
 
@@ -266,7 +276,7 @@ I (3750) DEMO: Child 1: GREEN
 
 ###  **Implemented**
 - [x] I²C master initialization
-- [x] Device scanning and discovery (0x08-0x0F)
+- [x] Device scanning and discovery (0x08-0x16)
 - [x] Basic command transmission
   - [x] PING
   - [x] MATRIX_FILL

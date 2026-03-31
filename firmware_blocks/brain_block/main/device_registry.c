@@ -2,7 +2,7 @@
  * device_registry.c
  *
  * Implementation of the Brain-side device registry.
- * Scans I2C addresses 0x08–0x0E, reads REG_WHOAMI, and stores results.
+ * Scans I2C addresses 0x08-0x16, reads REG_WHOAMI, and stores results.
  */
 
 #include <string.h>
@@ -136,7 +136,7 @@ esp_err_t device_registry_scan(void) {
         // Preserve previous state for simple hysteresis across scans.
         bool was_present = entry->present && (entry->type != BLOCK_TYPE_UNKNOWN);
         block_type_t prev_type = entry->type;
-        
+
         // Reset entry
         entry->address = addr;
         entry->present = false;
@@ -205,7 +205,7 @@ const device_registry_t* device_registry_get(void) {
 
 void device_registry_print(void) {
     ESP_LOGI(TAG, "=== DEVICE REGISTRY (%d devices) ===", s_registry.count);
-    
+
     if (s_registry.count == 0) {
         ESP_LOGI(TAG, "  (no devices detected)");
         return;
@@ -226,10 +226,10 @@ const device_entry_t* device_registry_find(uint8_t address) {
     if (address < DEVICE_REGISTRY_ADDR_MIN || address > DEVICE_REGISTRY_ADDR_MAX) {
         return NULL;
     }
-    
+
     uint8_t idx = address - DEVICE_REGISTRY_ADDR_MIN;
     const device_entry_t *entry = &s_registry.devices[idx];
-    
+
     return entry->present ? entry : NULL;
 }
 
