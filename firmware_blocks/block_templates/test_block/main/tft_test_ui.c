@@ -128,7 +128,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
     lv_color_t fill_color = battery_color_for_percent(percent);
@@ -142,14 +142,20 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
         fill_width = 1U;
     }
 
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, fill_color, 0);
 }
 
 static void refresh_battery_indicator(void)
 {
-    update_battery_indicator(&s_battery, (unsigned)battery_monitor_get_percent());
+    update_battery_indicator(&s_battery,
+                             (unsigned)battery_monitor_get_percent(),
+                             battery_monitor_is_charging());
 }
 
 static void lvgl_tick_cb(void *arg)

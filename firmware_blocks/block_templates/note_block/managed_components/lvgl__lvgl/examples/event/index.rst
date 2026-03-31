@@ -1,5 +1,3 @@
-.. example_heading: Events
-
 
 Button click event
 ------------------
@@ -22,11 +20,6 @@ Handle multiple events
 Event bubbling
 --------------
 .. lv_example:: event/lv_example_event_bubble
-  :language: c
-
-Event trickle-down
-------------------
-.. lv_example:: event/lv_example_event_trickle
   :language: c
 
 Draw event

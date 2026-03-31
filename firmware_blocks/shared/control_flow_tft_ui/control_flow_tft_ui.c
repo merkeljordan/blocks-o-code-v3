@@ -78,7 +78,7 @@ static void disco_layer_create(lv_obj_t *parent);
 static void disco_anim_apply(uint32_t tick);
 static uint32_t battery_color_for_percent(unsigned percent);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicator(void);
 
 static uint32_t clamp_value(uint32_t value)
@@ -187,7 +187,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_align(indicator->label, LV_ALIGN_LEFT_MID, 0, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     if (indicator == NULL || indicator->container == NULL || indicator->fill == NULL || indicator->label == NULL) {
         return;
@@ -200,12 +200,18 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
     uint32_t fill_width = 4U + (percent * 16U) / 100U;
     lv_obj_set_width(indicator->fill, (int32_t)fill_width);
     lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(percent)), 0);
-    lv_label_set_text_fmt(indicator->label, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->label, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->label, "%u%%", percent);
+    }
 }
 
 static void refresh_battery_indicator(void)
 {
-    update_battery_indicator(&s_battery, (unsigned)battery_monitor_get_percent());
+    update_battery_indicator(&s_battery,
+                             (unsigned)battery_monitor_get_percent(),
+                             battery_monitor_is_charging());
 }
 
 /* Integer triangle wave in [0, span] for smooth bouncing without libm. */

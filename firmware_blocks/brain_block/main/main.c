@@ -405,15 +405,12 @@ static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runti
         return;
     }
 
-    led_rgb_t color = status_strip_runtime_color(state, BLOCK_TYPE_BRAIN, step_type);
-    uint8_t brightness = status_strip_runtime_brightness(state);
-    matrix_set_brightness(brightness);
-    if (state == BRAIN_RUNTIME_IDLE) {
-        matrix_clear();
-        matrix_show();
-    }
-    matrix_fill(color.r, color.g, color.b);
-    matrix_show();
+    (void)status_strip_render_runtime_visuals(TAG,
+                                              NULL,
+                                              BLOCK_TYPE_BRAIN,
+                                              state,
+                                              pc,
+                                              step_type);
 
     s_last_matrix_state = state;
     s_last_matrix_step_type = step_type;

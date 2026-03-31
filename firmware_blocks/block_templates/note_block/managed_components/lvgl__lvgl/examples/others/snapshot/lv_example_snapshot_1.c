@@ -1,4 +1,3 @@
-
 #include "../../lv_examples.h"
 #if LV_USE_SNAPSHOT && LV_BUILD_EXAMPLES
 

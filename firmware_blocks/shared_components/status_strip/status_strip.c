@@ -21,6 +21,10 @@ static status_strip_pixel_t *s_pixels = NULL;
 static gpio_num_t s_gpio_num = GPIO_NUM_NC;
 static uint16_t s_led_count = 0;
 static uint8_t s_brightness = 96U;
+static bool s_last_runtime_audio_valid = false;
+static brain_runtime_broadcast_state_t s_last_runtime_audio_state = BRAIN_RUNTIME_IDLE;
+static uint8_t s_last_runtime_audio_pc = BRAIN_RUNTIME_PC_NONE;
+static uint8_t s_last_runtime_audio_step_type = BLOCK_TYPE_UNKNOWN;
 
 static uint8_t scale_channel(uint8_t channel)
 {
@@ -94,10 +98,61 @@ void status_strip_play_runtime_audio(brain_runtime_broadcast_state_t state)
     }
 }
 
+void status_strip_play_runtime_audio_event(brain_runtime_broadcast_state_t state,
+                                           uint8_t pc,
+                                           uint8_t step_type)
+{
+    bool should_play = false;
+
+    if (!s_last_runtime_audio_valid) {
+        should_play = (state == BRAIN_RUNTIME_RUNNING ||
+                       state == BRAIN_RUNTIME_STEP ||
+                       state == BRAIN_RUNTIME_DONE ||
+                       state == BRAIN_RUNTIME_ERROR ||
+                       state == BRAIN_RUNTIME_STOP);
+    } else {
+        switch (state) {
+            case BRAIN_RUNTIME_RUNNING:
+                should_play = (s_last_runtime_audio_state == BRAIN_RUNTIME_IDLE ||
+                               s_last_runtime_audio_state == BRAIN_RUNTIME_DONE ||
+                               s_last_runtime_audio_state == BRAIN_RUNTIME_ERROR ||
+                               s_last_runtime_audio_state == BRAIN_RUNTIME_STOP);
+                break;
+            case BRAIN_RUNTIME_STEP:
+                should_play = (s_last_runtime_audio_state != BRAIN_RUNTIME_STEP ||
+                               s_last_runtime_audio_pc != pc ||
+                               s_last_runtime_audio_step_type != step_type);
+                break;
+            case BRAIN_RUNTIME_DONE:
+            case BRAIN_RUNTIME_ERROR:
+            case BRAIN_RUNTIME_STOP:
+                should_play = (s_last_runtime_audio_state != state);
+                break;
+            case BRAIN_RUNTIME_IDLE:
+            default:
+                break;
+        }
+    }
+
+    if (should_play) {
+        if (state == BRAIN_RUNTIME_RUNNING) {
+            (void)speaker_play_tone(660U, 45U);
+        } else {
+            status_strip_play_runtime_audio(state);
+        }
+    }
+
+    s_last_runtime_audio_valid = true;
+    s_last_runtime_audio_state = state;
+    s_last_runtime_audio_pc = pc;
+    s_last_runtime_audio_step_type = step_type;
+}
+
 esp_err_t status_strip_render_runtime_visuals(const char *tag,
                                               const status_strip_config_t *cfg,
                                               block_type_t block_type,
                                               brain_runtime_broadcast_state_t state,
+                                              uint8_t pc,
                                               uint8_t step_type)
 {
     led_contract_rgb_t color = status_strip_runtime_color(state, block_type, step_type);
@@ -107,13 +162,24 @@ esp_err_t status_strip_render_runtime_visuals(const char *tag,
     if (state == BRAIN_RUNTIME_IDLE) {
         matrix_clear();
         matrix_show();
+        if (cfg != NULL && status_strip_ensure_ready(cfg) == ESP_OK) {
+            status_strip_clear();
+            status_strip_set_brightness(brightness);
+            return status_strip_show();
+        }
+        (void)tag;
+        return ESP_OK;
     }
+
     matrix_fill(color.r, color.g, color.b);
     matrix_show();
 
     if (cfg != NULL && status_strip_ensure_ready(cfg) == ESP_OK) {
         status_strip_fill(color.r, color.g, color.b);
         status_strip_set_brightness(brightness);
+        if (pc != BRAIN_RUNTIME_PC_NONE && status_strip_get_led_count() > 0U) {
+            status_strip_set_pixel((uint16_t)(pc % status_strip_get_led_count()), 255U, 255U, 255U);
+        }
         return status_strip_show();
     }
 
@@ -335,8 +401,9 @@ bool status_strip_handle_runtime_broadcast(const char *tag,
     }
 
     brain_runtime_broadcast_state_t state = (brain_runtime_broadcast_state_t)payload[0];
+    uint8_t pc = payload[1];
     uint8_t step_type = payload[2];
-    (void)status_strip_render_runtime_visuals(tag, cfg, block_type, state, step_type);
-    status_strip_play_runtime_audio(state);
+    (void)status_strip_render_runtime_visuals(tag, cfg, block_type, state, pc, step_type);
+    status_strip_play_runtime_audio_event(state, pc, step_type);
     return true;
 }

@@ -1,9 +1,12 @@
-#if LV_BUILD_TEST || LV_BUILD_TEST_PERF
+#if LV_BUILD_TEST
 #include "lv_test_init.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "../unity/unity.h"
+
+#define HOR_RES 800
+#define VER_RES 480
 
 static void test_log_print_cb(lv_log_level_t level, const char * buf);
 
@@ -18,9 +21,8 @@ void lv_test_init(void)
     lv_profiler_builtin_set_enable(false);
 #endif
 
-    lv_test_display_create(LV_TEST_DISPLAY_HOR_RES, LV_TEST_DISPLAY_VER_RES);
+    lv_test_display_create(HOR_RES, VER_RES);
     lv_test_indev_create_all();
-    lv_test_fs_init();
 
 #if LV_USE_GESTURE_RECOGNITION
     lv_test_indev_gesture_create();
@@ -38,11 +40,7 @@ void lv_test_init(void)
 
 void lv_test_deinit(void)
 {
-#if LV_USE_GESTURE_RECOGNITION
-    lv_test_indev_gesture_delete();
-#endif
-    lv_test_indev_delete_all();
-    lv_deinit();
+    lv_mem_deinit();
 }
 
 static void test_log_print_cb(lv_log_level_t level, const char * buf)

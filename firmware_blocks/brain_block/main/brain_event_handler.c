@@ -147,7 +147,7 @@ static void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block
     }
 
     set_runtime_snapshot(state, pc, step_type);
-    status_strip_play_runtime_audio(state);
+    status_strip_play_runtime_audio_event(state, pc, (uint8_t)step_type);
 
     if (block_config_manager_get_state_snapshot(&config_snapshot) != ESP_OK ||
         config_snapshot.block_count == 0) {

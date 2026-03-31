@@ -14,4 +14,4 @@ void speaker_beep_ok(void);
 void speaker_beep_error(void);
 
 // Boot UX sound: 440 Hz -> 660 Hz -> 880 Hz.
-void speaker_play_boot_sound(void);
+esp_err_t speaker_play_boot_sound(void);

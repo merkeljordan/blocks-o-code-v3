@@ -103,7 +103,7 @@ static battery_indicator_t s_picker_battery = {0};
 static const char *note_name(uint8_t note_id);
 static uint32_t battery_color_for_percent(unsigned percent);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 static lv_obj_t *create_mode_screen(void);
@@ -168,7 +168,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
 
@@ -187,15 +187,20 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(percent)), 0);
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
 }
 
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
-    update_battery_indicator(&s_intro_battery, percent);
-    update_battery_indicator(&s_mode_battery, percent);
-    update_battery_indicator(&s_picker_battery, percent);
+    const bool is_charging = battery_monitor_is_charging();
+    update_battery_indicator(&s_intro_battery, percent, is_charging);
+    update_battery_indicator(&s_mode_battery, percent, is_charging);
+    update_battery_indicator(&s_picker_battery, percent, is_charging);
 }
 
 static void sequence_clear(void)

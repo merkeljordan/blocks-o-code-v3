@@ -204,7 +204,7 @@ static lv_obj_t *create_blocks_screen(void);
 static void blocks_back_event_cb(lv_event_t *e);
 static void block_card_event_cb(lv_event_t *e);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 static lv_color_t battery_color_for_percent(unsigned percent)
@@ -262,7 +262,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
 
@@ -275,7 +275,11 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
         fill_width = 1U;
     }
 
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, battery_color_for_percent(percent), 0);
 }
@@ -283,8 +287,9 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
-    update_battery_indicator(&s_home_battery, percent);
-    update_battery_indicator(&s_blocks_battery, percent);
+    const bool is_charging = battery_monitor_is_charging();
+    update_battery_indicator(&s_home_battery, percent, is_charging);
+    update_battery_indicator(&s_blocks_battery, percent, is_charging);
 }
 
 /* ESP timer callback that feeds LVGL's internal timing system.

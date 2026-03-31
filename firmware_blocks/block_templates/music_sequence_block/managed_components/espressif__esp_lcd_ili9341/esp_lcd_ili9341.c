@@ -73,7 +73,7 @@ esp_err_t esp_lcd_new_panel_ili9341(const esp_lcd_panel_io_handle_t io, const es
         ESP_GOTO_ON_FALSE(false, ESP_ERR_NOT_SUPPORTED, err, TAG, "unsupported color space");
         break;
     }
-#elif ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
+#else
     switch (panel_dev_config->rgb_endian) {
     case LCD_RGB_ENDIAN_RGB:
         ili9341->madctl_val = 0;
@@ -83,18 +83,6 @@ esp_err_t esp_lcd_new_panel_ili9341(const esp_lcd_panel_io_handle_t io, const es
         break;
     default:
         ESP_GOTO_ON_FALSE(false, ESP_ERR_NOT_SUPPORTED, err, TAG, "unsupported rgb endian");
-        break;
-    }
-#else
-    switch (panel_dev_config->rgb_ele_order) {
-    case LCD_RGB_ELEMENT_ORDER_RGB:
-        ili9341->madctl_val = 0;
-        break;
-    case LCD_RGB_ELEMENT_ORDER_BGR:
-        ili9341->madctl_val |= LCD_CMD_BGR_BIT;
-        break;
-    default:
-        ESP_GOTO_ON_FALSE(false, ESP_ERR_NOT_SUPPORTED, err, TAG, "unsupported rgb element order");
         break;
     }
 #endif
@@ -182,6 +170,12 @@ static esp_err_t panel_ili9341_reset(esp_lcd_panel_t *panel)
 
     return ESP_OK;
 }
+
+typedef struct {
+    uint8_t cmd;
+    uint8_t data[16];
+    uint8_t data_bytes; // Length of data in above data array; 0xFF = end of cmds.
+} lcd_init_cmd_t;
 
 static const ili9341_lcd_init_cmd_t vendor_specific_init_default[] = {
 //  {cmd, { data }, data_size, delay_ms}

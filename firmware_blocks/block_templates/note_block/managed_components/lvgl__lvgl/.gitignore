@@ -20,4 +20,3 @@ build/
 config.h
 defconfig
 env/*
-docs-venv

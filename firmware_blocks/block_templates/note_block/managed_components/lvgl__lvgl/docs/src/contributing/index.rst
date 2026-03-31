@@ -5,7 +5,7 @@ Contributing
 ============
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     introduction
     ways_to_contribute

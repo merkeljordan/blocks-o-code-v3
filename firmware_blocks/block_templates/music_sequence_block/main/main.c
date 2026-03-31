@@ -448,8 +448,6 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
-    (void)speaker_play_boot_sound();
-
     err = i2c_slave_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "i2c_slave_init failed: %s", esp_err_to_name(err));
