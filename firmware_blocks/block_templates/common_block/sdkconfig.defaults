@@ -1,3 +1,6 @@
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# Required when using espressif__arduino-esp32 to avoid ADC stub conflicts/aborts.
+CONFIG_ADC_SKIP_LEGACY_CONFLICT_CHECK=y
