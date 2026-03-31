@@ -120,7 +120,6 @@ static bool compare_configurations(const block_config_state_t *prev, const block
     return false;
 }
 
-<<<<<<< HEAD
 static bool is_input_block_type(block_type_t type) {
     return (type == BLOCK_TYPE_BUTTON);
 }
@@ -279,8 +278,6 @@ static void recompute_event_map_from_config(void) {
     }
 }
 
-=======
->>>>>>> origin/main
 esp_err_t block_config_manager_scan(void) {
     ESP_LOGI(TAG, "=== BLOCK CONFIGURATION SCAN ===");
 

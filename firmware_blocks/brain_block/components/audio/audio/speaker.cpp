@@ -39,15 +39,12 @@ extern "C" {
 static const char *TAG = "AUDIO";
 #define SPEAKER_AMP_ENABLE_GPIO 5
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
-<<<<<<< HEAD
 
 static void speaker_amp_set_enabled(bool on) {
     int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
     int level = on ? level_on : (1 - level_on);
     gpio_set_level((gpio_num_t)SPEAKER_AMP_ENABLE_GPIO, level);
 }
-=======
->>>>>>> origin/main
 
 // Set true after successful speaker_init().
 static bool s_inited = false;
@@ -149,10 +146,6 @@ esp_err_t speaker_init(void)
 // Called by: optional shutdown paths (not heavily used right now)
 void speaker_deinit(void)
 {
-<<<<<<< HEAD
-=======
-    // Lightweight deinit for now (task teardown not implemented yet).
->>>>>>> origin/main
     speaker_amp_set_enabled(false);
     s_inited = false;
 }
@@ -252,11 +245,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 
     // Keep requested frequency, but lower magnitude to avoid clipping.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-<<<<<<< HEAD
     SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
-=======
-    SinWaveGenerator tone(44100, hz, tone_magnitude);
->>>>>>> origin/main
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);

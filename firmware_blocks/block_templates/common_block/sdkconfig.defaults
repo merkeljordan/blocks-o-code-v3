@@ -1,10 +1,3 @@
 CONFIG_FREERTOS_HZ=1000
-<<<<<<< HEAD
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
-=======
-# esp32-arduino pulls in esp_adc (adc_oneshot); the driver component always
-# links the legacy ADC stub which abort()s unless this is set. Do not use
-# driver/adc.h (adc1_get_raw, etc.) in application code.
-CONFIG_ADC_SKIP_LEGACY_CONFLICT_CHECK=y
->>>>>>> origin/main

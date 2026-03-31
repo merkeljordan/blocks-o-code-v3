@@ -11,14 +11,10 @@
 #include "tft_ui.h"
 #include "brain_event_handler.h"
 #include "audio_speaker.h"
-<<<<<<< HEAD
 #include "battery_monitor.h"
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
-=======
-#include "status_strip.h"
->>>>>>> origin/main
 
 extern void initArduino(void);
 
@@ -58,15 +54,7 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define BRAIN_STATUS_STRIP_GPIO      GPIO_NUM_13
 #define BRAIN_STATUS_STRIP_LED_COUNT 30
 
-<<<<<<< HEAD
 typedef led_contract_rgb_t led_rgb_t;
-=======
-typedef struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} led_rgb_t;
->>>>>>> origin/main
 
 static const status_strip_config_t kBrainStatusStripConfig = {
     .gpio_num = BRAIN_STATUS_STRIP_GPIO,
@@ -77,10 +65,7 @@ static bool executor_state_is_active(brain_executor_state_t state);
 static uint8_t brain_led_idle_brightness(void);
 static uint8_t brain_led_active_brightness(void);
 static uint8_t brain_led_inactive_running_brightness(void);
-<<<<<<< HEAD
 static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness);
-=======
->>>>>>> origin/main
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
@@ -110,17 +95,10 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
             if (entry->type != BLOCK_TYPE_LED_FLASH &&
-<<<<<<< HEAD
                 entry->type != BLOCK_TYPE_NOTE &&
                 entry->type != BLOCK_TYPE_BUTTON &&
                 entry->type != BLOCK_TYPE_DELAY &&
                 entry->type != BLOCK_TYPE_LOOP) {
-=======
-                entry->type != BLOCK_TYPE_LOOP &&
-                entry->type != BLOCK_TYPE_DELAY &&
-                entry->type != BLOCK_TYPE_BUTTON &&
-                entry->type != BLOCK_TYPE_NOTE) {
->>>>>>> origin/main
                 continue;
             }
 
@@ -209,64 +187,9 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
     return false;
 }
 
-<<<<<<< HEAD
 static uint8_t brain_led_idle_brightness(void)
 {
     return 32U;
-=======
-static bool block_type_supports_led_mirroring(block_type_t type)
-{
-    switch (type) {
-        case BLOCK_TYPE_IF:
-        case BLOCK_TYPE_THEN:
-        case BLOCK_TYPE_END_IF:
-        case BLOCK_TYPE_LOOP:
-        case BLOCK_TYPE_END_LOOP:
-        case BLOCK_TYPE_DELAY:
-        case BLOCK_TYPE_BUTTON:
-        case BLOCK_TYPE_NOTE:
-        case BLOCK_TYPE_MUSIC_SEQ:
-        case BLOCK_TYPE_LED_FLASH:
-            return true;
-        default:
-            return false;
-    }
-}
-
-static led_rgb_t block_type_led_color(block_type_t type)
-{
-    switch (type) {
-        case BLOCK_TYPE_BRAIN:
-            return (led_rgb_t){255, 0, 0};
-        case BLOCK_TYPE_IF:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_THEN:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_END_IF:
-            return (led_rgb_t){0, 180, 60};
-        case BLOCK_TYPE_LOOP:
-            return (led_rgb_t){40, 100, 255};
-        case BLOCK_TYPE_END_LOOP:
-            return (led_rgb_t){40, 100, 255};
-        case BLOCK_TYPE_DELAY:
-            return (led_rgb_t){255, 170, 0};
-        case BLOCK_TYPE_BUTTON:
-            return (led_rgb_t){255, 0, 255};
-        case BLOCK_TYPE_NOTE:
-            return (led_rgb_t){255, 220, 0};
-        case BLOCK_TYPE_MUSIC_SEQ:
-            return (led_rgb_t){0, 210, 170};
-        case BLOCK_TYPE_LED_FLASH:
-            return (led_rgb_t){180, 70, 255};
-        default:
-            return (led_rgb_t){32, 32, 32};
-    }
-}
-
-static uint8_t brain_led_idle_brightness(void)
-{
-    return 96U;
->>>>>>> origin/main
 }
 
 static uint8_t brain_led_active_brightness(void)
@@ -279,7 +202,6 @@ static uint8_t brain_led_inactive_running_brightness(void)
     return 48U;
 }
 
-<<<<<<< HEAD
 static void brain_led_show_boot_ready_strip(void)
 {
     esp_err_t err = status_strip_ensure_ready(&kBrainStatusStripConfig);
@@ -309,8 +231,6 @@ static void brain_led_show_boot_ready_matrix(void)
     matrix_show();
 }
 
-=======
->>>>>>> origin/main
 static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness)
 {
     return (led_rgb_t) {
@@ -355,16 +275,11 @@ static int brain_led_highlight_index(const brain_executor_context_t *ctx)
 static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
                                           const brain_executor_context_t *ctx)
 {
-<<<<<<< HEAD
-=======
-    static uint64_t s_last_render_scan_ts = UINT64_MAX;
->>>>>>> origin/main
     static brain_executor_state_t s_last_render_state = EXECUTOR_IDLE;
     static uint8_t s_last_render_pc = 0xFF;
     static uint8_t s_last_render_block_count = 0xFF;
     static esp_err_t s_last_init_err = ESP_OK;
 
-<<<<<<< HEAD
     static uint8_t s_debounce_block_count = 0;
     static uint8_t s_debounce_consecutive = 0;
     #define BLOCK_COUNT_DEBOUNCE_THRESHOLD 5
@@ -391,17 +306,6 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
     bool block_count_changed = (block_count != s_last_render_block_count);
     bool state_changed = (s_last_render_state != state || s_last_render_pc != pc);
     if (!block_count_changed && !state_changed) {
-=======
-    brain_executor_state_t state = (ctx != NULL) ? ctx->state : EXECUTOR_IDLE;
-    uint8_t pc = (ctx != NULL) ? ctx->pc : 0xFF;
-    uint64_t scan_ts = (cfg != NULL) ? cfg->last_scan_timestamp : 0;
-    uint8_t block_count = (cfg != NULL) ? cfg->block_count : 0;
-
-    if (s_last_render_scan_ts == scan_ts &&
-        s_last_render_state == state &&
-        s_last_render_pc == pc &&
-        s_last_render_block_count == block_count) {
->>>>>>> origin/main
         return;
     }
 
@@ -440,11 +344,7 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
      *   strip so the user still gets "I am alive" feedback at boot.
      */
     if (cfg == NULL || cfg->block_count == 0 || status_strip_get_led_count() == 0U) {
-<<<<<<< HEAD
         led_rgb_t brain_color = scale_led_color(led_contract_identity_color(BLOCK_TYPE_BRAIN),
-=======
-        led_rgb_t brain_color = scale_led_color(block_type_led_color(BLOCK_TYPE_BRAIN),
->>>>>>> origin/main
                                                 brain_led_idle_brightness());
         status_strip_fill(brain_color.r, brain_color.g, brain_color.b);
     } else {
@@ -466,13 +366,8 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
 
             const block_config_entry_t *entry = &cfg->blocks[block_index];
             led_rgb_t color = entry->present
-<<<<<<< HEAD
                                   ? led_contract_identity_color(entry->block_type)
                                   : led_contract_identity_color(BLOCK_TYPE_BRAIN);
-=======
-                                  ? block_type_led_color(entry->block_type)
-                                  : block_type_led_color(BLOCK_TYPE_BRAIN);
->>>>>>> origin/main
 
             /* Idle: every segment uses the same medium brightness so the full
              * program remains readable.
@@ -497,10 +392,6 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
         ESP_LOGW(TAG, "Brain status strip show failed: %s", esp_err_to_name(err));
     }
 
-<<<<<<< HEAD
-=======
-    s_last_render_scan_ts = scan_ts;
->>>>>>> origin/main
     s_last_render_state = state;
     s_last_render_pc = pc;
     s_last_render_block_count = block_count;
@@ -540,19 +431,11 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
      * different hardware paths. */
     for (int i = 0; i < cfg->block_count; i++) {
         const block_config_entry_t *entry = &cfg->blocks[i];
-<<<<<<< HEAD
         if (!entry->present || !led_contract_supports_brain_mirroring(entry->block_type)) {
             continue;
         }
 
         led_rgb_t color = led_contract_identity_color(entry->block_type);
-=======
-        if (!entry->present || !block_type_supports_led_mirroring(entry->block_type)) {
-            continue;
-        }
-
-        led_rgb_t color = block_type_led_color(entry->block_type);
->>>>>>> origin/main
         uint8_t brightness = brain_led_idle_brightness();
         if (is_active_run) {
             brightness = (i == highlight_index)
@@ -647,12 +530,6 @@ static void brain_executor_task(void *arg)
         ctx = brain_executor_get_context();
         cfg = block_config_manager_get_state();
 
-<<<<<<< HEAD
-=======
-        /* Keep both LED surfaces in lockstep:
-         * - local Brain strip shows the whole program map on the Brain itself
-         * - child strip refresh pushes the same logical state out over I2C */
->>>>>>> origin/main
         brain_led_refresh_local_strip(cfg, ctx);
         brain_led_refresh_child_blocks(cfg, ctx);
         vTaskDelay(pdMS_TO_TICKS(BRAIN_EXECUTOR_TICK_INTERVAL_MS));
@@ -688,7 +565,6 @@ void app_main(void) {
 
     initArduino();
     peripherals_boot_feedback();
-<<<<<<< HEAD
     esp_err_t matrix_err = led_matrix_init();
     if (matrix_err != ESP_OK) {
         ESP_LOGW(TAG, "led_matrix_init failed: %s", esp_err_to_name(matrix_err));
@@ -696,9 +572,6 @@ void app_main(void) {
         brain_led_show_boot_ready_matrix();
     }
     brain_led_show_boot_ready_strip();
-=======
-    brain_led_refresh_local_strip(NULL, NULL);
->>>>>>> origin/main
     
     // Initialize I²C Master
     ESP_ERROR_CHECK(i2c_master_init());

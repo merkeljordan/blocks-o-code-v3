@@ -54,7 +54,6 @@
      uint8_t r, g, b;
  } rgb_t;
 
-<<<<<<< HEAD
 static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
 static rgb_t matrix_pixels[LED_MATRIX_SIZE];
@@ -65,12 +64,6 @@ static void fill_scaled(uint8_t r, uint8_t g, uint8_t b);
 static void show(void);
 static void clear_and_show(void);
 static void wheel_color(uint8_t pos, uint8_t *r, uint8_t *g, uint8_t *b);
-=======
- static led_strip_handle_t led_strip = NULL;
- static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
- static rgb_t matrix_pixels[LED_MATRIX_SIZE];
- static bool status_mirror_enabled = false;
->>>>>>> origin/main
  
  /* ── Per-pattern colour palette ────────────────────────────────────────
   *
@@ -78,13 +71,8 @@ static void wheel_color(uint8_t pos, uint8_t *r, uint8_t *g, uint8_t *b);
   *  matrix_brightness before writing to the hardware.  This keeps the
   *  palette readable and allows runtime brightness changes.            */
  
-<<<<<<< HEAD
 static const rgb_t PATTERN_COLORS[10] = {
     [0] = {  0,   0,   0},   /* off   */
-=======
- static const rgb_t PATTERN_COLORS[10] = {
-     [0] = {  0,   0,   0},   /* off   */
->>>>>>> origin/main
      [1] = {255,   0,   0},   /* red   */
      [2] = {  0, 255,   0},   /* green */
      [3] = {  0,   0, 255},   /* blue  */
@@ -122,7 +110,6 @@ static void clear_matrix_buffer(void) {
     memset(matrix_pixels, 0, sizeof(matrix_pixels));
 }
 
-<<<<<<< HEAD
 static void fx_preview_magic_idle(void) {
     static const rgb_t k_preview_colors[] = {
         {255, 80, 0},
@@ -205,8 +192,6 @@ static void fx_cosmic_burst(uint8_t cycles)
     clear_and_show();
 }
 
-=======
->>>>>>> origin/main
 static void render_status_strip_mirror(void) {
     if (!status_mirror_enabled) {
         return;

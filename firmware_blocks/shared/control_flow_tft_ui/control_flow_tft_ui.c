@@ -3,20 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
-<<<<<<< HEAD
 #include "battery_monitor.h"
 
-=======
->>>>>>> origin/main
 LV_FONT_DECLARE(mochi_boom_28);
 LV_FONT_DECLARE(mochi_boom_34);
 
 #define CONTROL_FLOW_ANIM_PERIOD_MS 70U
 #define CONTROL_FLOW_ANIM_TICKS     28U
-<<<<<<< HEAD
 #define BATTERY_REFRESH_MS          3000U
-=======
->>>>>>> origin/main
 #define CONTROL_FLOW_SCREEN_W       240
 #define CONTROL_FLOW_SCREEN_H       320
 #define CONTROL_FLOW_CARD_IDLE_X    14
@@ -43,15 +37,12 @@ typedef struct {
     uint8_t b;
 } rgb8_t;
 
-<<<<<<< HEAD
 typedef struct {
     lv_obj_t *container;
     lv_obj_t *fill;
     lv_obj_t *label;
 } battery_indicator_t;
 
-=======
->>>>>>> origin/main
 static lv_obj_t *s_screen;
 static lv_obj_t *s_disco_layer;
 static lv_obj_t *s_disco_tiles[DISCO_TILE_COUNT];
@@ -63,10 +54,7 @@ static lv_obj_t *s_running_status_label;
 static lv_obj_t *s_title_label;
 static lv_obj_t *s_center_icon_label;
 static lv_obj_t *s_value_label;
-<<<<<<< HEAD
 static battery_indicator_t s_battery;
-=======
->>>>>>> origin/main
 static lv_obj_t *s_submit_button;
 static lv_obj_t *s_secondary_button;
 static lv_obj_t *s_minus_button;
@@ -76,10 +64,7 @@ static lv_timer_t *s_state_timer;
 static control_flow_ui_config_t s_cfg;
 static uint32_t s_current_value;
 static uint32_t s_anim_tick;
-<<<<<<< HEAD
 static uint32_t s_last_battery_refresh_ms;
-=======
->>>>>>> origin/main
 static bool s_running;
 static volatile bool s_pending_execute;
 static volatile bool s_pending_idle;
@@ -91,13 +76,10 @@ static void set_button_palette(lv_obj_t *button, uint32_t color);
 static void start_running_state(void);
 static void disco_layer_create(lv_obj_t *parent);
 static void disco_anim_apply(uint32_t tick);
-<<<<<<< HEAD
 static uint32_t battery_color_for_percent(unsigned percent);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
 static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
 static void refresh_battery_indicator(void);
-=======
->>>>>>> origin/main
 
 static uint32_t clamp_value(uint32_t value)
 {
@@ -144,7 +126,6 @@ static uint32_t disco_neon(uint32_t index)
     return k_neon[index % (sizeof(k_neon) / sizeof(k_neon[0]))];
 }
 
-<<<<<<< HEAD
 static uint32_t battery_color_for_percent(unsigned percent)
 {
     if (percent >= 60U) {
@@ -227,8 +208,6 @@ static void refresh_battery_indicator(void)
     update_battery_indicator(&s_battery, (unsigned)battery_monitor_get_percent());
 }
 
-=======
->>>>>>> origin/main
 /* Integer triangle wave in [0, span] for smooth bouncing without libm. */
 static uint32_t tri_wave(uint32_t tick, uint32_t span, uint32_t period)
 {
@@ -544,15 +523,12 @@ static void state_timer_cb(lv_timer_t *timer)
         update_value_label();
     }
 
-<<<<<<< HEAD
     uint32_t now_ms = lv_tick_get();
     if ((now_ms - s_last_battery_refresh_ms) >= BATTERY_REFRESH_MS) {
         s_last_battery_refresh_ms = now_ms;
         refresh_battery_indicator();
     }
 
-=======
->>>>>>> origin/main
     if (s_pending_execute) {
         s_pending_execute = false;
         if (s_running) {
@@ -725,10 +701,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_pending_execute = false;
     s_pending_idle = false;
     s_pending_value_refresh = false;
-<<<<<<< HEAD
     s_last_battery_refresh_ms = 0;
-=======
->>>>>>> origin/main
     s_screen = NULL;
     s_disco_layer = NULL;
     memset(s_disco_tiles, 0, sizeof(s_disco_tiles));
@@ -740,10 +713,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_title_label = NULL;
     s_center_icon_label = NULL;
     s_value_label = NULL;
-<<<<<<< HEAD
     memset(&s_battery, 0, sizeof(s_battery));
-=======
->>>>>>> origin/main
     s_submit_button = NULL;
     s_secondary_button = NULL;
     s_minus_button = NULL;
@@ -767,13 +737,10 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
     lv_obj_clear_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
 
-<<<<<<< HEAD
     create_battery_indicator(s_screen, &s_battery);
     refresh_battery_indicator();
     s_last_battery_refresh_ms = lv_tick_get();
 
-=======
->>>>>>> origin/main
     disco_layer_create(s_screen);
 
     s_card = lv_obj_create(s_screen);
@@ -825,12 +792,9 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     lv_obj_move_foreground(s_title_label);
     lv_obj_move_foreground(s_status_label);
     lv_obj_move_foreground(s_running_status_label);
-<<<<<<< HEAD
     if (s_battery.container != NULL) {
         lv_obj_move_foreground(s_battery.container);
     }
-=======
->>>>>>> origin/main
 
     if (s_cfg.supports_value) {
         s_control_card = lv_obj_create(s_screen);

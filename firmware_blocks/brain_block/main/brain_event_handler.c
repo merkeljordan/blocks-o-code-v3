@@ -614,10 +614,6 @@ static bool process_block_event(uint8_t block_addr,
     }
 
     if (event_id == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
-<<<<<<< HEAD
-=======
-        // Any press sets the condition true; executor will clear after consuming.
->>>>>>> origin/main
         uint8_t pressed = 1;
         if (payload && payload_len >= 1) {
             pressed = payload[0];
@@ -801,10 +797,6 @@ void brain_executor_tick(void) {
     } else if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT) {
         if (s_executor_ctx.button_pressed) {
             s_executor_ctx.state = EXECUTOR_RUNNING;
-<<<<<<< HEAD
-=======
-            // Auto-clear after a single press is consumed.
->>>>>>> origin/main
             s_executor_ctx.button_pressed = false;
         } else {
             return;
@@ -831,12 +823,7 @@ void brain_executor_tick(void) {
     }
 
     switch (current) {
-<<<<<<< HEAD
         case BLOCK_TYPE_DELAY: {
-=======
-        case BLOCK_TYPE_DELAY:
-        {
->>>>>>> origin/main
             uint32_t delay_ms = s_executor_params.delay_ms;
             if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
                 s_delay_ms_valid_by_pc[s_executor_ctx.pc]) {
@@ -862,10 +849,6 @@ void brain_executor_tick(void) {
                 return;
             }
 
-<<<<<<< HEAD
-=======
-            // Condition true: consume the press so IF gates on "any press" once.
->>>>>>> origin/main
             s_executor_ctx.button_pressed = false;
             int then_index = find_then_index(s_executor_ctx.pc, (uint8_t)end_if_index);
             s_executor_ctx.pc = (then_index >= 0) ? (uint8_t)(then_index + 1) : (uint8_t)(s_executor_ctx.pc + 1);

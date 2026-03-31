@@ -7,10 +7,7 @@
 
 #include "i2c_protocol.h"
 #include "led_matrix.h"
-<<<<<<< HEAD
 #include "led_contract.h"
-=======
->>>>>>> origin/main
 #include "status_strip.h"
 
 static const char *TAG = "CMD_HANDLER";
@@ -25,7 +22,6 @@ static const status_strip_config_t kStatusStripConfig = {
 static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t current_status = STATUS_READY;
 
-<<<<<<< HEAD
 static void show_status_matrix(uint8_t status)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_END_LOOP);
@@ -35,22 +31,14 @@ static void show_status_matrix(uint8_t status)
     matrix_show();
 }
 
-=======
->>>>>>> origin/main
 static void run_execute_feedback(void)
 {
     current_status = STATUS_BUSY;
     matrix_fill(40, 100, 255);
     matrix_show();
     vTaskDelay(pdMS_TO_TICKS(120));
-<<<<<<< HEAD
     current_status = STATUS_READY;
     show_status_matrix(current_status);
-=======
-    matrix_clear();
-    matrix_show();
-    current_status = STATUS_READY;
->>>>>>> origin/main
 }
 
 void handle_command(uint8_t *buffer, int len) {
@@ -101,11 +89,6 @@ void handle_command(uint8_t *buffer, int len) {
             led_g = 0;
             led_b = 0;
             (void)status_strip_reset(&kStatusStripConfig);
-<<<<<<< HEAD
-=======
-            matrix_clear();
-            matrix_show();
->>>>>>> origin/main
             current_status = STATUS_READY;
             show_status_matrix(current_status);
             break;

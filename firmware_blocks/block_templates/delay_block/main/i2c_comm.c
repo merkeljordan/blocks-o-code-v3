@@ -15,10 +15,7 @@ extern void command_handle(i2c_command_t cmd,
                            uint8_t *tx,
                            size_t *tx_len);
 extern uint8_t delay_block_get_status_flags(void);
-<<<<<<< HEAD
 extern uint8_t delay_block_get_pending_data_len(void);
-=======
->>>>>>> origin/main
 
 static const char *TAG = "DELAY_BLOCK";
 
@@ -41,10 +38,7 @@ static void init_registers(void) {
 static void refresh_dynamic_registers(void)
 {
     registers[REG_STATUS] = delay_block_get_status_flags();
-<<<<<<< HEAD
     registers[REG_DATA_LEN] = delay_block_get_pending_data_len();
-=======
->>>>>>> origin/main
 }
 
 
