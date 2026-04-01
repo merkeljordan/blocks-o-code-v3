@@ -1,6 +1,5 @@
 #pragma once
 
-#ifndef BATTERY_CALIBRATION_H
 #define BATTERY_CALIBRATION_H
 
 /**
