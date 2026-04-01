@@ -10,7 +10,6 @@
 
 #include "i2c_protocol.h"
 #include "led_matrix.h"
-#include "speaker.h"
 #include "audio_speaker.h"
 #include "battery_monitor.h"
 #include "status_strip.h"
