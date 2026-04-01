@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 
-# Reuse shared components from the brain_block (LED matrix, speaker, etc.)
+# Reuse shared audio + peripherals.
 set(EXTRA_COMPONENT_DIRS
-    "../../brain_block/components"
+    "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/audio"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard"
 )

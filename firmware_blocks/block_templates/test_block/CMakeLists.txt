@@ -7,6 +7,7 @@ set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON CACHE BOOL "" FORCE)
 # component (see __project_component_dir in esp-idf/tools/cmake/project.cmake). Do not
 # point at shared_components/ alone or every subfolder (audio, led_matrix, …) is built.
 set(EXTRA_COMPONENT_DIRS
+    "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/audio"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard"
 )
