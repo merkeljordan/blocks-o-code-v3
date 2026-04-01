@@ -9,7 +9,7 @@
 #include "driver/gpio.h"
 
 #include "battery_monitor.h"
-#include "speaker.h"
+#include "audio_speaker.h"
 #include "led_dual_ws2812.h"
 #include "tft_test_ui.h"
 #include "startup_guard.h"
