@@ -21,6 +21,7 @@
 typedef struct {
     uint8_t address;        // I2C address
     block_type_t type;      // Block type from REG_WHOAMI
+    uint32_t uid;           // Stable per-device UID from REG_UID[0..3]
     bool present;           // True if device responded
 } device_entry_t;
 

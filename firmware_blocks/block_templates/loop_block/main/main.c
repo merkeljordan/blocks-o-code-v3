@@ -36,6 +36,9 @@ static const char *TAG = "LOOP_BLOCK";
 
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 30
+#define BATTERY_UART_TASK_STACK 2048
+#define BATTERY_UART_TASK_PRIO  2
+#define BATTERY_UART_PERIOD_MS  2000
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,
@@ -94,6 +97,18 @@ static void set_status_flags(uint8_t status_flags)
         show_status_matrix(g_status_flags);
     }
     render_status_strip(g_status_flags);
+}
+
+static void battery_uart_log_task(void *arg)
+{
+    (void)arg;
+
+    while (true) {
+        const uint8_t percent = battery_monitor_get_percent();
+        const bool charging = battery_monitor_is_charging();
+        ESP_LOGI(TAG, "BATTERY: %u%% charging=%s", (unsigned)percent, charging ? "yes" : "no");
+        vTaskDelay(pdMS_TO_TICKS(BATTERY_UART_PERIOD_MS));
+    }
 }
 
 static bool config_is_valid(void)
@@ -318,6 +333,8 @@ void app_main(void) {
 
     // Create tasks
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+    xTaskCreate(battery_uart_log_task, "battery_uart", BATTERY_UART_TASK_STACK, NULL,
+                BATTERY_UART_TASK_PRIO, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

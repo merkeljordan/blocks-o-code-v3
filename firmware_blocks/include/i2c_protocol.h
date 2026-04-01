@@ -34,6 +34,11 @@
 // NOTE: For NOTE block sequences we support up to 15 notes:
 //   payload = [event_id, count, note0..note14] => 17 bytes total.
 #define REG_DATA_LEN    0x05    // 1 byte: 0..32
+#define REG_UID0        0x06    // 4 bytes: stable per-device UID (LSB first)
+#define REG_UID1        0x07
+#define REG_UID2        0x08
+#define REG_UID3        0x09
+#define REG_ASSIGNED_ADDR 0x0A  // 1 byte: currently active child I2C address
 
 // Optional: keep for legacy/one-off features (if you already use it)
 #define CMD_OLED_TEXT   0xF1
@@ -56,6 +61,7 @@ typedef enum {
     CMD_RESET           = 0x87,  // Reset block state
     CMD_SET_DELAY       = 0x88,  // Set delay time
     CMD_SET_LOOP        = 0x89,  // Set loop count
+    CMD_SET_I2C_ADDRESS = 0x8A,  // Rebind child to a Brain-assigned slot
 
     // LED MATRIX COMMANDS
     CMD_MATRIX_FILL         = 0x90,
@@ -230,6 +236,35 @@ static inline uint8_t block_compute_i2c_address(block_type_t type) {
     return (uint8_t)(CHILD_I2C_ADDR_MIN + (hash % span));
 }
 
+static inline uint32_t block_compute_device_uid(block_type_t type) {
+    uint32_t hash = 2166136261u;
+
+#if BLOCK_HAS_ESP_MAC
+    uint8_t mac[6] = {0};
+    (void)esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    for (int i = 0; i < 6; i++) {
+        hash ^= mac[i];
+        hash *= 16777619u;
+    }
+#else
+    hash ^= (uint32_t)((uint8_t)type);
+    hash *= 16777619u;
+    hash ^= 0x5Au;
+    hash *= 16777619u;
+#endif
+
+    hash ^= (uint32_t)((uint8_t)type);
+    hash *= 16777619u;
+    if (hash == 0u) {
+        hash = 0xA5A5A5A5u;
+    }
+    return hash;
+}
+
+static inline bool block_is_valid_child_address(uint8_t address) {
+    return (address >= CHILD_I2C_ADDR_MIN) && (address <= CHILD_I2C_ADDR_MAX);
+}
+
 static inline const char* command_to_string(i2c_command_t cmd) {
     switch (cmd) {
         case CMD_PING:                  return "PING";
@@ -242,6 +277,7 @@ static inline const char* command_to_string(i2c_command_t cmd) {
         case CMD_RESET:                 return "RESET";
         case CMD_SET_DELAY:             return "SET_DELAY";
         case CMD_SET_LOOP:              return "SET_LOOP";
+        case CMD_SET_I2C_ADDRESS:       return "SET_I2C_ADDRESS";
         case CMD_MATRIX_FILL:           return "MATRIX_FILL";
         case CMD_MATRIX_SET_PIXEL:      return "MATRIX_SET_PIXEL";
         case CMD_MATRIX_CLEAR:          return "MATRIX_CLEAR";

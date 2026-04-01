@@ -38,6 +38,33 @@ static void i2c_unlock(void) {
     }
 }
 
+static esp_err_t i2c_send_payload(uint8_t address, const uint8_t *data, size_t len, TickType_t timeout_ticks) {
+    if (data == NULL || len == 0U) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (cmd == NULL) {
+        i2c_unlock();
+        return ESP_ERR_NO_MEM;
+    }
+
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write(cmd, data, len, true);
+    i2c_master_stop(cmd);
+
+    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, timeout_ticks);
+    i2c_cmd_link_delete(cmd);
+    i2c_unlock();
+    return ret;
+}
+
 // ============================================================================
 // I²C MASTER INITIALIZATION
 // ============================================================================
@@ -264,115 +291,37 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
 // SET LED BY COLOR ID (palette index)
 // ============================================================================
 esp_err_t i2c_set_led_color_id(uint8_t address, uint8_t color_id) {
-    esp_err_t lock_ret = i2c_lock();
-    if (lock_ret != ESP_OK) {
-        return lock_ret;
-    }
-
     uint8_t data[2] = {CMD_SET_LED, color_id};
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
-    }
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 2, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    i2c_unlock();
-    return ret;
+    return i2c_send_payload(address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 // ============================================================================
 // PLAY NOTE (note_id)
 // ============================================================================
 esp_err_t i2c_play_note(uint8_t address, uint8_t note_id) {
-    esp_err_t lock_ret = i2c_lock();
-    if (lock_ret != ESP_OK) {
-        return lock_ret;
-    }
-
     uint8_t data[2] = {CMD_PLAY_NOTE, note_id};
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
-    }
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 2, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    i2c_unlock();
-    return ret;
+    return i2c_send_payload(address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 esp_err_t i2c_runtime_broadcast(uint8_t address,
                                 brain_runtime_broadcast_state_t state,
                                 uint8_t pc,
                                 block_type_t step_type) {
-    esp_err_t lock_ret = i2c_lock();
-    if (lock_ret != ESP_OK) {
-        return lock_ret;
-    }
-
     uint8_t data[BRAIN_RUNTIME_BROADCAST_PAYLOAD_LEN + 1] = {
         CMD_RUNTIME_BROADCAST,
         (uint8_t)state,
         pc,
         (uint8_t)step_type,
     };
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
-    }
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, sizeof(data), true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    i2c_unlock();
-    return ret;
+    return i2c_send_payload(address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 // ============================================================================
 // SET LED (RGB)
 // ============================================================================
 esp_err_t i2c_set_led(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
-    esp_err_t lock_ret = i2c_lock();
-    if (lock_ret != ESP_OK) {
-        return lock_ret;
-    }
-
     uint8_t data[4] = {CMD_SET_LED, r, g, b};
-
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
-    }
-
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 4, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    i2c_cmd_link_delete(cmd);
-    i2c_unlock();
-
-    return ret;
+    return i2c_send_payload(address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 // ============================================================================
@@ -458,6 +407,16 @@ esp_err_t i2c_execute(uint8_t address) {
 // ============================================================================
 esp_err_t i2c_reset(uint8_t address) {
     return i2c_send_cmd(address, CMD_RESET);
+}
+
+esp_err_t i2c_set_child_address(uint8_t current_address, uint8_t new_address) {
+    if (!block_is_valid_child_address(current_address) ||
+        !block_is_valid_child_address(new_address)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t data[2] = {CMD_SET_I2C_ADDRESS, new_address};
+    return i2c_send_payload(current_address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 // ============================================================================

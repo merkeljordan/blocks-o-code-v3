@@ -2,6 +2,7 @@ idf_component_register(
     SRCS
         "main.c"
         "i2c_comm.c"
+        "speaker.c"
         "led_matrix.c"
         "tft_ui.c"
         "../../../shared_components/status_strip/status_strip.c"
