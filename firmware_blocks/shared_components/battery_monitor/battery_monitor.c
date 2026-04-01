@@ -9,6 +9,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+/* Include block-specific calibration (defined in block's main/battery_calibration.h) */
+#include "battery_calibration.h"
+
 /*
  * Battery monitor assumptions:
  * - 1-cell Li-ion battery (about 7.0V empty to 8.4V full)
@@ -27,9 +30,15 @@
  * Calibration knobs:
  * - BATTERY_CAL_SCALE: multiplicative correction for resistor tolerances/ADC gain.
  * - BATTERY_CAL_OFFSET_MV: additive correction if a fixed offset is observed.
+ * Block-specific defaults are defined in battery_calibration.h (included above).
+ * Use fallback defaults only if those macros are not defined.
  */
+#ifndef BATTERY_CAL_SCALE
 #define BATTERY_CAL_SCALE      0.995f
+#endif
+#ifndef BATTERY_CAL_OFFSET_MV
 #define BATTERY_CAL_OFFSET_MV  0.0f
+#endif
 
 #define DIVIDER_R_TOP_OHMS     2000.0f
 #define DIVIDER_R_BOTTOM_OHMS  1000.0f
