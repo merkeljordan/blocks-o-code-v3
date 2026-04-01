@@ -160,6 +160,33 @@ class BlockConfiguration {
   List<BlockInfo> getBlocksByType(BlockType type) {
     return blocks.where((b) => b.blockType == type).toList();
   }
+
+  BlockConfiguration copyWith({
+    int? totalBlocks,
+    List<BlockInfo>? blocks,
+    List<ConfigurationError>? errors,
+    DateTime? timestamp,
+    int? detectedUptimeMs,
+    int? sentUptimeMs,
+    RuntimeStatus? runtime,
+    bool clearRuntime = false,
+    int? originalFirmwareBlockCount,
+    bool? hasSyntheticBrainBlock,
+  }) {
+    return BlockConfiguration(
+      totalBlocks: totalBlocks ?? this.totalBlocks,
+      blocks: blocks ?? this.blocks,
+      errors: errors ?? this.errors,
+      timestamp: timestamp ?? this.timestamp,
+      detectedUptimeMs: detectedUptimeMs ?? this.detectedUptimeMs,
+      sentUptimeMs: sentUptimeMs ?? this.sentUptimeMs,
+      runtime: clearRuntime ? null : (runtime ?? this.runtime),
+      originalFirmwareBlockCount:
+          originalFirmwareBlockCount ?? this.originalFirmwareBlockCount,
+      hasSyntheticBrainBlock:
+          hasSyntheticBrainBlock ?? this.hasSyntheticBrainBlock,
+    );
+  }
 }
 
 class RuntimeStatus {

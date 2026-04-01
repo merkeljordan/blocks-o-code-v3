@@ -726,6 +726,22 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         return;
       }
 
+      if (json.containsKey('type') && json['type'] == 'runtime_update') {
+        final runtimeJson = json['runtime'] as Map<String, dynamic>?;
+        final runtime = runtimeJson == null
+            ? null
+            : RuntimeStatus.fromJson(runtimeJson);
+        setState(() {
+          if (_currentConfiguration != null && runtime != null) {
+            _currentConfiguration = _currentConfiguration!.copyWith(
+              runtime: runtime,
+            );
+          }
+          _lastHeartbeatTime = DateTime.now();
+        });
+        return;
+      }
+
       // Check if it's a block configuration message
       if (json.containsKey('type') && json['type'] == 'block_config') {
         final receiveTsMs = DateTime.now().millisecondsSinceEpoch;
