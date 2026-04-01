@@ -8,6 +8,7 @@ class BlockConfiguration {
   final DateTime timestamp;
   final int? detectedUptimeMs;
   final int? sentUptimeMs;
+  final RuntimeStatus? runtime;
   
   /// The original block count reported by firmware before any synthetic blocks were added
   final int originalFirmwareBlockCount;
@@ -22,6 +23,7 @@ class BlockConfiguration {
     DateTime? timestamp,
     this.detectedUptimeMs,
     this.sentUptimeMs,
+    this.runtime,
     int? originalFirmwareBlockCount,
     this.hasSyntheticBrainBlock = false,
   }) : timestamp = timestamp ?? DateTime.now(),
@@ -54,6 +56,9 @@ class BlockConfiguration {
     final detectedUptimeMs =
         _parseMillisecondsValue(json['detected_uptime_ms']);
     final sentUptimeMs = _parseMillisecondsValue(json['sent_uptime_ms']);
+    final runtimeJson = json['runtime'] as Map<String, dynamic>?;
+    final runtime =
+        runtimeJson == null ? null : RuntimeStatus.fromJson(runtimeJson);
 
     // If the firmware reports zero blocks, treat this as a "brain-only" configuration
     // and inject a synthetic Brain Block so the app can still visualize it.
@@ -105,6 +110,7 @@ class BlockConfiguration {
       timestamp: timestamp,
       detectedUptimeMs: detectedUptimeMs,
       sentUptimeMs: sentUptimeMs,
+      runtime: runtime,
       originalFirmwareBlockCount: originalFirmwareCount,
       hasSyntheticBrainBlock: hasSynthetic,
     );
@@ -124,6 +130,7 @@ class BlockConfiguration {
       'timestamp': timestamp.millisecondsSinceEpoch,
       if (detectedUptimeMs != null) 'detected_uptime_ms': detectedUptimeMs,
       if (sentUptimeMs != null) 'sent_uptime_ms': sentUptimeMs,
+      if (runtime != null) 'runtime': runtime!.toJson(),
       'config': {
         'total_blocks': totalBlocks,
         'blocks': blocks.map((b) => b.toJson()).toList(),
@@ -152,6 +159,48 @@ class BlockConfiguration {
   /// Get all blocks of a specific type
   List<BlockInfo> getBlocksByType(BlockType type) {
     return blocks.where((b) => b.blockType == type).toList();
+  }
+}
+
+class RuntimeStatus {
+  final String state;
+  final int stateCode;
+  final int pc;
+  final String? stepType;
+  final int? updatedAtMs;
+
+  const RuntimeStatus({
+    required this.state,
+    required this.stateCode,
+    required this.pc,
+    this.stepType,
+    this.updatedAtMs,
+  });
+
+  factory RuntimeStatus.fromJson(Map<String, dynamic> json) {
+    return RuntimeStatus(
+      state: json['state'] as String? ?? 'unknown',
+      stateCode: json['state_code'] as int? ?? -1,
+      pc: json['pc'] as int? ?? -1,
+      stepType: json['step_type'] as String?,
+      updatedAtMs: BlockConfiguration._parseMillisecondsValue(
+        json['updated_at_ms'],
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'state': state,
+      'state_code': stateCode,
+      'pc': pc,
+      if (stepType != null) 'step_type': stepType,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+    };
+  }
+
+  bool get isActivelyPointingAtBlock {
+    return (state == 'running' || state == 'step') && pc >= 0 && pc != 0xFF;
   }
 }
 

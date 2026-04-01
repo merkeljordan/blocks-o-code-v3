@@ -10,6 +10,7 @@
 #include "block_config_manager.h"
 #include "device_registry.h"
 #include "brain_block.h"
+#include "brain_event_handler.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "cJSON.h"
@@ -615,6 +616,18 @@ static void add_error_to_json(cJSON *errors_array, const char *type, const char 
     cJSON_AddItemToArray(errors_array, error_obj);
 }
 
+static const char *runtime_state_to_json_string(brain_runtime_broadcast_state_t state) {
+    switch (state) {
+        case BRAIN_RUNTIME_IDLE:    return "idle";
+        case BRAIN_RUNTIME_RUNNING: return "running";
+        case BRAIN_RUNTIME_STEP:    return "step";
+        case BRAIN_RUNTIME_DONE:    return "done";
+        case BRAIN_RUNTIME_ERROR:   return "error";
+        case BRAIN_RUNTIME_STOP:    return "stop";
+        default:                    return "unknown";
+    }
+}
+
 esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     if (json_buffer == NULL || buffer_size < 256) {
         return ESP_ERR_INVALID_ARG;
@@ -634,6 +647,22 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         timestamp_ms = esp_timer_get_time() / 1000;
     }
     cJSON_AddNumberToObject(root, "timestamp", (double)timestamp_ms);
+
+    const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
+    if (runtime != NULL) {
+        cJSON *runtime_obj = cJSON_CreateObject();
+        if (runtime_obj != NULL) {
+            cJSON_AddItemToObject(root, "runtime", runtime_obj);
+            cJSON_AddStringToObject(runtime_obj, "state",
+                                    runtime_state_to_json_string(runtime->state));
+            cJSON_AddNumberToObject(runtime_obj, "state_code", runtime->state);
+            cJSON_AddNumberToObject(runtime_obj, "pc", runtime->pc);
+            cJSON_AddStringToObject(runtime_obj, "step_type",
+                                    block_type_to_json_string(runtime->step_type));
+            cJSON_AddNumberToObject(runtime_obj, "updated_at_ms",
+                                    (double)runtime->updated_at_ms);
+        }
+    }
 
     // Create config object
     cJSON *config = cJSON_CreateObject();
