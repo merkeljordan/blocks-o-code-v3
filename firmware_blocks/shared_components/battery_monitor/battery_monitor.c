@@ -9,8 +9,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-/* Include block-specific calibration (defined in block's main/battery_calibration.h) */
+/* Include block-specific calibration when provided by the block project. */
+#ifdef BATTERY_MONITOR_HAS_CAL_HEADER
 #include "battery_calibration.h"
+#endif
 
 /*
  * Battery monitor assumptions:
