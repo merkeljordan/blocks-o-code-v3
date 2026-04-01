@@ -16,9 +16,14 @@ static const char *TAG = "DEV_REGISTRY";
 
 // Global registry instance
 static device_registry_t s_registry;
-/* One miss tolerated; second miss = device gone (fast removal detection) */
-#define DEVICE_REGISTRY_MAX_MISSES 1
+/* Tolerate several misses before dropping a marginal block from the live set. */
+#define DEVICE_REGISTRY_MAX_MISSES 3
 static uint8_t s_miss_counts[DEVICE_REGISTRY_MAX_DEVICES] = {0};
+
+#define IDENTITY_READ_ATTEMPTS 3
+#define IDENTITY_READ_SETTLE_MS 6
+#define SCAN_POST_PING_SETTLE_MS 2
+#define SCAN_INTER_DEVICE_SETTLE_MS 2
 
 static bool is_valid_block_type_byte(uint8_t raw)
 {
@@ -42,30 +47,6 @@ static bool is_valid_block_type_byte(uint8_t raw)
     }
 }
 
-static int find_entry_index_by_uid(const device_entry_t *entries, uint8_t count, uint32_t uid)
-{
-    if (uid == 0u) {
-        return -1;
-    }
-
-    for (uint8_t i = 0; i < count; i++) {
-        if (entries[i].present && entries[i].uid == uid) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static uint8_t choose_lowest_free_slot(const bool used_slots[DEVICE_REGISTRY_MAX_DEVICES])
-{
-    for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
-        if (!used_slots[i]) {
-            return (uint8_t)(DEVICE_REGISTRY_ADDR_MIN + i);
-        }
-    }
-    return DEVICE_REGISTRY_ADDR_MAX;
-}
-
 static uint32_t read_device_uid(uint8_t addr)
 {
     uint8_t uid_bytes[4] = {0};
@@ -81,91 +62,106 @@ static uint32_t read_device_uid(uint8_t addr)
     return uid;
 }
 
-static bool apply_allocator(const device_entry_t *previous_entries,
-                            uint8_t previous_count,
-                            device_entry_t *detected_entries,
-                            uint8_t detected_count)
+typedef struct {
+    bool valid;
+    uint8_t whoami;
+    uint32_t uid;
+    uint8_t assigned_addr;
+} identity_snapshot_t;
+
+static bool read_identity_snapshot(uint8_t addr, identity_snapshot_t *out)
 {
-    if (detected_entries == NULL || detected_count == 0U) {
+    if (out == NULL) {
         return false;
     }
 
-    bool used_slots[DEVICE_REGISTRY_MAX_DEVICES] = {0};
-    for (uint8_t i = 0; i < detected_count; i++) {
-        if (block_is_valid_child_address(detected_entries[i].address)) {
-            used_slots[detected_entries[i].address - DEVICE_REGISTRY_ADDR_MIN] = true;
-        }
+    uint8_t raw[6] = {0};
+    esp_err_t ret = i2c_read_reg(addr, REG_WHOAMI, raw, sizeof(raw));
+    if (ret != ESP_OK) {
+        return false;
     }
 
-    bool requested_move = false;
+    uint32_t uid = ((uint32_t)raw[1]) |
+                   ((uint32_t)raw[2] << 8) |
+                   ((uint32_t)raw[3] << 16) |
+                   ((uint32_t)raw[4] << 24);
 
-    for (uint8_t i = 0; i < detected_count; i++) {
-        device_entry_t *entry = &detected_entries[i];
-        if (!entry->present || entry->uid == 0u) {
-            continue;
-        }
-
-        uint8_t desired_addr = entry->address;
-        int previous_idx = find_entry_index_by_uid(previous_entries, previous_count, entry->uid);
-        if (previous_idx >= 0 && block_is_valid_child_address(previous_entries[previous_idx].address)) {
-            /*
-             * Preserve transport slots only for devices that were still present
-             * in the immediately previous live scan.
-             *
-             * If a device disappears and later reappears, it is treated as a
-             * newly inserted device for allocator purposes and receives the
-             * next currently free slot instead of reclaiming a historical slot.
-             */
-            desired_addr = previous_entries[previous_idx].address;
-        } else {
-            desired_addr = choose_lowest_free_slot(used_slots);
-        }
-
-        if (!block_is_valid_child_address(desired_addr) || desired_addr == entry->address) {
-            continue;
-        }
-
-        uint8_t desired_slot_idx = (uint8_t)(desired_addr - DEVICE_REGISTRY_ADDR_MIN);
-        if (used_slots[desired_slot_idx]) {
-            continue;
-        }
-
-        esp_err_t ret = i2c_set_child_address(entry->address, desired_addr);
-        if (ret != ESP_OK) {
-            ESP_LOGW(TAG, "Failed to move UID 0x%08lX from 0x%02X to 0x%02X: %s",
-                     (unsigned long)entry->uid,
-                     entry->address,
-                     desired_addr,
-                     esp_err_to_name(ret));
-            continue;
-        }
-
-        used_slots[desired_slot_idx] = true;
-        requested_move = true;
-        ESP_LOGI(TAG, "Moved UID 0x%08lX from 0x%02X to 0x%02X",
-                 (unsigned long)entry->uid,
-                 entry->address,
-                 desired_addr);
-    }
-
-    return requested_move;
+    out->valid = is_valid_block_type_byte(raw[0]) &&
+                 uid != 0u &&
+                 raw[5] == addr;
+    out->whoami = raw[0];
+    out->uid = uid;
+    out->assigned_addr = raw[5];
+    return out->valid;
 }
 
-static esp_err_t device_registry_scan_once(bool allow_allocator)
+static bool read_stable_identity(uint8_t addr, identity_snapshot_t *out)
+{
+    if (out == NULL) {
+        return false;
+    }
+
+    identity_snapshot_t snapshots[IDENTITY_READ_ATTEMPTS];
+    memset(snapshots, 0, sizeof(snapshots));
+
+    int valid_count = 0;
+    for (int attempt = 0; attempt < IDENTITY_READ_ATTEMPTS; attempt++) {
+        if (read_identity_snapshot(addr, &snapshots[attempt])) {
+            valid_count++;
+        }
+        if (attempt + 1 < IDENTITY_READ_ATTEMPTS) {
+            vTaskDelay(pdMS_TO_TICKS(IDENTITY_READ_SETTLE_MS));
+        }
+    }
+
+    if (valid_count == 0) {
+        return false;
+    }
+
+    for (int i = 0; i < IDENTITY_READ_ATTEMPTS; i++) {
+        if (!snapshots[i].valid) {
+            continue;
+        }
+        int matches = 1;
+        for (int j = i + 1; j < IDENTITY_READ_ATTEMPTS; j++) {
+            if (!snapshots[j].valid) {
+                continue;
+            }
+            if (snapshots[i].whoami == snapshots[j].whoami &&
+                snapshots[i].uid == snapshots[j].uid &&
+                snapshots[i].assigned_addr == snapshots[j].assigned_addr) {
+                matches++;
+            }
+        }
+
+        if (matches >= 2) {
+            *out = snapshots[i];
+            return true;
+        }
+    }
+
+    // On marginal chains, allow a single valid identity snapshot through as a
+    // best-effort detection instead of dropping the device entirely.
+    for (int i = 0; i < IDENTITY_READ_ATTEMPTS; i++) {
+        if (snapshots[i].valid) {
+            *out = snapshots[i];
+            ESP_LOGW(TAG, "Identity at 0x%02X was not fully stable; accepting single valid snapshot", addr);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static esp_err_t device_registry_scan_once(void)
 {
     uint8_t found = 0;
     device_entry_t detected_entries[DEVICE_REGISTRY_MAX_DEVICES];
     uint8_t detected_count = 0;
     device_entry_t previous_entries[DEVICE_REGISTRY_MAX_DEVICES];
-    uint8_t previous_count = 0;
 
     memset(detected_entries, 0, sizeof(detected_entries));
     memcpy(previous_entries, s_registry.devices, sizeof(previous_entries));
-    for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
-        if (previous_entries[i].present) {
-            previous_count++;
-        }
-    }
     memset(&s_registry, 0, sizeof(s_registry));
 
     for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
@@ -178,21 +174,43 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
 
         esp_err_t ret = i2c_ping(addr);
         if (ret != ESP_OK) {
+            if (previous_entries[i].present && s_miss_counts[i] < DEVICE_REGISTRY_MAX_MISSES) {
+                s_miss_counts[i]++;
+                *entry = previous_entries[i];
+                entry->address = addr;
+                found++;
+                if (detected_count < DEVICE_REGISTRY_MAX_DEVICES) {
+                    detected_entries[detected_count++] = *entry;
+                }
+                ESP_LOGW(TAG,
+                         "Transient miss at 0x%02X; keeping previous device for miss %u/%u",
+                         addr,
+                         (unsigned)s_miss_counts[i],
+                         (unsigned)DEVICE_REGISTRY_MAX_MISSES);
+            } else {
+                s_miss_counts[i] = 0;
+            }
             continue;
         }
 
-        uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-        ret = ESP_FAIL;
-        for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
-            ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
-            if (ret != ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(10));
-            }
-        }
-
+        vTaskDelay(pdMS_TO_TICKS(SCAN_POST_PING_SETTLE_MS));
         entry->present = true;
-        entry->type = is_valid_block_type_byte(whoami) ? (block_type_t)whoami : BLOCK_TYPE_UNKNOWN;
-        entry->uid = read_device_uid(addr);
+        identity_snapshot_t identity = {0};
+        if (read_stable_identity(addr, &identity)) {
+            entry->type = (block_type_t)identity.whoami;
+            entry->uid = identity.uid;
+        } else {
+            uint8_t whoami = BLOCK_TYPE_UNKNOWN;
+            ret = ESP_FAIL;
+            for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
+                ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
+                if (ret != ESP_OK) {
+                    vTaskDelay(pdMS_TO_TICKS(10));
+                }
+            }
+            entry->type = is_valid_block_type_byte(whoami) ? (block_type_t)whoami : BLOCK_TYPE_UNKNOWN;
+            entry->uid = read_device_uid(addr);
+        }
         s_miss_counts[i] = 0;
         found++;
 
@@ -201,19 +219,16 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
         }
 
         if (entry->type == BLOCK_TYPE_UNKNOWN) {
-            ESP_LOGW(TAG, "Device at 0x%02X pinged but WHOAMI was invalid/unknown (0x%02X)", addr, whoami);
+            ESP_LOGW(TAG, "Device at 0x%02X pinged but identity was unstable/unknown", addr);
         } else {
             ESP_LOGI(TAG, "Device at 0x%02X: type=0x%02X (%s), uid=0x%08lX",
                      addr,
-                     whoami,
+                     entry->type,
                      block_type_to_string(entry->type),
                      (unsigned long)entry->uid);
         }
-    }
 
-    if (allow_allocator && apply_allocator(previous_entries, previous_count, detected_entries, detected_count)) {
-        vTaskDelay(pdMS_TO_TICKS(60));
-        return device_registry_scan_once(false);
+        vTaskDelay(pdMS_TO_TICKS(SCAN_INTER_DEVICE_SETTLE_MS));
     }
 
     s_registry.count = found;
@@ -237,7 +252,7 @@ void device_registry_init(void) {
 
 esp_err_t device_registry_scan(void) {
     ESP_LOGI(TAG, "=== DEVICE REGISTRY SCAN ===");
-    return device_registry_scan_once(true);
+    return device_registry_scan_once();
 }
 
 const device_registry_t* device_registry_get(void) {

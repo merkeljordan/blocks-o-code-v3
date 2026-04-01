@@ -62,7 +62,7 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  700   /* Faster app updates while keeping some bus headroom */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 #define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 6144
 
@@ -82,6 +82,7 @@ static char s_block_config_scan_json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
 static size_t s_block_config_json_len = 0;
 static bool s_block_config_json_valid = false;
 
+static bool brain_executor_scan_pause_active(void);
 static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *out_len) {
     if (out == NULL || out_len == NULL || out_size == 0) {
         return false;
@@ -110,12 +111,18 @@ static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
 
     // Adaptive interval: scan fast around changes, back off when stable.
-    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
+    const TickType_t fast_delay = pdMS_TO_TICKS(40);   /* Faster app reaction without returning to 10 ms hammering */
     const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    const TickType_t paused_delay = pdMS_TO_TICKS(250);
     TickType_t delay_ticks = fast_delay;
     int stable_scans = 0;
 
     while (1) {
+        if (brain_executor_scan_pause_active()) {
+            vTaskDelay(paused_delay);
+            continue;
+        }
+
         block_config_manager_scan();
         bool config_changed = block_config_manager_has_changed();
 
@@ -123,7 +130,7 @@ static void block_config_scan_task(void *pvParameters) {
             ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
             brain_event_handler_reset_validation();
             s_validation_requested_by_start = false;
-            // Rescan in ~10 ms so removal/add is seen by the app quickly.
+            // Rescan fairly soon, but avoid hammering a long settling chain.
             delay_ticks = fast_delay;
             stable_scans = 0;
         } else {
@@ -131,7 +138,7 @@ static void block_config_scan_task(void *pvParameters) {
             if (delay_ticks < max_delay) {
                 stable_scans++;
                 if (stable_scans >= 4) { // every few stable scans, increase delay a bit
-                    delay_ticks += pdMS_TO_TICKS(500);
+                    delay_ticks += pdMS_TO_TICKS(150);
                     if (delay_ticks > max_delay) {
                         delay_ticks = max_delay;
                     }

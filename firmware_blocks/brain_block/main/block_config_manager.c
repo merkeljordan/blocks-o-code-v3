@@ -15,22 +15,31 @@
 #include "cJSON.h"
 
 static const char *TAG = "BLOCK_CONFIG";
+static const uint8_t TOPOLOGY_STABLE_SCAN_THRESHOLD = 2;
+static const uint8_t APPEND_STABLE_SCAN_THRESHOLD = 3;
+static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 4;
 
 // Global configuration state
 static block_config_state_t s_config_state;
 static block_config_state_t s_previous_state;
+static block_config_state_t s_pending_state;
 static block_event_map_t s_event_map;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
+static bool s_pending_state_valid = false;
 static uint32_t s_scan_counter = 0;
+static uint8_t s_pending_stable_count = 0;
 
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
+    memset(&s_pending_state, 0, sizeof(s_pending_state));
     memset(&s_event_map, 0, sizeof(s_event_map));
     s_previous_state_valid = false;
+    s_pending_state_valid = false;
     s_scan_counter = 0;
+    s_pending_stable_count = 0;
     s_config_state.has_changed = true; // Force initial send
     ESP_LOGI(TAG, "Block configuration manager initialized");
 }
@@ -86,40 +95,58 @@ static bool compare_configurations(const block_config_state_t *prev, const block
         return true;
     }
 
-    // Check if any block identities, addresses, or types changed
+    // In the preserved-order model, visible stack order is meaningful.
+    // Transport address is diagnostic metadata only and must not by itself
+    // cause the app/program order to appear changed.
     for (int i = 0; i < curr->block_count; i++) {
-        bool found = false;
-        for (int j = 0; j < prev->block_count; j++) {
-            if (prev->blocks[j].device_uid == curr->blocks[i].device_uid) {
-                found = true;
-                if (prev->blocks[j].block_type != curr->blocks[i].block_type ||
-                    prev->blocks[j].i2c_address != curr->blocks[i].i2c_address) {
-                    return true;
-                }
-                break;
-            }
-        }
-        // New block detected
-        if (!found) {
+        if (prev->blocks[i].device_uid != curr->blocks[i].device_uid ||
+            prev->blocks[i].block_type != curr->blocks[i].block_type) {
             return true;
         }
     }
-
-    // Check if any previous blocks are missing
-    for (int i = 0; i < prev->block_count; i++) {
-        bool found = false;
-        for (int j = 0; j < curr->block_count; j++) {
-            if (prev->blocks[i].device_uid == curr->blocks[j].device_uid) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            return true;
-        }
-    }
-
     return false;
+}
+
+static bool is_append_only_extension(const block_config_state_t *prev,
+                                     const block_config_state_t *curr) {
+    if (prev == NULL || curr == NULL) {
+        return false;
+    }
+    if (curr->block_count < prev->block_count) {
+        return false;
+    }
+
+    for (int i = 0; i < prev->block_count; i++) {
+        if (prev->blocks[i].device_uid != curr->blocks[i].device_uid ||
+            prev->blocks[i].block_type != curr->blocks[i].block_type ||
+            prev->blocks[i].i2c_address != curr->blocks[i].i2c_address) {
+            return false;
+        }
+    }
+    return (curr->block_count > prev->block_count);
+}
+
+static bool is_removal_only_change(const block_config_state_t *prev,
+                                   const block_config_state_t *curr) {
+    if (prev == NULL || curr == NULL) {
+        return false;
+    }
+    if (curr->block_count >= prev->block_count) {
+        return false;
+    }
+
+    int curr_idx = 0;
+    for (int prev_idx = 0; prev_idx < prev->block_count; prev_idx++) {
+        if (curr_idx >= curr->block_count) {
+            return true;
+        }
+        if (prev->blocks[prev_idx].device_uid == curr->blocks[curr_idx].device_uid &&
+            prev->blocks[prev_idx].block_type == curr->blocks[curr_idx].block_type) {
+            curr_idx++;
+        }
+    }
+
+    return (curr_idx == curr->block_count);
 }
 
 static bool is_input_block_type(block_type_t type) {
@@ -134,6 +161,10 @@ static bool is_output_or_delay_block_type(block_type_t type) {
             type == BLOCK_TYPE_DELAY);
 }
 
+static bool is_known_child_type(block_type_t type) {
+    return type != BLOCK_TYPE_UNKNOWN && type != BLOCK_TYPE_BRAIN;
+}
+
 static int find_scanned_entry_index_by_uid(const block_config_entry_t *entries,
                                            uint8_t count,
                                            uint32_t device_uid) {
@@ -145,10 +176,43 @@ static int find_scanned_entry_index_by_uid(const block_config_entry_t *entries,
     return -1;
 }
 
-static void assign_first_seen_order(block_config_entry_t *scanned_entries,
-                                    uint8_t scanned_count) {
+static const block_config_entry_t *find_committed_entry_by_address(const block_config_state_t *state,
+                                                                   uint8_t address) {
+    if (state == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < state->block_count; i++) {
+        if (state->blocks[i].i2c_address == address) {
+            return &state->blocks[i];
+        }
+    }
+    return NULL;
+}
+
+static const block_config_entry_t *find_committed_entry_by_uid(const block_config_state_t *state,
+                                                               uint32_t device_uid) {
+    if (state == NULL || device_uid == 0u) {
+        return NULL;
+    }
+
+    for (int i = 0; i < state->block_count; i++) {
+        if (state->blocks[i].device_uid == device_uid) {
+            return &state->blocks[i];
+        }
+    }
+    return NULL;
+}
+
+static void assign_stable_stack_order(const block_config_state_t *committed_state,
+                                      block_config_state_t *out_state,
+                                      block_config_entry_t *scanned_entries,
+                                      uint8_t scanned_count) {
+    if (out_state == NULL) {
+        return;
+    }
     if (scanned_entries == NULL) {
-        s_config_state.block_count = 0;
+        out_state->block_count = 0;
         return;
     }
 
@@ -156,27 +220,30 @@ static void assign_first_seen_order(block_config_entry_t *scanned_entries,
     bool used_scanned[BLOCK_CONFIG_MAX_BLOCKS] = {0};
     uint8_t ordered_count = 0;
 
-    if (s_previous_state_valid) {
-        /*
-         * Preserve visible order only for blocks that were still present in the
-         * immediately previous active configuration snapshot.
-         *
-         * This is intentionally weaker than "remember this UID forever":
-         * - normal rescans keep stable order for an unchanged physical setup
-         * - a block that disappears and later reappears is treated as newly
-         *   inserted into the current physical configuration and gets appended
-         *   after the still-present blocks
-         *
-         * Device UID remains useful for identity and address-slot ownership,
-         * but it must not permanently pin a block to an old visual/program
-         * position across intentional reconfiguration.
-         */
-        for (int i = 0; i < s_previous_state.block_count && ordered_count < scanned_count; i++) {
-            const block_config_entry_t *prev = &s_previous_state.blocks[i];
+    /*
+     * Preserved-order model:
+     * - keep the current committed known-block order whenever those blocks are
+     *   still present
+     * - append newly discovered known blocks after the committed known prefix
+     * - append unknown/unstable entries last for visibility only
+     *
+     * This is the original "preserve first seen" behavior in spirit: order is
+     * owned by the committed visible stack, not by hashed/bootstrap address.
+     */
+    if (committed_state != NULL) {
+        for (int i = 0; i < committed_state->block_count && ordered_count < scanned_count; i++) {
+            const block_config_entry_t *prev = &committed_state->blocks[i];
+            if (!is_known_child_type(prev->block_type)) {
+                continue;
+            }
+
             int scanned_idx = find_scanned_entry_index_by_uid(scanned_entries,
                                                               scanned_count,
                                                               prev->device_uid);
             if (scanned_idx < 0 || used_scanned[scanned_idx]) {
+                continue;
+            }
+            if (!is_known_child_type(scanned_entries[scanned_idx].block_type)) {
                 continue;
             }
 
@@ -191,14 +258,27 @@ static void assign_first_seen_order(block_config_entry_t *scanned_entries,
         if (used_scanned[i]) {
             continue;
         }
+        if (!is_known_child_type(scanned_entries[i].block_type)) {
+            continue;
+        }
+        ordered_entries[ordered_count] = scanned_entries[i];
+        ordered_entries[ordered_count].connection_order = ordered_count;
+        used_scanned[i] = true;
+        ordered_count++;
+    }
+
+    for (int i = 0; i < scanned_count && ordered_count < scanned_count; i++) {
+        if (used_scanned[i]) {
+            continue;
+        }
         ordered_entries[ordered_count] = scanned_entries[i];
         ordered_entries[ordered_count].connection_order = ordered_count;
         ordered_count++;
     }
 
-    memset(&s_config_state.blocks, 0, sizeof(s_config_state.blocks));
-    memcpy(s_config_state.blocks, ordered_entries, sizeof(block_config_entry_t) * ordered_count);
-    s_config_state.block_count = ordered_count;
+    memset(&out_state->blocks, 0, sizeof(out_state->blocks));
+    memcpy(out_state->blocks, ordered_entries, sizeof(block_config_entry_t) * ordered_count);
+    out_state->block_count = ordered_count;
 }
 
 static void recompute_event_map_from_config(void) {
@@ -297,22 +377,21 @@ static void recompute_event_map_from_config(void) {
 esp_err_t block_config_manager_scan(void) {
     ESP_LOGI(TAG, "=== BLOCK CONFIGURATION SCAN ===");
 
-    // Save previous state
-    memcpy(&s_previous_state, &s_config_state, sizeof(s_config_state));
-    s_previous_state_valid = true;
+    block_config_state_t committed_state;
+    memcpy(&committed_state, &s_config_state, sizeof(committed_state));
 
-    // Clear current state
-    memset(&s_config_state.blocks, 0, sizeof(s_config_state.blocks));
-    s_config_state.block_count = 0;
-    s_config_state.error_count = 0;
-    s_config_state.scan_id = ++s_scan_counter;
+    // Build candidate state from the latest scan without immediately
+    // overwriting the committed visible order.
+    block_config_state_t candidate_state;
+    memset(&candidate_state, 0, sizeof(candidate_state));
+    candidate_state.scan_id = ++s_scan_counter;
 
     // Use device registry to scan I2C bus
     device_registry_scan();
     const device_registry_t *registry = device_registry_get();
 
-    // Process detected devices into raw scan order first. We then transform that
-    // into a stable first-seen order so program order tracks initial detection.
+    // Process detected devices, then place them into a committed visible stack
+    // so transport-address churn does not reshuffle the app order.
     block_config_entry_t scanned_entries[BLOCK_CONFIG_MAX_BLOCKS];
     uint8_t scanned_count = 0;
     for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
@@ -326,6 +405,12 @@ esp_err_t block_config_manager_scan(void) {
             break;
         }
 
+        if (entry->type == BLOCK_TYPE_BRAIN) {
+            candidate_state.error_count++;
+            ESP_LOGW(TAG, "Ignoring invalid child WHOAMI=BRAIN at 0x%02X", entry->address);
+            continue;
+        }
+
         block_config_entry_t *config_entry = &scanned_entries[scanned_count];
         config_entry->i2c_address = entry->address;
         config_entry->device_uid = entry->uid;
@@ -335,64 +420,148 @@ esp_err_t block_config_manager_scan(void) {
         config_entry->caps = 0;
 
         // Use authoritative scan result for type/address from registry, but
-        // fall back to last-known good type if WHOAMI was unstable.
+        // pin last-known good identity harder when the same address is still
+        // responding and current WHOAMI/UID data is unstable.
         block_type_t effective_type = entry->type;
-        if (entry->present &&
-            entry->type == BLOCK_TYPE_UNKNOWN &&
-            s_previous_state_valid) {
-            for (int j = 0; j < s_previous_state.block_count; j++) {
-                const block_config_entry_t *prev = &s_previous_state.blocks[j];
-                if (prev->device_uid == entry->uid &&
-                    prev->block_type != BLOCK_TYPE_UNKNOWN) {
-                    ESP_LOGW(TAG,
-                             "WHOAMI unstable at 0x%02X, keeping previous type 0x%02X",
-                             entry->address, prev->block_type);
-                    effective_type = prev->block_type;
-                    break;
-                }
+        uint32_t effective_uid = entry->uid;
+        if (entry->present && s_previous_state_valid) {
+            const block_config_entry_t *prev_by_addr = find_committed_entry_by_address(&committed_state,
+                                                                                        entry->address);
+            if (prev_by_addr != NULL &&
+                prev_by_addr->block_type != BLOCK_TYPE_UNKNOWN &&
+                entry->type == BLOCK_TYPE_UNKNOWN) {
+                ESP_LOGW(TAG,
+                         "Identity unstable at 0x%02X, keeping previous block type 0x%02X",
+                         entry->address, prev_by_addr->block_type);
+                effective_type = prev_by_addr->block_type;
+            }
+            if (effective_uid == 0u &&
+                prev_by_addr != NULL &&
+                prev_by_addr->device_uid != 0u) {
+                ESP_LOGW(TAG,
+                         "UID unstable at 0x%02X, keeping previous uid 0x%08lX",
+                         entry->address,
+                         (unsigned long)prev_by_addr->device_uid);
+                effective_uid = prev_by_addr->device_uid;
             }
         }
 
         config_entry->block_type = effective_type;
+        config_entry->device_uid = effective_uid;
         config_entry->present = entry->present;
 
+        const block_config_entry_t *prev_meta = find_committed_entry_by_uid(&committed_state,
+                                                                            config_entry->device_uid);
+        if (prev_meta != NULL) {
+            config_entry->fw_major = prev_meta->fw_major;
+            config_entry->fw_minor = prev_meta->fw_minor;
+            config_entry->caps = prev_meta->caps;
+        }
+
         if (entry->present && entry->type == BLOCK_TYPE_UNKNOWN) {
-            s_config_state.error_count++;
+            candidate_state.error_count++;
             ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
         }
         scanned_count++;
     }
 
-    assign_first_seen_order(scanned_entries, scanned_count);
+    assign_stable_stack_order(s_previous_state_valid ? &committed_state : NULL,
+                              &candidate_state,
+                              scanned_entries,
+                              scanned_count);
 
     // Check for missing blocks (blocks that were present before but not now)
     if (s_previous_state_valid) {
         for (int i = 0; i < s_previous_state.block_count; i++) {
             bool found = false;
-            for (int j = 0; j < s_config_state.block_count; j++) {
-                if (s_previous_state.blocks[i].device_uid == s_config_state.blocks[j].device_uid) {
+            for (int j = 0; j < candidate_state.block_count; j++) {
+                if (s_previous_state.blocks[i].device_uid == candidate_state.blocks[j].device_uid) {
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                s_config_state.error_count++;
+                candidate_state.error_count++;
                 ESP_LOGW(TAG, "Block at 0x%02X is missing", s_previous_state.blocks[i].i2c_address);
             }
         }
     }
 
-    // Detect changes
+    // Update timestamp on the candidate snapshot first.
+    candidate_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
+
+    bool candidate_changed = false;
     if (s_previous_state_valid) {
-        s_config_state.has_changed = compare_configurations(&s_previous_state, &s_config_state);
+        candidate_changed = compare_configurations(&committed_state, &candidate_state);
     } else {
-        s_config_state.has_changed = true; // First scan always counts as change
+        candidate_changed = true; // First scan always counts as change
     }
 
-    // Update timestamp
-    s_config_state.last_scan_timestamp = esp_timer_get_time() / 1000; // Convert to milliseconds
+    bool append_only_change = s_previous_state_valid &&
+                              is_append_only_extension(&committed_state, &candidate_state);
+    bool removal_only_change = s_previous_state_valid &&
+                               is_removal_only_change(&committed_state, &candidate_state);
+
+    bool commit_candidate = false;
+    if (!s_previous_state_valid) {
+        commit_candidate = true;
+    } else if (!candidate_changed) {
+        commit_candidate = true;
+        s_pending_state_valid = false;
+        s_pending_stable_count = 0;
+    } else if (s_pending_state_valid &&
+               !compare_configurations(&s_pending_state, &candidate_state)) {
+        if (s_pending_stable_count < UINT8_MAX) {
+            s_pending_stable_count++;
+        }
+        uint8_t required_stable_scans = TOPOLOGY_STABLE_SCAN_THRESHOLD;
+        if (append_only_change) {
+            required_stable_scans = APPEND_STABLE_SCAN_THRESHOLD;
+        } else if (removal_only_change) {
+            required_stable_scans = REMOVAL_STABLE_SCAN_THRESHOLD;
+        }
+        if (s_pending_stable_count >= required_stable_scans) {
+            commit_candidate = true;
+        }
+    } else {
+        memcpy(&s_pending_state, &candidate_state, sizeof(candidate_state));
+        s_pending_state_valid = true;
+        s_pending_stable_count = 1;
+    }
+
+    if (commit_candidate) {
+        memcpy(&s_config_state, &candidate_state, sizeof(candidate_state));
+        s_config_state.has_changed = candidate_changed;
+        for (int i = 0; i < s_config_state.block_count; i++) {
+            block_config_entry_t *entry = &s_config_state.blocks[i];
+            if (!entry->present || entry->block_type == BLOCK_TYPE_UNKNOWN) {
+                continue;
+            }
+            if (entry->fw_major != 0 || entry->fw_minor != 0 || entry->caps != 0) {
+                continue;
+            }
+            read_optional_block_metadata(entry->i2c_address, entry);
+        }
+        memcpy(&s_previous_state, &committed_state, sizeof(committed_state));
+        s_previous_state_valid = true;
+        s_pending_state_valid = false;
+        s_pending_stable_count = 0;
+    } else {
+        s_config_state.has_changed = false;
+        s_config_state.scan_id = candidate_state.scan_id;
+        s_config_state.last_scan_timestamp = candidate_state.last_scan_timestamp;
+        s_config_state.error_count = candidate_state.error_count;
+    }
+
     recompute_event_map_from_config();
 
+    ESP_LOGI(TAG,
+             "Raw detected=%u, committed=%u, pending=%u, append_only=%s, removal_only=%s",
+             scanned_count,
+             s_config_state.block_count,
+             s_pending_stable_count,
+             append_only_change ? "yes" : "no",
+             removal_only_change ? "yes" : "no");
     ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
              s_config_state.block_count, s_config_state.error_count,
              s_config_state.has_changed ? "yes" : "no");
