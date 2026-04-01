@@ -26,13 +26,32 @@ static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
 
 // Simple register map for Brain-side WHOAMI/status reads.
 static uint8_t s_registers[16] = {0};
+static uint8_t s_runtime_address = 0u;
+static uint32_t s_device_uid = 0u;
+
+static void populate_identity_registers(void)
+{
+    if (s_device_uid == 0u) {
+        s_device_uid = block_compute_device_uid(MY_BLOCK_TYPE);
+    }
+
+    s_registers[REG_UID0] = (uint8_t)(s_device_uid & 0xFFu);
+    s_registers[REG_UID1] = (uint8_t)((s_device_uid >> 8) & 0xFFu);
+    s_registers[REG_UID2] = (uint8_t)((s_device_uid >> 16) & 0xFFu);
+    s_registers[REG_UID3] = (uint8_t)((s_device_uid >> 24) & 0xFFu);
+    s_registers[REG_ASSIGNED_ADDR] = s_runtime_address;
+}
 
 static void init_registers(void)
 {
+    if (s_runtime_address == 0u) {
+        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+    }
     s_registers[REG_WHOAMI] = MY_BLOCK_TYPE;
     s_registers[REG_STATUS] = STATUS_READY;
     s_registers[REG_FW_MAJOR] = 1;
     s_registers[REG_FW_MINOR] = 0;
+    populate_identity_registers();
 }
 
 static void refresh_dynamic_registers(void)
@@ -45,10 +64,47 @@ static bool is_register_index_byte(uint8_t v)
     return (v < 0x10U);
 }
 
+static esp_err_t rebind_i2c_slave_address(uint8_t new_address)
+{
+    if (!block_is_valid_child_address(new_address)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (new_address == s_runtime_address) {
+        return ESP_OK;
+    }
+
+    (void)i2c_driver_delete(I2C_PORT_NUM);
+
+    i2c_config_t conf = {
+        .mode = I2C_MODE_SLAVE,
+        .sda_io_num = I2C_SDA_PIN,
+        .scl_io_num = I2C_SCL_PIN,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .slave.addr_10bit_en = 0,
+        .slave.slave_addr = new_address,
+    };
+
+    esp_err_t err = i2c_param_config(I2C_PORT_NUM, &conf);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = i2c_driver_install(I2C_PORT_NUM, conf.mode, 128, 128, 0);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    s_runtime_address = new_address;
+    s_registers[REG_ASSIGNED_ADDR] = new_address;
+    ESP_LOGI(TAG, "Rebound child address to 0x%02X", new_address);
+    return ESP_OK;
+}
+
 esp_err_t i2c_slave_init(void)
 {
     ESP_LOGI(TAG, "Init I2C Slave at 0x%02X (type=%s)",
-             MY_ADDRESS, block_type_to_string(MY_BLOCK_TYPE));
+             s_runtime_address, block_type_to_string(MY_BLOCK_TYPE));
 
     init_registers();
 
@@ -59,7 +115,7 @@ esp_err_t i2c_slave_init(void)
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
         .slave.addr_10bit_en = 0,
-        .slave.slave_addr = MY_ADDRESS,
+        .slave.slave_addr = s_runtime_address,
     };
 
     esp_err_t err = i2c_param_config(I2C_PORT_NUM, &conf);
@@ -93,6 +149,15 @@ void i2c_task(void *arg)
         }
 
         ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
+
+        if (len >= 2 && ((i2c_command_t)rx_buf[0]) == CMD_SET_I2C_ADDRESS) {
+            esp_err_t err = rebind_i2c_slave_address(rx_buf[1]);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
+                         rx_buf[1], esp_err_to_name(err));
+            }
+            continue;
+        }
 
         // Keep STATUS register synced with runtime state managed in main.c.
         refresh_dynamic_registers();

@@ -86,14 +86,14 @@ static bool compare_configurations(const block_config_state_t *prev, const block
         return true;
     }
 
-    // Check if any block addresses or types changed
+    // Check if any block identities, addresses, or types changed
     for (int i = 0; i < curr->block_count; i++) {
         bool found = false;
         for (int j = 0; j < prev->block_count; j++) {
-            if (prev->blocks[j].i2c_address == curr->blocks[i].i2c_address) {
+            if (prev->blocks[j].device_uid == curr->blocks[i].device_uid) {
                 found = true;
-                // Check if type changed (error condition)
-                if (prev->blocks[j].block_type != curr->blocks[i].block_type) {
+                if (prev->blocks[j].block_type != curr->blocks[i].block_type ||
+                    prev->blocks[j].i2c_address != curr->blocks[i].i2c_address) {
                     return true;
                 }
                 break;
@@ -109,7 +109,7 @@ static bool compare_configurations(const block_config_state_t *prev, const block
     for (int i = 0; i < prev->block_count; i++) {
         bool found = false;
         for (int j = 0; j < curr->block_count; j++) {
-            if (prev->blocks[j].i2c_address == curr->blocks[i].i2c_address) {
+            if (prev->blocks[i].device_uid == curr->blocks[j].device_uid) {
                 found = true;
                 break;
             }
@@ -134,11 +134,11 @@ static bool is_output_or_delay_block_type(block_type_t type) {
             type == BLOCK_TYPE_DELAY);
 }
 
-static int find_scanned_entry_index_by_address(const block_config_entry_t *entries,
-                                               uint8_t count,
-                                               uint8_t address) {
+static int find_scanned_entry_index_by_uid(const block_config_entry_t *entries,
+                                           uint8_t count,
+                                           uint32_t device_uid) {
     for (int i = 0; i < count; i++) {
-        if (entries[i].i2c_address == address) {
+        if (entries[i].device_uid == device_uid) {
             return i;
         }
     }
@@ -157,11 +157,25 @@ static void assign_first_seen_order(block_config_entry_t *scanned_entries,
     uint8_t ordered_count = 0;
 
     if (s_previous_state_valid) {
+        /*
+         * Preserve visible order only for blocks that were still present in the
+         * immediately previous active configuration snapshot.
+         *
+         * This is intentionally weaker than "remember this UID forever":
+         * - normal rescans keep stable order for an unchanged physical setup
+         * - a block that disappears and later reappears is treated as newly
+         *   inserted into the current physical configuration and gets appended
+         *   after the still-present blocks
+         *
+         * Device UID remains useful for identity and address-slot ownership,
+         * but it must not permanently pin a block to an old visual/program
+         * position across intentional reconfiguration.
+         */
         for (int i = 0; i < s_previous_state.block_count && ordered_count < scanned_count; i++) {
             const block_config_entry_t *prev = &s_previous_state.blocks[i];
-            int scanned_idx = find_scanned_entry_index_by_address(scanned_entries,
-                                                                  scanned_count,
-                                                                  prev->i2c_address);
+            int scanned_idx = find_scanned_entry_index_by_uid(scanned_entries,
+                                                              scanned_count,
+                                                              prev->device_uid);
             if (scanned_idx < 0 || used_scanned[scanned_idx]) {
                 continue;
             }
@@ -314,6 +328,7 @@ esp_err_t block_config_manager_scan(void) {
 
         block_config_entry_t *config_entry = &scanned_entries[scanned_count];
         config_entry->i2c_address = entry->address;
+        config_entry->device_uid = entry->uid;
         config_entry->connection_order = scanned_count;
         config_entry->fw_major = 0;
         config_entry->fw_minor = 0;
@@ -327,7 +342,7 @@ esp_err_t block_config_manager_scan(void) {
             s_previous_state_valid) {
             for (int j = 0; j < s_previous_state.block_count; j++) {
                 const block_config_entry_t *prev = &s_previous_state.blocks[j];
-                if (prev->i2c_address == entry->address &&
+                if (prev->device_uid == entry->uid &&
                     prev->block_type != BLOCK_TYPE_UNKNOWN) {
                     ESP_LOGW(TAG,
                              "WHOAMI unstable at 0x%02X, keeping previous type 0x%02X",
@@ -355,7 +370,7 @@ esp_err_t block_config_manager_scan(void) {
         for (int i = 0; i < s_previous_state.block_count; i++) {
             bool found = false;
             for (int j = 0; j < s_config_state.block_count; j++) {
-                if (s_previous_state.blocks[i].i2c_address == s_config_state.blocks[j].i2c_address) {
+                if (s_previous_state.blocks[i].device_uid == s_config_state.blocks[j].device_uid) {
                     found = true;
                     break;
                 }
@@ -468,6 +483,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         cJSON *block_obj = cJSON_CreateObject();
         cJSON_AddNumberToObject(block_obj, "index", 0);
         cJSON_AddNumberToObject(block_obj, "i2c_address", 0);
+        cJSON_AddNumberToObject(block_obj, "device_uid", 0);
         cJSON_AddNumberToObject(block_obj, "connection_order", -1);
 
         cJSON *whoami_obj = cJSON_CreateObject();
@@ -487,6 +503,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         cJSON *block_obj = cJSON_CreateObject();
         cJSON_AddNumberToObject(block_obj, "index", i + 1);
         cJSON_AddNumberToObject(block_obj, "i2c_address", entry->i2c_address);
+        cJSON_AddNumberToObject(block_obj, "device_uid", (double)entry->device_uid);
         cJSON_AddNumberToObject(block_obj, "connection_order", entry->connection_order);
 
         // Create whoami object
@@ -541,7 +558,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         for (int i = 0; i < s_previous_state.block_count; i++) {
             bool found = false;
             for (int j = 0; j < s_config_state.block_count; j++) {
-                if (s_previous_state.blocks[i].i2c_address == s_config_state.blocks[j].i2c_address) {
+                if (s_previous_state.blocks[i].device_uid == s_config_state.blocks[j].device_uid) {
                     found = true;
                     break;
                 }
