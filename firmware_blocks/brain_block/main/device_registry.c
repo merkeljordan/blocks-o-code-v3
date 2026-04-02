@@ -16,9 +16,14 @@ static const char *TAG = "DEV_REGISTRY";
 
 // Global registry instance
 static device_registry_t s_registry;
-/* One miss tolerated; second miss = device gone (fast removal detection) */
-#define DEVICE_REGISTRY_MAX_MISSES 1
-static uint8_t s_miss_counts[DEVICE_REGISTRY_MAX_DEVICES] = {0};
+
+// Debounce / skeptical discovery:
+// - Confirm presence only after 10 consecutive ACKs
+// - Confirm removal only after 5 consecutive NACKs (while previously confirmed present)
+#define DEVICE_REGISTRY_CONFIRM_ACKS   10
+#define DEVICE_REGISTRY_REMOVE_NACKS   5
+static uint8_t s_confidence[128] = {0};   // ACK streak per address
+static uint8_t s_nack_streak[128] = {0};  // NACK streak per address (only meaningful once confirmed present)
 
 static bool is_valid_block_type_byte(uint8_t raw)
 {
@@ -79,6 +84,23 @@ static uint32_t read_device_uid(uint8_t addr)
                    ((uint32_t)uid_bytes[2] << 16) |
                    ((uint32_t)uid_bytes[3] << 24);
     return uid;
+}
+
+static esp_err_t read_device_whoami(uint8_t addr, block_type_t *out_type)
+{
+    if (out_type == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t whoami = BLOCK_TYPE_UNKNOWN;
+    // Keep this tight: WHOAMI is only read on confirmation (or when unknown).
+    esp_err_t ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
+    if (ret != ESP_OK) {
+        return ret;
+    }
+
+    *out_type = is_valid_block_type_byte(whoami) ? (block_type_t)whoami : BLOCK_TYPE_UNKNOWN;
+    return ESP_OK;
 }
 
 static bool apply_allocator(const device_entry_t *previous_entries,
@@ -153,7 +175,7 @@ static bool apply_allocator(const device_entry_t *previous_entries,
 
 static esp_err_t device_registry_scan_once(bool allow_allocator)
 {
-    uint8_t found = 0;
+    uint8_t confirmed_found = 0;
     device_entry_t detected_entries[DEVICE_REGISTRY_MAX_DEVICES];
     uint8_t detected_count = 0;
     device_entry_t previous_entries[DEVICE_REGISTRY_MAX_DEVICES];
@@ -166,58 +188,81 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
             previous_count++;
         }
     }
-    memset(&s_registry, 0, sizeof(s_registry));
 
     for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
         uint8_t addr = DEVICE_REGISTRY_ADDR_MIN + i;
         device_entry_t *entry = &s_registry.devices[i];
+        // Ensure address is always populated (other fields persist across scans).
         entry->address = addr;
-        entry->type = BLOCK_TYPE_UNKNOWN;
-        entry->uid = 0u;
-        entry->present = false;
 
         esp_err_t ret = i2c_ping(addr);
-        if (ret != ESP_OK) {
-            continue;
-        }
+        if (ret == ESP_OK) {
+            // ACK: build confidence up to confirmation threshold.
+            s_nack_streak[addr] = 0;
+            if (s_confidence[addr] < DEVICE_REGISTRY_CONFIRM_ACKS) {
+                s_confidence[addr]++;
+            }
 
-        uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-        ret = ESP_FAIL;
-        for (int attempt = 0; attempt < 5 && ret != ESP_OK; attempt++) {
-            ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
-            if (ret != ESP_OK) {
-                vTaskDelay(pdMS_TO_TICKS(10));
+            bool just_confirmed = (!entry->present && s_confidence[addr] >= DEVICE_REGISTRY_CONFIRM_ACKS);
+            if (just_confirmed) {
+                entry->present = true;
+                ESP_LOGI(TAG, "Confirmed present at 0x%02X (confidence=%u)", addr, (unsigned)s_confidence[addr]);
+            }
+
+            // Only do WHOAMI/UID reads when (a) just confirmed, or (b) still unknown.
+            if (entry->present && (just_confirmed || entry->type == BLOCK_TYPE_UNKNOWN || entry->uid == 0u)) {
+                block_type_t type = BLOCK_TYPE_UNKNOWN;
+                esp_err_t whoami_ret = read_device_whoami(addr, &type);
+                if (whoami_ret == ESP_OK) {
+                    entry->type = type;
+                }
+                uint32_t uid = read_device_uid(addr);
+                if (uid != 0u) {
+                    entry->uid = uid;
+                }
+
+                if (entry->type == BLOCK_TYPE_UNKNOWN) {
+                    ESP_LOGW(TAG, "Device at 0x%02X confirmed but WHOAMI was unknown/invalid", addr);
+                } else {
+                    ESP_LOGI(TAG, "Device at 0x%02X: %s uid=0x%08lX",
+                             addr,
+                             block_type_to_string(entry->type),
+                             (unsigned long)entry->uid);
+                }
+            }
+        } else {
+            // NACK: only remove after sustained misses *when already confirmed present*.
+            s_confidence[addr] = 0;
+            if (entry->present) {
+                if (s_nack_streak[addr] < DEVICE_REGISTRY_REMOVE_NACKS) {
+                    s_nack_streak[addr]++;
+                }
+
+                if (s_nack_streak[addr] >= DEVICE_REGISTRY_REMOVE_NACKS) {
+                    entry->present = false;
+                    ESP_LOGW(TAG, "Confirmed removed at 0x%02X (nack_streak=%u)", addr, (unsigned)s_nack_streak[addr]);
+                    // Keep entry->type/uid as stale metadata while absent (prevents config flapping).
+                }
+            } else {
+                s_nack_streak[addr] = 0;
             }
         }
 
-        entry->present = true;
-        entry->type = is_valid_block_type_byte(whoami) ? (block_type_t)whoami : BLOCK_TYPE_UNKNOWN;
-        entry->uid = read_device_uid(addr);
-        s_miss_counts[i] = 0;
-        found++;
-
-        if (detected_count < DEVICE_REGISTRY_MAX_DEVICES) {
-            detected_entries[detected_count++] = *entry;
-        }
-
-        if (entry->type == BLOCK_TYPE_UNKNOWN) {
-            ESP_LOGW(TAG, "Device at 0x%02X pinged but WHOAMI was invalid/unknown (0x%02X)", addr, whoami);
-        } else {
-            ESP_LOGI(TAG, "Device at 0x%02X: type=0x%02X (%s), uid=0x%08lX",
-                     addr,
-                     whoami,
-                     block_type_to_string(entry->type),
-                     (unsigned long)entry->uid);
+        if (entry->present) {
+            confirmed_found++;
+            if (detected_count < DEVICE_REGISTRY_MAX_DEVICES) {
+                detected_entries[detected_count++] = *entry;
+            }
         }
     }
 
-    if (allow_allocator && apply_allocator(previous_entries, previous_count, detected_entries, detected_count)) {
-        vTaskDelay(pdMS_TO_TICKS(60));
-        return device_registry_scan_once(false);
+    if (allow_allocator && detected_count > 0 &&
+        apply_allocator(previous_entries, previous_count, detected_entries, detected_count)) {
+        // Don't block the scan cadence here; a subsequent scan tick will observe the moved addresses.
+        ESP_LOGI(TAG, "Allocator requested address move(s); will be reflected on next scan tick");
     }
 
-    s_registry.count = found;
-    ESP_LOGI(TAG, "Scan complete: %d device(s) found", found);
+    s_registry.count = confirmed_found;
     return ESP_OK;
 }
 
@@ -228,7 +273,8 @@ void device_registry_init(void) {
         s_registry.devices[i].type = BLOCK_TYPE_UNKNOWN;
         s_registry.devices[i].uid = 0u;
         s_registry.devices[i].present = false;
-        s_miss_counts[i] = 0;
+        s_confidence[DEVICE_REGISTRY_ADDR_MIN + i] = 0;
+        s_nack_streak[DEVICE_REGISTRY_ADDR_MIN + i] = 0;
     }
     s_registry.count = 0;
     ESP_LOGI(TAG, "Device registry initialized (addr range 0x%02X-0x%02X)",
@@ -236,12 +282,21 @@ void device_registry_init(void) {
 }
 
 esp_err_t device_registry_scan(void) {
-    ESP_LOGI(TAG, "=== DEVICE REGISTRY SCAN ===");
     return device_registry_scan_once(true);
 }
 
 const device_registry_t* device_registry_get(void) {
     return &s_registry;
+}
+
+esp_err_t device_registry_get_snapshot(device_registry_t *out_registry)
+{
+    if (out_registry == NULL) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    // Registry updates happen on a single task cadence; memcpy is sufficient for a snapshot.
+    memcpy(out_registry, &s_registry, sizeof(*out_registry));
+    return ESP_OK;
 }
 
 void device_registry_print(void) {

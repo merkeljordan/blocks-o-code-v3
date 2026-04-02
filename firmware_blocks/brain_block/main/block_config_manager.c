@@ -11,6 +11,7 @@
 #include "device_registry.h"
 #include "brain_block.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "cJSON.h"
 
@@ -309,7 +310,9 @@ esp_err_t block_config_manager_scan(void) {
 
     // Use device registry to scan I2C bus
     device_registry_scan();
-    const device_registry_t *registry = device_registry_get();
+    device_registry_t registry_snapshot;
+    const device_registry_t *registry = &registry_snapshot;
+    (void)device_registry_get_snapshot(&registry_snapshot);
 
     // Process detected devices into raw scan order first. We then transform that
     // into a stable first-seen order so program order tracks initial detection.
@@ -447,9 +450,13 @@ static void add_error_to_json(cJSON *errors_array, const char *type, const char 
 }
 
 esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
-    if (json_buffer == NULL || buffer_size < 256) {
+    // Worst-case buffer sizing (15 child blocks + synthetic brain + errors) can exceed 1KB.
+    // The companion app uses 2048, so enforce that here to avoid silent truncation surprises.
+    if (json_buffer == NULL || buffer_size < 2048) {
         return ESP_ERR_INVALID_ARG;
     }
+
+    const uint32_t heap_before = esp_get_free_heap_size();
 
     cJSON *root = cJSON_CreateObject();
     if (root == NULL) {
@@ -468,6 +475,10 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     // Create config object
     cJSON *config = cJSON_CreateObject();
+    if (config == NULL) {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
     cJSON_AddItemToObject(root, "config", config);
 
     // Add total_blocks (include Brain as a synthetic entry)
@@ -476,17 +487,30 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     // Create blocks array
     cJSON *blocks_array = cJSON_CreateArray();
+    if (blocks_array == NULL) {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
     cJSON_AddItemToObject(config, "blocks", blocks_array);
 
     // Add Brain block as a synthetic entry (not on I2C bus)
     {
         cJSON *block_obj = cJSON_CreateObject();
+        if (block_obj == NULL) {
+            cJSON_Delete(root);
+            return ESP_ERR_NO_MEM;
+        }
         cJSON_AddNumberToObject(block_obj, "index", 0);
         cJSON_AddNumberToObject(block_obj, "i2c_address", 0);
         cJSON_AddNumberToObject(block_obj, "device_uid", 0);
         cJSON_AddNumberToObject(block_obj, "connection_order", -1);
 
         cJSON *whoami_obj = cJSON_CreateObject();
+        if (whoami_obj == NULL) {
+            cJSON_Delete(block_obj);
+            cJSON_Delete(root);
+            return ESP_ERR_NO_MEM;
+        }
         cJSON_AddItemToObject(block_obj, "whoami", whoami_obj);
         cJSON_AddStringToObject(whoami_obj, "block_type", "brain_block");
         cJSON_AddStringToObject(whoami_obj, "block_id", "BRAIN");
@@ -501,6 +525,10 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         const block_config_entry_t *entry = &s_config_state.blocks[i];
         
         cJSON *block_obj = cJSON_CreateObject();
+        if (block_obj == NULL) {
+            cJSON_Delete(root);
+            return ESP_ERR_NO_MEM;
+        }
         cJSON_AddNumberToObject(block_obj, "index", i + 1);
         cJSON_AddNumberToObject(block_obj, "i2c_address", entry->i2c_address);
         cJSON_AddNumberToObject(block_obj, "device_uid", (double)entry->device_uid);
@@ -508,6 +536,11 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
         // Create whoami object
         cJSON *whoami_obj = cJSON_CreateObject();
+        if (whoami_obj == NULL) {
+            cJSON_Delete(block_obj);
+            cJSON_Delete(root);
+            return ESP_ERR_NO_MEM;
+        }
         cJSON_AddItemToObject(block_obj, "whoami", whoami_obj);
 
         // Add block_type
@@ -536,6 +569,10 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
 
     // Create errors array
     cJSON *errors_array = cJSON_CreateArray();
+    if (errors_array == NULL) {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
     cJSON_AddItemToObject(config, "errors", errors_array);
 
     // Add errors
@@ -578,11 +615,14 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         return ESP_ERR_NO_MEM;
     }
 
-    // Copy to buffer (truncate if necessary)
+    // Copy to buffer (no truncation: treat as error to avoid partial JSON)
     size_t json_len = strlen(json_string);
     if (json_len >= buffer_size) {
-        ESP_LOGW(TAG, "JSON buffer too small (%d < %d), truncating", buffer_size, json_len);
-        json_len = buffer_size - 1;
+        ESP_LOGE(TAG, "JSON buffer too small (%u < %u); refusing to truncate",
+                 (unsigned)buffer_size, (unsigned)json_len);
+        free(json_string);
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
     }
     memcpy(json_buffer, json_string, json_len);
     json_buffer[json_len] = '\0';
@@ -590,6 +630,14 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     // Cleanup
     free(json_string);
     cJSON_Delete(root);
+
+    const uint32_t heap_after = esp_get_free_heap_size();
+    const int32_t heap_delta = (int32_t)heap_after - (int32_t)heap_before;
+    ESP_LOGI(TAG, "block_config JSON heap delta: %ld bytes (before=%lu after=%lu len=%lu)",
+             (long)heap_delta,
+             (unsigned long)heap_before,
+             (unsigned long)heap_after,
+             (unsigned long)json_len);
 
     ESP_LOGD(TAG, "Generated JSON (%d bytes): %s", json_len, json_buffer);
 

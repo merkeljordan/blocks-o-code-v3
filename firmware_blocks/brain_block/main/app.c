@@ -64,7 +64,7 @@ Enhancement:
 #define TCP_RX_BUF_SIZE       512
 #define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
-#define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 6144
+#define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 8192
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
@@ -374,8 +374,8 @@ static void tcp_client_task(void *pvParameters)
                             cJSON_AddNumberToObject(ack_json, "timestamp", (double)(esp_timer_get_time() / 1000));
                             char *ack_string = cJSON_Print(ack_json);
                             if (ack_string != NULL) {
-                                strcat(ack_string, "\n");
                                 send(sock, ack_string, strlen(ack_string), 0);
+                                send(sock, "\n", 1, 0);
                                 free(ack_string);
                             }
                             cJSON_Delete(ack_json);
@@ -528,12 +528,13 @@ void start_network_client(void)
     if (s_block_config_json_mutex == NULL) {
         s_block_config_json_mutex = xSemaphoreCreateMutex();
     }
-    xTaskCreate(block_config_scan_task,
-                "block_cfg_scan",
-                BLOCK_CONFIG_SCAN_TASK_STACK_SIZE,
-                NULL,
-                4,
-                NULL);
+    xTaskCreatePinnedToCore(block_config_scan_task,
+                            "block_cfg_scan",
+                            BLOCK_CONFIG_SCAN_TASK_STACK_SIZE,
+                            NULL,
+                            4,
+                            NULL,
+                            0);
 
     wifi_init_sta();
 

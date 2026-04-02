@@ -16,9 +16,47 @@ static SemaphoreHandle_t s_i2c_mutex = NULL;
 // Allow more time for other I2C users (event poll, config scan, etc.).
 #define I2C_MUTEX_TIMEOUT_MS 500
 
+// Recovery pulses if a slave is holding SDA low
+#define I2C_BUS_RECOVERY_SCL_PULSES 9
+#define I2C_BUS_RECOVERY_DELAY_MS   2
+
 // Scan window for development boards; must match device_registry.h
 #define DEVICE_REGISTRY_ADDR_MIN    0x08
 #define DEVICE_REGISTRY_ADDR_MAX    0x16
+
+static esp_err_t i2c_bus_recover_locked(void) {
+    // NOTE: caller should hold the recursive I2C mutex so no other task uses I2C during recovery.
+    ESP_LOGW(TAG, "I2C bus timeout; attempting bus recovery (toggle SCL %d pulses)", I2C_BUS_RECOVERY_SCL_PULSES);
+
+    // Best-effort delete; ignore failures (driver may already be stopped).
+    (void)i2c_driver_delete(I2C_PORT_NUM);
+
+    // Temporarily switch pins to GPIO open-drain mode and clock out stuck bits.
+    gpio_set_direction(I2C_SDA_PIN, GPIO_MODE_INPUT_OUTPUT_OD);
+    gpio_set_pull_mode(I2C_SDA_PIN, GPIO_PULLUP_ONLY);
+    gpio_set_direction(I2C_SCL_PIN, GPIO_MODE_INPUT_OUTPUT_OD);
+    gpio_set_pull_mode(I2C_SCL_PIN, GPIO_PULLUP_ONLY);
+
+    gpio_set_level(I2C_SDA_PIN, 1);
+    gpio_set_level(I2C_SCL_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(I2C_BUS_RECOVERY_DELAY_MS));
+
+    for (int i = 0; i < I2C_BUS_RECOVERY_SCL_PULSES; i++) {
+        gpio_set_level(I2C_SCL_PIN, 0);
+        vTaskDelay(pdMS_TO_TICKS(I2C_BUS_RECOVERY_DELAY_MS));
+        gpio_set_level(I2C_SCL_PIN, 1);
+        vTaskDelay(pdMS_TO_TICKS(I2C_BUS_RECOVERY_DELAY_MS));
+    }
+
+    // Re-init I2C master driver (restores pins to I2C function).
+    esp_err_t ret = i2c_master_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "I2C bus recovery: re-init failed (%s)", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "I2C bus recovery: re-init OK");
+    return ESP_OK;
+}
 
 static esp_err_t i2c_lock(void) {
     if (s_i2c_mutex == NULL) {
@@ -60,6 +98,10 @@ static esp_err_t i2c_send_payload(uint8_t address, const uint8_t *data, size_t l
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, timeout_ticks);
+    if (ret == ESP_ERR_TIMEOUT) {
+        // This is a bus timeout (not the mutex timeout), since we already acquired the lock.
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -89,6 +131,15 @@ esp_err_t i2c_master_init(void) {
     if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
         return ret;
     }
+
+    // Harden I2C master against slow edges / chatter.
+    // - max timeout: tolerate slow rise times / clock stretching
+    // - glitch filter: reject short pulses on SCL/SDA
+    // - drive strength: improve edges when using pogo pins / long traces
+    (void)i2c_set_timeout(I2C_PORT_NUM, 0xFFFFF);
+    (void)i2c_filter_enable(I2C_PORT_NUM, 7);
+    (void)gpio_set_drive_capability(I2C_SDA_PIN, GPIO_DRIVE_CAP_3);
+    (void)gpio_set_drive_capability(I2C_SCL_PIN, GPIO_DRIVE_CAP_3);
 
     if (s_i2c_mutex == NULL) {
         s_i2c_mutex = xSemaphoreCreateRecursiveMutex();
@@ -121,6 +172,10 @@ esp_err_t i2c_ping(uint8_t addr) {
 
     /* Short timeout so missing device (removal) is detected quickly (~25 ms) */
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(25));
+    if (ret == ESP_ERR_TIMEOUT) {
+        // This is a bus timeout (not the mutex timeout), since we already acquired the lock.
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -160,6 +215,9 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
         pdMS_TO_TICKS(50)
     );
     if (ret != ESP_OK) {
+        if (ret == ESP_ERR_TIMEOUT) {
+            (void)i2c_bus_recover_locked();
+        }
         i2c_unlock();
         return ret;
     }
@@ -175,6 +233,9 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
         len,
         pdMS_TO_TICKS(50)
     );
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_unlock();
     return ret;
 }
@@ -201,6 +262,9 @@ esp_err_t i2c_matrix_fill(uint8_t address, uint8_t r, uint8_t g, uint8_t b) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -228,6 +292,9 @@ esp_err_t i2c_matrix_show(uint8_t address) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -255,6 +322,9 @@ esp_err_t i2c_matrix_clear(uint8_t address) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -282,6 +352,9 @@ esp_err_t i2c_matrix_set_brightness(uint8_t address, uint8_t brightness) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -348,6 +421,9 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
         pdMS_TO_TICKS(50)
     );
     if (ret != ESP_OK) {
+        if (ret == ESP_ERR_TIMEOUT) {
+            (void)i2c_bus_recover_locked();
+        }
         i2c_unlock();
         return ret;
     }
@@ -363,6 +439,9 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
         len,
         pdMS_TO_TICKS(50)
     );
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
 
     i2c_unlock();
     return ret;
@@ -390,6 +469,9 @@ static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd_byte) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
@@ -454,6 +536,9 @@ esp_err_t i2c_oled_text(uint8_t address, const char *msg) {
     i2c_master_stop(cmd);
 
     esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+    if (ret == ESP_ERR_TIMEOUT) {
+        (void)i2c_bus_recover_locked();
+    }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
