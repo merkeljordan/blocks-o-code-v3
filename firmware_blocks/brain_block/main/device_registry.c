@@ -2,7 +2,7 @@
  * device_registry.c
  *
  * Implementation of the Brain-side device registry.
- * Scans I2C addresses 0x08-0x16, reads REG_WHOAMI, and stores results.
+ * Scans I2C addresses 0x08-0x16 with debounced presence, reads identity registers, and stores results.
  */
 
 #include <string.h>
@@ -24,6 +24,14 @@ static device_registry_t s_registry;
 #define DEVICE_REGISTRY_REMOVE_NACKS   5
 static uint8_t s_confidence[128] = {0};   // ACK streak per address
 static uint8_t s_nack_streak[128] = {0};  // NACK streak per address (only meaningful once confirmed present)
+
+#define IDENTITY_READ_ATTEMPTS 3
+#define IDENTITY_READ_SETTLE_MS 6
+#define SCAN_POST_PING_SETTLE_MS 2
+#define SCAN_INTER_DEVICE_SETTLE_MS 2
+
+/* REG_WHOAMI (0x00) through REG_ASSIGNED_ADDR (0x0A) inclusive = 11 bytes per i2c_protocol.h */
+#define IDENTITY_BURST_LEN 11
 
 static bool is_valid_block_type_byte(uint8_t raw)
 {
@@ -93,7 +101,6 @@ static esp_err_t read_device_whoami(uint8_t addr, block_type_t *out_type)
     }
 
     uint8_t whoami = BLOCK_TYPE_UNKNOWN;
-    // Keep this tight: WHOAMI is only read on confirmation (or when unknown).
     esp_err_t ret = i2c_read_reg(addr, REG_WHOAMI, &whoami, 1);
     if (ret != ESP_OK) {
         return ret;
@@ -101,6 +108,97 @@ static esp_err_t read_device_whoami(uint8_t addr, block_type_t *out_type)
 
     *out_type = is_valid_block_type_byte(whoami) ? (block_type_t)whoami : BLOCK_TYPE_UNKNOWN;
     return ESP_OK;
+}
+
+typedef struct {
+    bool valid;
+    uint8_t whoami;
+    uint32_t uid;
+    uint8_t assigned_addr;
+} identity_snapshot_t;
+
+static bool read_identity_snapshot(uint8_t addr, identity_snapshot_t *out)
+{
+    if (out == NULL) {
+        return false;
+    }
+
+    uint8_t raw[IDENTITY_BURST_LEN] = {0};
+    esp_err_t ret = i2c_read_reg(addr, REG_WHOAMI, raw, sizeof(raw));
+    if (ret != ESP_OK) {
+        return false;
+    }
+
+    uint8_t whoami = raw[REG_WHOAMI];
+    uint32_t uid = ((uint32_t)raw[REG_UID0]) |
+                   ((uint32_t)raw[REG_UID1] << 8) |
+                   ((uint32_t)raw[REG_UID2] << 16) |
+                   ((uint32_t)raw[REG_UID3] << 24);
+    uint8_t assigned = raw[REG_ASSIGNED_ADDR];
+
+    out->valid = is_valid_block_type_byte(whoami) &&
+                 uid != 0u &&
+                 assigned == addr;
+    out->whoami = whoami;
+    out->uid = uid;
+    out->assigned_addr = assigned;
+    return out->valid;
+}
+
+static bool read_stable_identity(uint8_t addr, identity_snapshot_t *out)
+{
+    if (out == NULL) {
+        return false;
+    }
+
+    identity_snapshot_t snapshots[IDENTITY_READ_ATTEMPTS];
+    memset(snapshots, 0, sizeof(snapshots));
+
+    int valid_count = 0;
+    for (int attempt = 0; attempt < IDENTITY_READ_ATTEMPTS; attempt++) {
+        if (read_identity_snapshot(addr, &snapshots[attempt])) {
+            valid_count++;
+        }
+        if (attempt + 1 < IDENTITY_READ_ATTEMPTS) {
+            vTaskDelay(pdMS_TO_TICKS(IDENTITY_READ_SETTLE_MS));
+        }
+    }
+
+    if (valid_count == 0) {
+        return false;
+    }
+
+    for (int i = 0; i < IDENTITY_READ_ATTEMPTS; i++) {
+        if (!snapshots[i].valid) {
+            continue;
+        }
+        int matches = 1;
+        for (int j = i + 1; j < IDENTITY_READ_ATTEMPTS; j++) {
+            if (!snapshots[j].valid) {
+                continue;
+            }
+            if (snapshots[i].whoami == snapshots[j].whoami &&
+                snapshots[i].uid == snapshots[j].uid &&
+                snapshots[i].assigned_addr == snapshots[j].assigned_addr) {
+                matches++;
+            }
+        }
+
+        if (matches >= 2) {
+            *out = snapshots[i];
+            return true;
+        }
+    }
+
+    for (int i = 0; i < IDENTITY_READ_ATTEMPTS; i++) {
+        if (snapshots[i].valid) {
+            *out = snapshots[i];
+            ESP_LOGW(TAG, "Identity at 0x%02X was not fully stable; accepting single valid snapshot", addr);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static bool apply_allocator(const device_entry_t *previous_entries,
@@ -130,14 +228,6 @@ static bool apply_allocator(const device_entry_t *previous_entries,
         uint8_t desired_addr = entry->address;
         int previous_idx = find_entry_index_by_uid(previous_entries, previous_count, entry->uid);
         if (previous_idx >= 0 && block_is_valid_child_address(previous_entries[previous_idx].address)) {
-            /*
-             * Preserve transport slots only for devices that were still present
-             * in the immediately previous live scan.
-             *
-             * If a device disappears and later reappears, it is treated as a
-             * newly inserted device for allocator purposes and receives the
-             * next currently free slot instead of reclaiming a historical slot.
-             */
             desired_addr = previous_entries[previous_idx].address;
         } else {
             desired_addr = choose_lowest_free_slot(used_slots);
@@ -173,6 +263,44 @@ static bool apply_allocator(const device_entry_t *previous_entries,
     return requested_move;
 }
 
+static void refresh_entry_identity(uint8_t addr, device_entry_t *entry, bool just_confirmed)
+{
+    if (entry == NULL || !entry->present) {
+        return;
+    }
+
+    if (!just_confirmed && entry->type != BLOCK_TYPE_UNKNOWN && entry->uid != 0u) {
+        return;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(SCAN_POST_PING_SETTLE_MS));
+
+    identity_snapshot_t identity = {0};
+    if (read_stable_identity(addr, &identity)) {
+        entry->type = (block_type_t)identity.whoami;
+        entry->uid = identity.uid;
+    } else {
+        block_type_t type = BLOCK_TYPE_UNKNOWN;
+        esp_err_t whoami_ret = read_device_whoami(addr, &type);
+        if (whoami_ret == ESP_OK) {
+            entry->type = type;
+        }
+        uint32_t uid = read_device_uid(addr);
+        if (uid != 0u) {
+            entry->uid = uid;
+        }
+    }
+
+    if (entry->type == BLOCK_TYPE_UNKNOWN) {
+        ESP_LOGW(TAG, "Device at 0x%02X confirmed but identity was unknown/unstable", addr);
+    } else {
+        ESP_LOGI(TAG, "Device at 0x%02X: %s uid=0x%08lX",
+                 addr,
+                 block_type_to_string(entry->type),
+                 (unsigned long)entry->uid);
+    }
+}
+
 static esp_err_t device_registry_scan_once(bool allow_allocator)
 {
     uint8_t confirmed_found = 0;
@@ -192,12 +320,10 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
     for (uint8_t i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
         uint8_t addr = DEVICE_REGISTRY_ADDR_MIN + i;
         device_entry_t *entry = &s_registry.devices[i];
-        // Ensure address is always populated (other fields persist across scans).
         entry->address = addr;
 
         esp_err_t ret = i2c_ping(addr);
         if (ret == ESP_OK) {
-            // ACK: build confidence up to confirmation threshold.
             s_nack_streak[addr] = 0;
             if (s_confidence[addr] < DEVICE_REGISTRY_CONFIRM_ACKS) {
                 s_confidence[addr]++;
@@ -209,29 +335,11 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
                 ESP_LOGI(TAG, "Confirmed present at 0x%02X (confidence=%u)", addr, (unsigned)s_confidence[addr]);
             }
 
-            // Only do WHOAMI/UID reads when (a) just confirmed, or (b) still unknown.
-            if (entry->present && (just_confirmed || entry->type == BLOCK_TYPE_UNKNOWN || entry->uid == 0u)) {
-                block_type_t type = BLOCK_TYPE_UNKNOWN;
-                esp_err_t whoami_ret = read_device_whoami(addr, &type);
-                if (whoami_ret == ESP_OK) {
-                    entry->type = type;
-                }
-                uint32_t uid = read_device_uid(addr);
-                if (uid != 0u) {
-                    entry->uid = uid;
-                }
-
-                if (entry->type == BLOCK_TYPE_UNKNOWN) {
-                    ESP_LOGW(TAG, "Device at 0x%02X confirmed but WHOAMI was unknown/invalid", addr);
-                } else {
-                    ESP_LOGI(TAG, "Device at 0x%02X: %s uid=0x%08lX",
-                             addr,
-                             block_type_to_string(entry->type),
-                             (unsigned long)entry->uid);
-                }
+            if (entry->present &&
+                (just_confirmed || entry->type == BLOCK_TYPE_UNKNOWN || entry->uid == 0u)) {
+                refresh_entry_identity(addr, entry, just_confirmed);
             }
         } else {
-            // NACK: only remove after sustained misses *when already confirmed present*.
             s_confidence[addr] = 0;
             if (entry->present) {
                 if (s_nack_streak[addr] < DEVICE_REGISTRY_REMOVE_NACKS) {
@@ -241,7 +349,6 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
                 if (s_nack_streak[addr] >= DEVICE_REGISTRY_REMOVE_NACKS) {
                     entry->present = false;
                     ESP_LOGW(TAG, "Confirmed removed at 0x%02X (nack_streak=%u)", addr, (unsigned)s_nack_streak[addr]);
-                    // Keep entry->type/uid as stale metadata while absent (prevents config flapping).
                 }
             } else {
                 s_nack_streak[addr] = 0;
@@ -254,11 +361,12 @@ static esp_err_t device_registry_scan_once(bool allow_allocator)
                 detected_entries[detected_count++] = *entry;
             }
         }
+
+        vTaskDelay(pdMS_TO_TICKS(SCAN_INTER_DEVICE_SETTLE_MS));
     }
 
     if (allow_allocator && detected_count > 0 &&
         apply_allocator(previous_entries, previous_count, detected_entries, detected_count)) {
-        // Don't block the scan cadence here; a subsequent scan tick will observe the moved addresses.
         ESP_LOGI(TAG, "Allocator requested address move(s); will be reflected on next scan tick");
     }
 
@@ -294,7 +402,6 @@ esp_err_t device_registry_get_snapshot(device_registry_t *out_registry)
     if (out_registry == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    // Registry updates happen on a single task cadence; memcpy is sufficient for a snapshot.
     memcpy(out_registry, &s_registry, sizeof(*out_registry));
     return ESP_OK;
 }

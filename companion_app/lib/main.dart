@@ -726,6 +726,22 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
         return;
       }
 
+      if (json.containsKey('type') && json['type'] == 'runtime_update') {
+        final runtimeJson = json['runtime'] as Map<String, dynamic>?;
+        final runtime = runtimeJson == null
+            ? null
+            : RuntimeStatus.fromJson(runtimeJson);
+        setState(() {
+          if (_currentConfiguration != null && runtime != null) {
+            _currentConfiguration = _currentConfiguration!.copyWith(
+              runtime: runtime,
+            );
+          }
+          _lastHeartbeatTime = DateTime.now();
+        });
+        return;
+      }
+
       // Check if it's a block configuration message
       if (json.containsKey('type') && json['type'] == 'block_config') {
         final receiveTsMs = DateTime.now().millisecondsSinceEpoch;
@@ -3753,6 +3769,7 @@ class BlockConfigScreen extends StatelessWidget {
     ColorScheme colorScheme,
     BlockConfiguration config,
   ) {
+    final activeBlockIndex = _runtimeActiveBlockIndex(config);
     final errors = config.errors
         .where((e) => e.type == 'error' || e.type == 'communication')
         .toList();
@@ -3796,7 +3813,13 @@ class BlockConfigScreen extends StatelessWidget {
           ...config.blocks.asMap().entries.map((entry) {
             final index = entry.key;
             final block = entry.value;
-            return _buildBlockItem(theme, colorScheme, block, index);
+            return _buildBlockItem(
+              theme,
+              colorScheme,
+              block,
+              index,
+              isActive: activeBlockIndex == index,
+            );
           }),
           // Hardware errors
           if (errors.isNotEmpty) ...[
@@ -3833,17 +3856,36 @@ class BlockConfigScreen extends StatelessWidget {
     ColorScheme colorScheme,
     BlockInfo block,
     int index,
+    {bool isActive = false}
   ) {
     final blockType = block.blockType;
     final blockColor = _getBlockTypeColor(colorScheme, blockType);
+    final cardColor = isActive
+        ? Color.alphaBlend(blockColor.withOpacity(0.30), blockColor.withOpacity(0.22))
+        : blockColor.withOpacity(0.2);
+    final borderColor = isActive
+        ? Colors.white.withOpacity(0.9)
+        : blockColor.withOpacity(0.5);
+    final borderWidth = isActive ? 2.5 : 1.0;
+    final boxShadow = isActive
+        ? [
+            BoxShadow(
+              color: blockColor.withOpacity(0.45),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
+            ),
+          ]
+        : <BoxShadow>[];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: blockColor.withOpacity(0.2),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: blockColor.withOpacity(0.5), width: 1),
+        border: Border.all(color: borderColor, width: borderWidth),
+        boxShadow: boxShadow,
       ),
       child: Row(
         children: [
@@ -3887,12 +3929,45 @@ class BlockConfigScreen extends StatelessWidget {
                     fontFamily: 'monospace',
                   ),
                 ),
+                if (isActive) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.play_arrow_rounded,
+                        size: 16,
+                        color: blockColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Running now',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: blockColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  int? _runtimeActiveBlockIndex(BlockConfiguration config) {
+    final runtime = config.runtime;
+    if (runtime == null || !runtime.isActivelyPointingAtBlock) {
+      return null;
+    }
+
+    final activeIndex = runtime.pc + 1;
+    if (activeIndex < 0 || activeIndex >= config.blocks.length) {
+      return null;
+    }
+    return activeIndex;
   }
 
   Color _getBlockTypeColor(ColorScheme colorScheme, BlockType? blockType) {

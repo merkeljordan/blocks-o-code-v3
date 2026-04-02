@@ -62,7 +62,7 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS  700   /* Faster app updates while keeping some bus headroom */
 #define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
 #define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 8192
 
@@ -82,6 +82,7 @@ static char s_block_config_scan_json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
 static size_t s_block_config_json_len = 0;
 static bool s_block_config_json_valid = false;
 
+static bool brain_executor_scan_pause_active(void);
 static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *out_len) {
     if (out == NULL || out_len == NULL || out_size == 0) {
         return false;
@@ -106,16 +107,102 @@ static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *ou
     return ok;
 }
 
+static const char *runtime_state_to_json_string(brain_runtime_broadcast_state_t state)
+{
+    switch (state) {
+        case BRAIN_RUNTIME_IDLE:    return "idle";
+        case BRAIN_RUNTIME_RUNNING: return "running";
+        case BRAIN_RUNTIME_STEP:    return "step";
+        case BRAIN_RUNTIME_DONE:    return "done";
+        case BRAIN_RUNTIME_ERROR:   return "error";
+        case BRAIN_RUNTIME_STOP:    return "stop";
+        default:                    return "unknown";
+    }
+}
+
+static bool build_runtime_update_json(char *out, size_t out_size, size_t *out_len)
+{
+    if (out == NULL || out_len == NULL || out_size < 64u) {
+        return false;
+    }
+
+    const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
+    if (runtime == NULL) {
+        return false;
+    }
+
+    cJSON *root = cJSON_CreateObject();
+    if (root == NULL) {
+        return false;
+    }
+
+    cJSON_AddStringToObject(root, "type", "runtime_update");
+    cJSON_AddNumberToObject(root, "timestamp", (double)(esp_timer_get_time() / 1000));
+
+    cJSON *runtime_obj = cJSON_CreateObject();
+    if (runtime_obj == NULL) {
+        cJSON_Delete(root);
+        return false;
+    }
+    cJSON_AddItemToObject(root, "runtime", runtime_obj);
+    cJSON_AddStringToObject(runtime_obj, "state",
+                            runtime_state_to_json_string(runtime->state));
+    cJSON_AddNumberToObject(runtime_obj, "state_code", runtime->state);
+    cJSON_AddNumberToObject(runtime_obj, "pc", runtime->pc);
+    cJSON_AddStringToObject(runtime_obj, "step_type",
+                            block_type_to_json_string(runtime->step_type));
+    cJSON_AddNumberToObject(runtime_obj, "updated_at_ms",
+                            (double)runtime->updated_at_ms);
+
+    char *json_string = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+    if (json_string == NULL) {
+        return false;
+    }
+
+    size_t json_len = strlen(json_string);
+    if (json_len + 2u > out_size) {
+        free(json_string);
+        return false;
+    }
+
+    memcpy(out, json_string, json_len);
+    out[json_len] = '\n';
+    out[json_len + 1u] = '\0';
+    *out_len = json_len + 1u;
+    free(json_string);
+    return true;
+}
+
+static bool runtime_snapshot_equals(const brain_runtime_snapshot_t *a,
+                                    const brain_runtime_snapshot_t *b)
+{
+    if (a == NULL || b == NULL) {
+        return false;
+    }
+
+    return a->state == b->state &&
+           a->pc == b->pc &&
+           a->step_type == b->step_type &&
+           a->updated_at_ms == b->updated_at_ms;
+}
+
 static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
 
     // Adaptive interval: scan fast around changes, back off when stable.
-    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
+    const TickType_t fast_delay = pdMS_TO_TICKS(40);   /* Faster app reaction without returning to 10 ms hammering */
     const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
+    const TickType_t paused_delay = pdMS_TO_TICKS(250);
     TickType_t delay_ticks = fast_delay;
     int stable_scans = 0;
 
     while (1) {
+        if (brain_executor_scan_pause_active()) {
+            vTaskDelay(paused_delay);
+            continue;
+        }
+
         block_config_manager_scan();
         bool config_changed = block_config_manager_has_changed();
 
@@ -123,7 +210,7 @@ static void block_config_scan_task(void *pvParameters) {
             ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
             brain_event_handler_reset_validation();
             s_validation_requested_by_start = false;
-            // Rescan in ~10 ms so removal/add is seen by the app quickly.
+            // Rescan fairly soon, but avoid hammering a long settling chain.
             delay_ticks = fast_delay;
             stable_scans = 0;
         } else {
@@ -131,7 +218,7 @@ static void block_config_scan_task(void *pvParameters) {
             if (delay_ticks < max_delay) {
                 stable_scans++;
                 if (stable_scans >= 4) { // every few stable scans, increase delay a bit
-                    delay_ticks += pdMS_TO_TICKS(500);
+                    delay_ticks += pdMS_TO_TICKS(150);
                     if (delay_ticks > max_delay) {
                         delay_ticks = max_delay;
                     }
@@ -252,6 +339,8 @@ static void tcp_client_task(void *pvParameters)
     int sock = -1;
     struct sockaddr_in dest_addr;
     char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+    brain_runtime_snapshot_t last_sent_runtime = {0};
+    bool last_sent_runtime_valid = false;
 
     while (1) {
         /* Wait for Wi‑Fi connection */
@@ -329,6 +418,22 @@ static void tcp_client_task(void *pvParameters)
             ESP_LOGW(TAG, "No cached block configuration available yet");
         }
 
+        const brain_runtime_snapshot_t *initial_runtime = brain_event_handler_get_runtime_snapshot();
+        if (initial_runtime != NULL) {
+            char runtime_json[256];
+            size_t runtime_len = 0;
+            if (build_runtime_update_json(runtime_json, sizeof(runtime_json), &runtime_len) &&
+                runtime_len > 0) {
+                int written = send(sock, runtime_json, runtime_len, 0);
+                if (written < 0) {
+                    ESP_LOGE(TAG, "Error sending initial runtime update: errno %d", errno);
+                } else {
+                    last_sent_runtime = *initial_runtime;
+                    last_sent_runtime_valid = true;
+                }
+            }
+        }
+
         /* Main send/receive loop */
         while (1) {
             // Send updated config when scan task reports a change.
@@ -350,6 +455,23 @@ static void tcp_client_task(void *pvParameters)
                             ESP_LOGI(TAG, "Sent block configuration (%d bytes)", written);
                         }
                     }
+                }
+            }
+
+            const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
+            if (runtime != NULL &&
+                (!last_sent_runtime_valid || !runtime_snapshot_equals(&last_sent_runtime, runtime))) {
+                char runtime_json[256];
+                size_t runtime_len = 0;
+                if (build_runtime_update_json(runtime_json, sizeof(runtime_json), &runtime_len) &&
+                    runtime_len > 0) {
+                    int written = send(sock, runtime_json, runtime_len, 0);
+                    if (written < 0) {
+                        ESP_LOGE(TAG, "Error sending runtime update: errno %d", errno);
+                        break;
+                    }
+                    last_sent_runtime = *runtime;
+                    last_sent_runtime_valid = true;
                 }
             }
 
@@ -494,6 +616,7 @@ static void tcp_client_task(void *pvParameters)
             sock = -1;
         }
         s_companion_connected = false;
+        last_sent_runtime_valid = false;
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
         vTaskDelay(pdMS_TO_TICKS(TCP_RETRY_MS));
