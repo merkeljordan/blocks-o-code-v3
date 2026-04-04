@@ -10,7 +10,6 @@
 
 #include "i2c_protocol.h"
 #include "led_matrix.h"
-#include "speaker.h"
 #include "audio_speaker.h"
 #include "battery_monitor.h"
 #include "status_strip.h"
@@ -23,7 +22,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME         "NOTE"
-#define BLOCK_I2C_ADDRESS  block_compute_i2c_address(BLOCK_TYPE_NOTE)
+#define BLOCK_I2C_ADDRESS  BLOCK_BOOT_I2C_ADDR_NOTE_BLOCK_2
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 #define STATUS_STRIP_GPIO      GPIO_NUM_13

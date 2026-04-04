@@ -2,11 +2,12 @@
  * block_config_manager.c
  *
  * Implementation of Block Configuration Manager
- * Scans I2C bus, reads WHOAMI data, detects changes, and generates JSON.
+ * Scans I2C bus via device registry (address-inferred types), detects changes, and generates JSON.
  */
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "block_config_manager.h"
 #include "device_registry.h"
 #include "brain_block.h"
@@ -15,17 +16,31 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "cJSON.h"
+#include "freertos/task.h"
 
 static const char *TAG = "BLOCK_CONFIG";
 static const uint8_t TOPOLOGY_STABLE_SCAN_THRESHOLD = 2;
-static const uint8_t APPEND_STABLE_SCAN_THRESHOLD = 3;
-static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 4;
+static const uint8_t APPEND_STABLE_SCAN_THRESHOLD = 2;
+static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 2;
+
+#define BLOCK_CONFIG_MAX_SCAN_ERRORS 16
+#define BLOCK_CONFIG_ERROR_TYPE_LEN 24
+#define BLOCK_CONFIG_ERROR_MESSAGE_LEN 96
+
+typedef struct {
+    char type[BLOCK_CONFIG_ERROR_TYPE_LEN];
+    char message[BLOCK_CONFIG_ERROR_MESSAGE_LEN];
+    int block_index;
+    int i2c_address;
+} block_config_scan_error_t;
 
 // Global configuration state
 static block_config_state_t s_config_state;
 static block_config_state_t s_previous_state;
 static block_config_state_t s_pending_state;
 static block_event_map_t s_event_map;
+static block_config_scan_error_t s_last_scan_errors[BLOCK_CONFIG_MAX_SCAN_ERRORS];
+static uint8_t s_last_scan_error_count = 0;
 
 // Initialize previous state to empty
 static bool s_previous_state_valid = false;
@@ -33,17 +48,72 @@ static bool s_pending_state_valid = false;
 static uint32_t s_scan_counter = 0;
 static uint8_t s_pending_stable_count = 0;
 
+static void clear_scan_errors(void)
+{
+    memset(s_last_scan_errors, 0, sizeof(s_last_scan_errors));
+    s_last_scan_error_count = 0;
+}
+
+static void record_scan_error(const char *type,
+                              const char *message,
+                              int block_index,
+                              int i2c_address)
+{
+    if (type == NULL || message == NULL) {
+        return;
+    }
+
+    if (s_last_scan_error_count < BLOCK_CONFIG_MAX_SCAN_ERRORS) {
+        block_config_scan_error_t *entry = &s_last_scan_errors[s_last_scan_error_count++];
+        snprintf(entry->type, sizeof(entry->type), "%s", type);
+        snprintf(entry->message, sizeof(entry->message), "%s", message);
+        entry->block_index = block_index;
+        entry->i2c_address = i2c_address;
+    }
+
+    if (i2c_address >= 0 && block_index >= 0) {
+        ESP_LOGW(TAG, "Scan error[%s] addr=0x%02X index=%d: %s",
+                 type, i2c_address, block_index, message);
+    } else if (i2c_address >= 0) {
+        ESP_LOGW(TAG, "Scan error[%s] addr=0x%02X: %s",
+                 type, i2c_address, message);
+    } else if (block_index >= 0) {
+        ESP_LOGW(TAG, "Scan error[%s] index=%d: %s",
+                 type, block_index, message);
+    } else {
+        ESP_LOGW(TAG, "Scan error[%s]: %s", type, message);
+    }
+}
+
 void block_config_manager_init(void) {
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
     memset(&s_pending_state, 0, sizeof(s_pending_state));
     memset(&s_event_map, 0, sizeof(s_event_map));
+    clear_scan_errors();
     s_previous_state_valid = false;
     s_pending_state_valid = false;
     s_scan_counter = 0;
     s_pending_stable_count = 0;
     s_config_state.has_changed = true; // Force initial send
     ESP_LOGI(TAG, "Block configuration manager initialized");
+}
+
+#define BLOCK_CONFIG_OPTIONAL_REG_ATTEMPTS 3
+#define BLOCK_CONFIG_OPTIONAL_REG_GAP_MS 2
+
+static esp_err_t i2c_read_reg_retry(uint8_t address, uint8_t reg, uint8_t *out, size_t len)
+{
+    for (int attempt = 0; attempt < BLOCK_CONFIG_OPTIONAL_REG_ATTEMPTS; attempt++) {
+        if (attempt > 0) {
+            vTaskDelay(pdMS_TO_TICKS(BLOCK_CONFIG_OPTIONAL_REG_GAP_MS));
+        }
+        esp_err_t ret = i2c_read_reg(address, reg, out, len);
+        if (ret == ESP_OK) {
+            return ESP_OK;
+        }
+    }
+    return ESP_FAIL;
 }
 
 const char* block_type_to_json_string(block_type_t type) {
@@ -58,7 +128,6 @@ const char* block_type_to_json_string(block_type_t type) {
         case BLOCK_TYPE_NOTE:       return "note_block";
         case BLOCK_TYPE_MUSIC_SEQ:  return "music_sequence_block";
         case BLOCK_TYPE_LED_FLASH:  return "led_color_flash_block";
-        case BLOCK_TYPE_DISCO:      return "disco_mode_block";
         case BLOCK_TYPE_DELAY:      return "delay_block";
         default:                    return "unknown";
     }
@@ -74,10 +143,10 @@ static void read_optional_block_metadata(uint8_t address, block_config_entry_t *
     // Try to read firmware version (optional)
     uint8_t fw_major = 0;
     uint8_t fw_minor = 0;
-    ret = i2c_read_reg(address, REG_FW_MAJOR, &fw_major, 1);
+    ret = i2c_read_reg_retry(address, REG_FW_MAJOR, &fw_major, 1);
     if (ret == ESP_OK) {
         entry->fw_major = fw_major;
-        ret = i2c_read_reg(address, REG_FW_MINOR, &fw_minor, 1);
+        ret = i2c_read_reg_retry(address, REG_FW_MINOR, &fw_minor, 1);
         if (ret == ESP_OK) {
             entry->fw_minor = fw_minor;
         }
@@ -85,7 +154,7 @@ static void read_optional_block_metadata(uint8_t address, block_config_entry_t *
 
     // Try to read capabilities (optional)
     uint8_t caps = 0;
-    ret = i2c_read_reg(address, REG_CAPS, &caps, 1);
+    ret = i2c_read_reg_retry(address, REG_CAPS, &caps, 1);
     if (ret == ESP_OK) {
         entry->caps = caps;
     }
@@ -118,10 +187,12 @@ static bool is_append_only_extension(const block_config_state_t *prev,
         return false;
     }
 
+    /* Prefix identity is UID + type. I²C address can lag reads or stable-order fixes;
+     * requiring address equality here caused false "non-append" when UID was 0 for
+     * multiple blocks (uid lookup collapses) and the stack prefix stopped matching. */
     for (int i = 0; i < prev->block_count; i++) {
         if (prev->blocks[i].device_uid != curr->blocks[i].device_uid ||
-            prev->blocks[i].block_type != curr->blocks[i].block_type ||
-            prev->blocks[i].i2c_address != curr->blocks[i].i2c_address) {
+            prev->blocks[i].block_type != curr->blocks[i].block_type) {
             return false;
         }
     }
@@ -159,7 +230,6 @@ static bool is_output_or_delay_block_type(block_type_t type) {
     return (type == BLOCK_TYPE_LED_FLASH ||
             type == BLOCK_TYPE_NOTE ||
             type == BLOCK_TYPE_MUSIC_SEQ ||
-            type == BLOCK_TYPE_DISCO ||
             type == BLOCK_TYPE_DELAY);
 }
 
@@ -172,6 +242,17 @@ static int find_scanned_entry_index_by_uid(const block_config_entry_t *entries,
                                            uint32_t device_uid) {
     for (int i = 0; i < count; i++) {
         if (entries[i].device_uid == device_uid) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int find_scanned_entry_index_by_address(const block_config_entry_t *entries,
+                                               uint8_t count,
+                                               uint8_t i2c_address) {
+    for (int i = 0; i < count; i++) {
+        if (entries[i].i2c_address == i2c_address) {
             return i;
         }
     }
@@ -206,6 +287,22 @@ static const block_config_entry_t *find_committed_entry_by_uid(const block_confi
     return NULL;
 }
 
+static const block_config_entry_t *find_committed_entry_by_connection_order(
+    const block_config_state_t *state,
+    int connection_order)
+{
+    if (state == NULL || connection_order < 0) {
+        return NULL;
+    }
+
+    for (int i = 0; i < state->block_count; i++) {
+        if (state->blocks[i].connection_order == connection_order) {
+            return &state->blocks[i];
+        }
+    }
+    return NULL;
+}
+
 static void assign_stable_stack_order(const block_config_state_t *committed_state,
                                       block_config_state_t *out_state,
                                       block_config_entry_t *scanned_entries,
@@ -227,7 +324,7 @@ static void assign_stable_stack_order(const block_config_state_t *committed_stat
      * - keep the current committed known-block order whenever those blocks are
      *   still present
      * - append newly discovered known blocks after the committed known prefix
-     * - append unknown/unstable entries last for visibility only
+     * - UNKNOWN devices are not committed into the executor program (logged only)
      *
      * This is the original "preserve first seen" behavior in spirit: order is
      * owned by the committed visible stack, not by hashed/bootstrap address.
@@ -239,9 +336,17 @@ static void assign_stable_stack_order(const block_config_state_t *committed_stat
                 continue;
             }
 
-            int scanned_idx = find_scanned_entry_index_by_uid(scanned_entries,
+            int scanned_idx = -1;
+            if (prev->device_uid != 0u) {
+                scanned_idx = find_scanned_entry_index_by_uid(scanned_entries,
                                                               scanned_count,
                                                               prev->device_uid);
+            }
+            if (scanned_idx < 0) {
+                scanned_idx = find_scanned_entry_index_by_address(scanned_entries,
+                                                                   scanned_count,
+                                                                   prev->i2c_address);
+            }
             if (scanned_idx < 0 || used_scanned[scanned_idx]) {
                 continue;
             }
@@ -250,7 +355,6 @@ static void assign_stable_stack_order(const block_config_state_t *committed_stat
             }
 
             ordered_entries[ordered_count] = scanned_entries[scanned_idx];
-            ordered_entries[ordered_count].connection_order = ordered_count;
             used_scanned[scanned_idx] = true;
             ordered_count++;
         }
@@ -264,18 +368,17 @@ static void assign_stable_stack_order(const block_config_state_t *committed_stat
             continue;
         }
         ordered_entries[ordered_count] = scanned_entries[i];
-        ordered_entries[ordered_count].connection_order = ordered_count;
         used_scanned[i] = true;
         ordered_count++;
     }
 
-    for (int i = 0; i < scanned_count && ordered_count < scanned_count; i++) {
+    for (int i = 0; i < scanned_count; i++) {
         if (used_scanned[i]) {
             continue;
         }
-        ordered_entries[ordered_count] = scanned_entries[i];
-        ordered_entries[ordered_count].connection_order = ordered_count;
-        ordered_count++;
+        ESP_LOGW(TAG,
+                 "Skipping UNKNOWN block at 0x%02X in committed program (executor would no-op)",
+                 scanned_entries[i].i2c_address);
     }
 
     memset(&out_state->blocks, 0, sizeof(out_state->blocks));
@@ -378,6 +481,7 @@ static void recompute_event_map_from_config(void) {
 
 esp_err_t block_config_manager_scan(void) {
     ESP_LOGI(TAG, "=== BLOCK CONFIGURATION SCAN ===");
+    clear_scan_errors();
 
     block_config_state_t committed_state;
     memcpy(&committed_state, &s_config_state, sizeof(committed_state));
@@ -398,7 +502,7 @@ esp_err_t block_config_manager_scan(void) {
     // so transport-address churn does not reshuffle the app order.
     block_config_entry_t scanned_entries[BLOCK_CONFIG_MAX_BLOCKS];
     uint8_t scanned_count = 0;
-    for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
+    for (int i = 0; i < registry->count; i++) {
         const device_entry_t *entry = &registry->devices[i];
         if (!entry->present) {
             continue;
@@ -411,21 +515,24 @@ esp_err_t block_config_manager_scan(void) {
 
         if (entry->type == BLOCK_TYPE_BRAIN) {
             candidate_state.error_count++;
-            ESP_LOGW(TAG, "Ignoring invalid child WHOAMI=BRAIN at 0x%02X", entry->address);
+            char error_msg[BLOCK_CONFIG_ERROR_MESSAGE_LEN];
+            snprintf(error_msg, sizeof(error_msg),
+                     "Ignoring invalid child type BRAIN at 0x%02X", entry->address);
+            record_scan_error("invalid_child_type", error_msg, scanned_count, entry->address);
             continue;
         }
 
         block_config_entry_t *config_entry = &scanned_entries[scanned_count];
         config_entry->i2c_address = entry->address;
         config_entry->device_uid = entry->uid;
-        config_entry->connection_order = scanned_count;
+        config_entry->connection_order = entry->physical_position;
         config_entry->fw_major = 0;
         config_entry->fw_minor = 0;
         config_entry->caps = 0;
 
         // Use authoritative scan result for type/address from registry, but
         // pin last-known good identity harder when the same address is still
-        // responding and current WHOAMI/UID data is unstable.
+        // responding and current type/UID data is unstable.
         block_type_t effective_type = entry->type;
         uint32_t effective_uid = entry->uid;
         if (entry->present && s_previous_state_valid) {
@@ -448,6 +555,20 @@ esp_err_t block_config_manager_scan(void) {
                          (unsigned long)prev_by_addr->device_uid);
                 effective_uid = prev_by_addr->device_uid;
             }
+
+            // Address not in boot map (or unstable): same UID still identifies the block.
+            if (effective_type == BLOCK_TYPE_UNKNOWN && effective_uid != 0u) {
+                const block_config_entry_t *prev_by_uid =
+                    find_committed_entry_by_uid(&committed_state, effective_uid);
+                if (prev_by_uid != NULL && prev_by_uid->block_type != BLOCK_TYPE_UNKNOWN) {
+                    effective_type = prev_by_uid->block_type;
+                    ESP_LOGW(TAG,
+                             "Type unknown at 0x%02X; kept type %s from UID 0x%08lX",
+                             entry->address,
+                             block_type_to_json_string(prev_by_uid->block_type),
+                             (unsigned long)effective_uid);
+                }
+            }
         }
 
         config_entry->block_type = effective_type;
@@ -462,9 +583,29 @@ esp_err_t block_config_manager_scan(void) {
             config_entry->caps = prev_meta->caps;
         }
 
-        if (entry->present && entry->type == BLOCK_TYPE_UNKNOWN) {
+        // Registry only infers type from boot I²C map; reassigned addresses read as UNKNOWN.
+        // Ask the child firmware so NOTE/LOOP/etc. still join the program without the app.
+        if (config_entry->block_type == BLOCK_TYPE_UNKNOWN) {
+            uint8_t who = 0xFFu;
+            if (i2c_read_reg_retry(entry->address, REG_WHOAMI, &who, 1) == ESP_OK) {
+                if (who != 0xFFu && who != (uint8_t)BLOCK_TYPE_BRAIN &&
+                    who != (uint8_t)BLOCK_TYPE_UNKNOWN) {
+                    config_entry->block_type = (block_type_t)who;
+                    ESP_LOGI(TAG,
+                             "Resolved type at 0x%02X via REG_WHOAMI -> %s",
+                             entry->address,
+                             block_type_to_json_string(config_entry->block_type));
+                }
+            }
+        }
+
+        if (entry->present && config_entry->block_type == BLOCK_TYPE_UNKNOWN) {
             candidate_state.error_count++;
-            ESP_LOGW(TAG, "Block at 0x%02X has unknown type (from device registry WHOAMI)", entry->address);
+            char error_msg[BLOCK_CONFIG_ERROR_MESSAGE_LEN];
+            snprintf(error_msg, sizeof(error_msg),
+                     "Block at 0x%02X has unknown type (not a boot child address; no prior identity to infer)",
+                     entry->address);
+            record_scan_error("invalid_whoami", error_msg, scanned_count, entry->address);
         }
         scanned_count++;
     }
@@ -486,7 +627,13 @@ esp_err_t block_config_manager_scan(void) {
             }
             if (!found) {
                 candidate_state.error_count++;
-                ESP_LOGW(TAG, "Block at 0x%02X is missing", s_previous_state.blocks[i].i2c_address);
+                char error_msg[BLOCK_CONFIG_ERROR_MESSAGE_LEN];
+                snprintf(error_msg, sizeof(error_msg),
+                         "Block at 0x%02X is missing", s_previous_state.blocks[i].i2c_address);
+                record_scan_error("missing_block",
+                                  error_msg,
+                                  i,
+                                  s_previous_state.blocks[i].i2c_address);
             }
         }
     }
@@ -566,9 +713,38 @@ esp_err_t block_config_manager_scan(void) {
              s_pending_stable_count,
              append_only_change ? "yes" : "no",
              removal_only_change ? "yes" : "no");
-    ESP_LOGI(TAG, "Scan complete: %d block(s), %d error(s), changed: %s",
-             s_config_state.block_count, s_config_state.error_count,
+    ESP_LOGI(TAG,
+             "Scan complete: %u I2C child block(s) (brain not scanned), %d error(s), "
+             "stack export=%d (brain+children), changed: %s",
+             (unsigned)s_config_state.block_count,
+             s_config_state.error_count,
+             s_config_state.block_count + 1,
              s_config_state.has_changed ? "yes" : "no");
+    for (uint8_t i = 0; i < s_last_scan_error_count; i++) {
+        const block_config_scan_error_t *err = &s_last_scan_errors[i];
+        if (err->i2c_address >= 0 && err->block_index >= 0) {
+            ESP_LOGI(TAG, "Error detail %u/%u: [%s] addr=0x%02X index=%d %s",
+                     (unsigned)(i + 1),
+                     (unsigned)s_last_scan_error_count,
+                     err->type,
+                     err->i2c_address,
+                     err->block_index,
+                     err->message);
+        } else if (err->i2c_address >= 0) {
+            ESP_LOGI(TAG, "Error detail %u/%u: [%s] addr=0x%02X %s",
+                     (unsigned)(i + 1),
+                     (unsigned)s_last_scan_error_count,
+                     err->type,
+                     err->i2c_address,
+                     err->message);
+        } else {
+            ESP_LOGI(TAG, "Error detail %u/%u: [%s] %s",
+                     (unsigned)(i + 1),
+                     (unsigned)s_last_scan_error_count,
+                     err->type,
+                     err->message);
+        }
+    }
 
     return ESP_OK;
 }
@@ -632,15 +808,19 @@ static const char *runtime_state_to_json_string(brain_runtime_broadcast_state_t 
 }
 
 esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
-    // Worst-case buffer sizing (15 child blocks + synthetic brain + errors) can exceed 1KB.
-    // The companion app uses 2048, so enforce that here to avoid silent truncation surprises.
-    if (json_buffer == NULL || buffer_size < 2048) {
+    // Worst case: 15 children + synthetic brain + runtime + scan errors exceeds 2–3 KB easily.
+    if (json_buffer == NULL || buffer_size < BLOCK_CONFIG_JSON_BUFFER_BYTES) {
         return ESP_ERR_INVALID_ARG;
     }
 
     const uint32_t heap_before = esp_get_free_heap_size();
 
-    cJSON *root = cJSON_CreateObject();
+    esp_err_t ret = ESP_OK;
+    size_t json_len = 0;
+    cJSON *root = NULL;
+    char *json_string = NULL;
+
+    root = cJSON_CreateObject();
     if (root == NULL) {
         return ESP_ERR_NO_MEM;
     }
@@ -674,8 +854,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     // Create config object
     cJSON *config = cJSON_CreateObject();
     if (config == NULL) {
-        cJSON_Delete(root);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto cleanup;
     }
     cJSON_AddItemToObject(root, "config", config);
 
@@ -686,8 +866,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     // Create blocks array
     cJSON *blocks_array = cJSON_CreateArray();
     if (blocks_array == NULL) {
-        cJSON_Delete(root);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto cleanup;
     }
     cJSON_AddItemToObject(config, "blocks", blocks_array);
 
@@ -695,8 +875,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     {
         cJSON *block_obj = cJSON_CreateObject();
         if (block_obj == NULL) {
-            cJSON_Delete(root);
-            return ESP_ERR_NO_MEM;
+            ret = ESP_ERR_NO_MEM;
+            goto cleanup;
         }
         cJSON_AddNumberToObject(block_obj, "index", 0);
         cJSON_AddNumberToObject(block_obj, "i2c_address", 0);
@@ -706,8 +886,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         cJSON *whoami_obj = cJSON_CreateObject();
         if (whoami_obj == NULL) {
             cJSON_Delete(block_obj);
-            cJSON_Delete(root);
-            return ESP_ERR_NO_MEM;
+            ret = ESP_ERR_NO_MEM;
+            goto cleanup;
         }
         cJSON_AddItemToObject(block_obj, "whoami", whoami_obj);
         cJSON_AddStringToObject(whoami_obj, "block_type", "brain_block");
@@ -724,8 +904,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         
         cJSON *block_obj = cJSON_CreateObject();
         if (block_obj == NULL) {
-            cJSON_Delete(root);
-            return ESP_ERR_NO_MEM;
+            ret = ESP_ERR_NO_MEM;
+            goto cleanup;
         }
         cJSON_AddNumberToObject(block_obj, "index", i + 1);
         cJSON_AddNumberToObject(block_obj, "i2c_address", entry->i2c_address);
@@ -736,8 +916,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         cJSON *whoami_obj = cJSON_CreateObject();
         if (whoami_obj == NULL) {
             cJSON_Delete(block_obj);
-            cJSON_Delete(root);
-            return ESP_ERR_NO_MEM;
+            ret = ESP_ERR_NO_MEM;
+            goto cleanup;
         }
         cJSON_AddItemToObject(block_obj, "whoami", whoami_obj);
 
@@ -768,66 +948,50 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     // Create errors array
     cJSON *errors_array = cJSON_CreateArray();
     if (errors_array == NULL) {
-        cJSON_Delete(root);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto cleanup;
     }
     cJSON_AddItemToObject(config, "errors", errors_array);
 
-    // Add errors
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        const block_config_entry_t *entry = &s_config_state.blocks[i];
-        
-        if (!entry->present) {
-            char error_msg[64];
-            snprintf(error_msg, sizeof(error_msg), "Block at 0x%02X failed communication", entry->i2c_address);
-            add_error_to_json(errors_array, "communication", error_msg, i, entry->i2c_address);
-        } else if (entry->block_type == BLOCK_TYPE_UNKNOWN) {
-            char error_msg[64];
-            snprintf(error_msg, sizeof(error_msg), "Block at 0x%02X returned invalid WHOAMI", entry->i2c_address);
-            add_error_to_json(errors_array, "invalid_whoami", error_msg, i, entry->i2c_address);
-        }
-    }
-
-    // Check for missing blocks
-    if (s_previous_state_valid) {
-        for (int i = 0; i < s_previous_state.block_count; i++) {
-            bool found = false;
-            for (int j = 0; j < s_config_state.block_count; j++) {
-                if (s_previous_state.blocks[i].device_uid == s_config_state.blocks[j].device_uid) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                char error_msg[64];
-                snprintf(error_msg, sizeof(error_msg), "Block at 0x%02X is missing", s_previous_state.blocks[i].i2c_address);
-                add_error_to_json(errors_array, "missing_block", error_msg, -1, s_previous_state.blocks[i].i2c_address);
-            }
-        }
+    // Add the detailed scan errors captured during the most recent scan.
+    for (uint8_t i = 0; i < s_last_scan_error_count; i++) {
+        const block_config_scan_error_t *err = &s_last_scan_errors[i];
+        add_error_to_json(errors_array,
+                          err->type,
+                          err->message,
+                          err->block_index,
+                          err->i2c_address);
     }
 
     // Convert to JSON string
-    char *json_string = cJSON_PrintUnformatted(root);
+    json_string = cJSON_PrintUnformatted(root);
     if (json_string == NULL) {
-        cJSON_Delete(root);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto cleanup;
     }
 
     // Copy to buffer (no truncation: treat as error to avoid partial JSON)
-    size_t json_len = strlen(json_string);
+    json_len = strlen(json_string);
     if (json_len >= buffer_size) {
         ESP_LOGE(TAG, "JSON buffer too small (%u < %u); refusing to truncate",
                  (unsigned)buffer_size, (unsigned)json_len);
-        free(json_string);
-        cJSON_Delete(root);
-        return ESP_ERR_NO_MEM;
+        ret = ESP_ERR_NO_MEM;
+        goto cleanup;
     }
     memcpy(json_buffer, json_string, json_len);
     json_buffer[json_len] = '\0';
 
-    // Cleanup
-    free(json_string);
-    cJSON_Delete(root);
+cleanup:
+    if (json_string != NULL) {
+        free(json_string);
+    }
+    if (root != NULL) {
+        cJSON_Delete(root);
+    }
+
+    if (ret != ESP_OK) {
+        return ret;
+    }
 
     const uint32_t heap_after = esp_get_free_heap_size();
     const int32_t heap_delta = (int32_t)heap_after - (int32_t)heap_before;

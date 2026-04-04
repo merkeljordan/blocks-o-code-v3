@@ -41,8 +41,6 @@ static inline led_contract_rgb_t led_contract_identity_color(block_type_t type)
             return (led_contract_rgb_t){0U, 210U, 170U};
         case BLOCK_TYPE_LED_FLASH:
             return (led_contract_rgb_t){180U, 70U, 255U};
-        case BLOCK_TYPE_DISCO:
-            return (led_contract_rgb_t){255U, 255U, 255U};
         default:
             return (led_contract_rgb_t){32U, 32U, 32U};
     }
@@ -129,10 +127,10 @@ static inline led_contract_rgb_t led_contract_status_color(uint8_t status, led_c
 static inline uint8_t led_contract_status_brightness(uint8_t status)
 {
     if ((status & STATUS_ERROR) != 0U) {
-        return 160U;
+        return 96U;
     }
     if ((status & STATUS_BUSY) != 0U) {
-        return 255U;
+        return 128U;
     }
-    return 96U;
+    return 64U;
 }

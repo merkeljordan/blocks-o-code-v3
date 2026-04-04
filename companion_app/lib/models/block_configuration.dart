@@ -29,6 +29,11 @@ class BlockConfiguration {
   }) : timestamp = timestamp ?? DateTime.now(),
        this.originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
 
+  /// Child blocks on the I²C bus. Firmware always prepends the synthetic brain as the
+  /// first `blocks[]` entry, so children = stack size minus one.
+  int get childBlockCount =>
+      blocks.length <= 1 ? 0 : blocks.length - 1;
+
   /// Create from JSON map
   factory BlockConfiguration.fromJson(Map<String, dynamic> json) {
     final config = json['config'] as Map<String, dynamic>? ?? json;
@@ -63,8 +68,7 @@ class BlockConfiguration {
     // If the firmware reports zero blocks, treat this as a "brain-only" configuration
     // and inject a synthetic Brain Block so the app can still visualize it.
     List<BlockInfo> finalBlocks = blocks;
-    int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
-    int originalFirmwareCount = reportedTotalBlocks;
+    final int? firmwareReportedTotal = _intFromJson(config['total_blocks']);
     bool hasSynthetic = false;
 
     /// Creates a synthetic Brain Block for visualization when no blocks are detected.
@@ -99,12 +103,16 @@ class BlockConfiguration {
 
     if (blocks.isEmpty) {
       finalBlocks = [buildBrainBlock()];
-      reportedTotalBlocks = 1;
       hasSynthetic = true;
     }
 
+    // Stack size is always the rendered list length. Firmware also sends
+    // total_blocks (children + brain); accept int or double from JSON decoders.
+    final int stackTotal = finalBlocks.length;
+    final int originalFirmwareCount = firmwareReportedTotal ?? stackTotal;
+
     return BlockConfiguration(
-      totalBlocks: reportedTotalBlocks,
+      totalBlocks: stackTotal,
       blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
@@ -114,6 +122,15 @@ class BlockConfiguration {
       originalFirmwareBlockCount: originalFirmwareCount,
       hasSyntheticBrainBlock: hasSynthetic,
     );
+  }
+
+  static int? _intFromJson(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   static int? _parseMillisecondsValue(dynamic value) {
@@ -267,11 +284,15 @@ class BlockInfo {
     );
   }
 
-  /// Parse I2C address (handles hex strings like "0x08" or integers)
+  /// Parse I2C address (handles hex strings, int, or JSON num/double)
   static int _parseI2CAddress(dynamic address) {
     if (address is int) {
       return address;
-    } else if (address is String) {
+    }
+    if (address is num) {
+      return address.toInt();
+    }
+    if (address is String) {
       if (address.startsWith('0x') || address.startsWith('0X')) {
         return int.parse(address.substring(2), radix: 16);
       }

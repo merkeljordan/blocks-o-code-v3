@@ -20,7 +20,9 @@ typedef struct {
 typedef enum {
     EXECUTOR_IDLE = 0,
     EXECUTOR_RUNNING,
+    /** Paused on a BUTTON program step until that block's I2C address reports BUTTON_PRESS. */
     EXECUTOR_WAIT_INPUT,
+    /** DELAY: pc stays on the delay opcode until wait_until_ms. */
     EXECUTOR_WAIT_DELAY,
     EXECUTOR_STOPPED,
     EXECUTOR_DONE
@@ -53,7 +55,8 @@ typedef struct {
     brain_loop_frame_t loop_stack[BRAIN_EXECUTOR_MAX_LOOP_DEPTH];
     uint8_t loop_depth;
     uint64_t wait_until_ms;
-    bool stop_requested;
+    /** Written from any task without the executor mutex (STOP must preempt long NOTE waits). */
+    volatile bool stop_requested;
     bool button_pressed;
 } brain_executor_context_t;
 
@@ -73,13 +76,18 @@ const brain_runtime_snapshot_t *brain_event_handler_get_runtime_snapshot(void);
 
 void brain_executor_set_params(const brain_executor_params_t *params);
 const brain_executor_context_t *brain_executor_get_context(void);
+/** Test hook / legacy: prefer real BUTTON_PRESS events (IF uses bound-button latch). */
 void brain_executor_set_button_state(bool is_pressed);
 esp_err_t brain_executor_start(void);
 void brain_executor_stop(void);
 void brain_executor_tick(void);
 
+/** True while the executor is actively running a program (including DELAY / BUTTON wait). Background I²C (config scan, event poll) should use longer intervals to reduce bus contention with dispatch. */
+bool brain_executor_prefers_i2c_yield(void);
+
 // App/host text command entry point (e.g., "START", "STOP", "SET_LED 0x08 7").
-// Returns true if queued/handled, false if unknown or queue failure.
+// START/STOP are handled immediately; return true only if the executor accepted them.
+// Other commands return true if enqueued successfully.
 bool brain_event_handle_message(const char *message);
 
 // Child block event entry point.

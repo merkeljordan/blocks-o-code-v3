@@ -5,6 +5,7 @@
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "brain_block.h"
 #include "i2c_protocol.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +14,8 @@
 static const char *TAG = "I2C_MASTER";
 
 static SemaphoreHandle_t s_i2c_mutex = NULL;
+static esp_err_t i2c_lock(void);
+static void i2c_unlock(void);
 // Allow more time for other I2C users (event poll, config scan, etc.).
 #define I2C_MUTEX_TIMEOUT_MS 500
 
@@ -20,9 +23,9 @@ static SemaphoreHandle_t s_i2c_mutex = NULL;
 #define I2C_BUS_RECOVERY_SCL_PULSES 9
 #define I2C_BUS_RECOVERY_DELAY_MS   2
 
-// Scan window for development boards; must match device_registry.h
+// Full discovery window; must match device_registry.h
 #define DEVICE_REGISTRY_ADDR_MIN    0x08
-#define DEVICE_REGISTRY_ADDR_MAX    0x16
+#define DEVICE_REGISTRY_ADDR_MAX    0x77
 
 static esp_err_t i2c_bus_recover_locked(void) {
     // NOTE: caller should hold the recursive I2C mutex so no other task uses I2C during recovery.
@@ -56,6 +59,18 @@ static esp_err_t i2c_bus_recover_locked(void) {
     }
     ESP_LOGI(TAG, "I2C bus recovery: re-init OK");
     return ESP_OK;
+}
+
+esp_err_t i2c_master_recover_bus(void)
+{
+    esp_err_t lock_ret = i2c_lock();
+    if (lock_ret != ESP_OK) {
+        return lock_ret;
+    }
+
+    esp_err_t ret = i2c_bus_recover_locked();
+    i2c_unlock();
+    return ret;
 }
 
 static esp_err_t i2c_lock(void) {
@@ -199,40 +214,30 @@ void i2c_safe_scan(void) {
 }
 
 // ============================================================================
-// I2C WHOAMI READ REGISTER
+// I2C REGISTER READ (master: write reg addr + read bytes from child)
 // ============================================================================
 esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
+    if (out == NULL || len == 0U) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
     esp_err_t lock_ret = i2c_lock();
     if (lock_ret != ESP_OK) {
         return lock_ret;
     }
 
-    esp_err_t ret = i2c_master_write_to_device(
+    // One transaction (write reg address + repeated start + read) so slaves that
+    // latch the register on the write phase and reply on the read phase see a
+    // consistent sequence. Split write/read with STOP between often leaves
+    // REG_LOOP_COUNT and similar reads stuck at power-on defaults (loop count 1).
+    esp_err_t ret = i2c_master_write_read_device(
         I2C_PORT_NUM,
         addr,
         &reg,
-        1,
-        pdMS_TO_TICKS(50)
-    );
-    if (ret != ESP_OK) {
-        if (ret == ESP_ERR_TIMEOUT) {
-            (void)i2c_bus_recover_locked();
-        }
-        i2c_unlock();
-        return ret;
-    }
-
-    // Small delay between write and read
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // Read data from register
-    ret = i2c_master_read_from_device(
-        I2C_PORT_NUM,
-        addr,
+        1U,
         out,
         len,
-        pdMS_TO_TICKS(50)
-    );
+        pdMS_TO_TICKS(50));
     if (ret == ESP_ERR_TIMEOUT) {
         (void)i2c_bus_recover_locked();
     }
@@ -489,16 +494,6 @@ esp_err_t i2c_execute(uint8_t address) {
 // ============================================================================
 esp_err_t i2c_reset(uint8_t address) {
     return i2c_send_cmd(address, CMD_RESET);
-}
-
-esp_err_t i2c_set_child_address(uint8_t current_address, uint8_t new_address) {
-    if (!block_is_valid_child_address(current_address) ||
-        !block_is_valid_child_address(new_address)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    uint8_t data[2] = {CMD_SET_I2C_ADDRESS, new_address};
-    return i2c_send_payload(current_address, data, sizeof(data), pdMS_TO_TICKS(100));
 }
 
 // ============================================================================

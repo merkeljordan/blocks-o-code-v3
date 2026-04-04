@@ -2,7 +2,8 @@
  * block_config_manager.h
  *
  * Block Configuration Manager for Brain Block
- * Scans I2C-connected blocks, collects WHOAMI data, detects configuration changes,
+ * Scans I2C-connected blocks (registry: address-inferred types, optional metadata reads),
+ * detects configuration changes,
  * and generates JSON representation for transmission to Flutter app.
  */
 
@@ -16,6 +17,9 @@
 
 // Maximum number of blocks that can be detected
 #define BLOCK_CONFIG_MAX_BLOCKS 15
+
+// Minimum `buffer_size` for block_config_manager_get_json() (full stack + runtime + errors)
+#define BLOCK_CONFIG_JSON_BUFFER_BYTES 8192
 
 typedef enum {
     BLOCK_SEQUENCE_IF = 0,
@@ -47,7 +51,7 @@ typedef struct {
 // Block information structure
 typedef struct {
     uint8_t i2c_address;          // I2C address (0x08-0x16)
-    block_type_t block_type;       // Block type from REG_WHOAMI
+    block_type_t block_type;       // Block type inferred from fixed I2C address
     uint32_t device_uid;           // Stable per-device UID from child registers
     uint8_t fw_major;              // Firmware major version (0 if unavailable)
     uint8_t fw_minor;              // Firmware minor version (0 if unavailable)
@@ -91,9 +95,9 @@ uint8_t block_config_manager_get_error_count(void);
 
 /**
  * @brief Generate JSON string representation of current configuration
- * @param json_buffer Buffer to store JSON string (must be large enough, recommend 2048 bytes)
+ * @param json_buffer Buffer to store JSON string (>= BLOCK_CONFIG_JSON_BUFFER_BYTES)
  * @param buffer_size Size of json_buffer
- * @return ESP_OK on success, ESP_ERR_INVALID_SIZE if buffer too small
+ * @return ESP_OK on success, ESP_ERR_INVALID_ARG if buffer too small
  */
 esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size);
 

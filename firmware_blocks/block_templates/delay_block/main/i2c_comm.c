@@ -16,11 +16,12 @@ extern void command_handle(i2c_command_t cmd,
                            size_t *tx_len);
 extern uint8_t delay_block_get_status_flags(void);
 extern uint8_t delay_block_get_pending_data_len(void);
+extern uint32_t delay_block_get_delay_ms_for_brain(void);
 
 static const char *TAG = "DELAY_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_DELAY_BLOCK
 #define MY_BLOCK_TYPE   BLOCK_TYPE_DELAY
 
 // ============================================================================
@@ -44,7 +45,7 @@ static void populate_identity_registers(void) {
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_DELAY_BLOCK;
     }
     registers[REG_WHOAMI]   = MY_BLOCK_TYPE;  // Block type
     registers[REG_STATUS]   = STATUS_READY;   // Status
@@ -57,6 +58,11 @@ static void refresh_dynamic_registers(void)
 {
     registers[REG_STATUS] = delay_block_get_status_flags();
     registers[REG_DATA_LEN] = delay_block_get_pending_data_len();
+    uint32_t ms = delay_block_get_delay_ms_for_brain();
+    registers[REG_DELAY_MS0] = (uint8_t)(ms & 0xFFu);
+    registers[REG_DELAY_MS1] = (uint8_t)((ms >> 8) & 0xFFu);
+    registers[REG_DELAY_MS2] = (uint8_t)((ms >> 16) & 0xFFu);
+    registers[REG_DELAY_MS3] = (uint8_t)((ms >> 24) & 0xFFu);
 }
 
 static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {
@@ -100,10 +106,13 @@ static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {
 // I²C SLAVE INITIALIZATION
 // ============================================================================
 esp_err_t i2c_slave_init(void) {
-    ESP_LOGI(TAG, "Init I²C Slave at 0x%02X (type=%s)",
-             s_runtime_address, block_type_to_string(MY_BLOCK_TYPE));
+    /* Release port if Arduino/Wire or a prior boot path already installed a driver. */
+    (void)i2c_driver_delete(I2C_NUM_0);
 
     init_registers();
+
+    ESP_LOGI(TAG, "Init I²C Slave at 0x%02X (type=%s)",
+             s_runtime_address, block_type_to_string(MY_BLOCK_TYPE));
 
     i2c_config_t conf = {
         .mode = I2C_MODE_SLAVE,

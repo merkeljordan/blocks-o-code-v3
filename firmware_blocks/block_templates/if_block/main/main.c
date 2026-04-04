@@ -29,7 +29,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "IF"
 #define BLOCK_TYPE            BLOCK_TYPE_IF
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_IF_BLOCK
 
 static const char *TAG = "IF_BLOCK";
 

@@ -30,7 +30,10 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "LOOP"
 #define BLOCK_TYPE            BLOCK_TYPE_LOOP
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_LOOP_BLOCK
+
+// Shown on TFT and pushed to g_config / REG_LOOP_COUNT on boot (Submit is not auto-fired).
+#define LOOP_DEFAULT_ITERATIONS 1U
 
 static const char *TAG = "LOOP_BLOCK";
 
@@ -172,6 +175,15 @@ uint8_t loop_block_get_pending_data_len(void)
     return (uint8_t)(1U + g_pending_event.payload_len);
 }
 
+// Exposed in I2C register REG_LOOP_COUNT for Brain to read at program start (no event queue).
+uint8_t loop_block_get_iteration_count_for_brain(void)
+{
+    if (!g_config_valid) {
+        return 1U;
+    }
+    return (g_config.loop_count == 0U) ? 1U : g_config.loop_count;
+}
+
 // ============================================================================
 // COMMAND HANDLER
 // ============================================================================
@@ -298,6 +310,9 @@ void app_main(void) {
     }
     tft_ui_start();
     tft_ui_set_idle();
+    /* UI default is visible on screen but control_flow does not call submit_cb until the user
+     * taps Submit — without this, g_config_valid stays false and Brain always sees REG_LOOP_COUNT=1. */
+    loop_block_set_loop_count_from_ui((uint8_t)LOOP_DEFAULT_ITERATIONS);
     set_status_flags(g_status_flags);
 
     battery_monitor_start();
@@ -317,7 +332,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
 
     // Create tasks
-    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+    xTaskCreate(i2c_task, "i2c", 8192, NULL, 5, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }

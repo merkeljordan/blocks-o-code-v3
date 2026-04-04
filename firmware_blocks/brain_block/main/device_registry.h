@@ -13,21 +13,31 @@
 #include "i2c_protocol.h"
 
 // Address range for child blocks (inclusive): 0x08–0x16 (15 addresses)
-#define DEVICE_REGISTRY_ADDR_MIN    0x08
-#define DEVICE_REGISTRY_ADDR_MAX    0x16
-#define DEVICE_REGISTRY_MAX_DEVICES (DEVICE_REGISTRY_ADDR_MAX - DEVICE_REGISTRY_ADDR_MIN + 1)
+#define DEVICE_REGISTRY_ADDR_MIN       0x08
+#define DEVICE_REGISTRY_ADDR_MAX       0x77
+#define DEVICE_REGISTRY_MAX_DEVICES    15
+#define DEVICE_REGISTRY_CONFIDENCE_MAX 10
 
 // Device entry in the registry
 typedef struct {
     uint8_t address;        // I2C address
-    block_type_t type;      // Block type from REG_WHOAMI
+    block_type_t type;      // Block type inferred from fixed child I2C address
     uint32_t uid;           // Stable per-device UID from REG_UID[0..3]
     bool present;           // True if device responded
+    uint8_t confidence;     // Sticky detection confidence (0..10)
+    uint8_t physical_position; // Stable active-chain position
 } device_entry_t;
+
+typedef struct {
+    uint8_t address;
+    uint8_t physical_position;
+    bool occupied;
+} active_chain_entry_t;
 
 // Registry structure
 typedef struct {
     device_entry_t devices[DEVICE_REGISTRY_MAX_DEVICES];
+    active_chain_entry_t active_chain[DEVICE_REGISTRY_MAX_DEVICES];
     uint8_t count;          // Number of devices found
 } device_registry_t;
 
@@ -37,7 +47,7 @@ typedef struct {
 void device_registry_init(void);
 
 /**
- * @brief Scan I2C bus for devices and read REG_WHOAMI from each
+ * @brief Scan I2C bus for devices; type is inferred from each child's fixed address
  * @return ESP_OK on success
  */
 esp_err_t device_registry_scan(void);

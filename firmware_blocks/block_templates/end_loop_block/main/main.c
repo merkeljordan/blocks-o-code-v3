@@ -29,7 +29,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "END_LOOP"
 #define BLOCK_TYPE            BLOCK_TYPE_END_LOOP
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_END_LOOP_BLOCK
 
 static const char *TAG = "END_LOOP_BLOCK";
 

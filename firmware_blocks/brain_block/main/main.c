@@ -49,8 +49,10 @@ QueueHandle_t demo_cmd_queue = NULL;
 #define BACKGROUND_BLOCK_SCAN_INTERVAL_MS 5000
 #define ENABLE_BRAIN_EXECUTOR_TASK 1
 #define ENABLE_BRAIN_EXECUTOR_DEMO_VALIDATION_BYPASS 0
-#define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 1
+#define ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START 0
 #define BRAIN_EXECUTOR_TICK_INTERVAL_MS 10
+#define BLOCK_EVENT_POLL_INTERVAL_MS_IDLE    40
+#define BLOCK_EVENT_POLL_INTERVAL_MS_ACTIVE 120
 #define BRAIN_STATUS_STRIP_GPIO      GPIO_NUM_13
 #define BRAIN_STATUS_STRIP_LED_COUNT 30
 
@@ -90,7 +92,7 @@ static void block_event_poll_task(void *arg) {
 
     while (1) {
         const device_registry_t *registry = device_registry_get();
-        for (int i = 0; i < DEVICE_REGISTRY_MAX_DEVICES; i++) {
+        for (int i = 0; i < registry->count; i++) {
             const device_entry_t *entry = &registry->devices[i];
             if (!entry->present) {
                 continue;
@@ -150,9 +152,11 @@ static void block_event_poll_task(void *arg) {
             }
         }
 
-        // Keep polling frequent so NOTE/sequence submissions are picked up
-        // before the next app-triggered runtime START.
-        vTaskDelay(pdMS_TO_TICKS(40));
+        // Idle: poll often so submits reach the Brain before START. Active run: back off I²C so
+        // executor dispatch (NOTE waits, LED, etc.) and the config scan task see less contention.
+        uint32_t poll_ms = brain_executor_prefers_i2c_yield() ? BLOCK_EVENT_POLL_INTERVAL_MS_ACTIVE
+                                                              : BLOCK_EVENT_POLL_INTERVAL_MS_IDLE;
+        vTaskDelay(pdMS_TO_TICKS(poll_ms));
     }
 }
 
@@ -543,7 +547,7 @@ void app_main(void) {
     ESP_LOGI(TAG, "tft_ui_start() returned");
 
     // Forward child block-originated events (e.g., LED flash submit) to brain_event_handler.
-    xTaskCreatePinnedToCore(block_event_poll_task, "block_evt", 4096, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(block_event_poll_task, "block_evt", 8192, NULL, 5, NULL, 0);
 
     // Optional debug-only registry logger task.
 #if ENABLE_DEBUG_REGISTRY_SCAN_TASK
@@ -559,7 +563,7 @@ void app_main(void) {
 #endif
 
 #if ENABLE_BRAIN_EXECUTOR_TASK
-    xTaskCreatePinnedToCore(brain_executor_task, "brain_exec", 6144, NULL, 3, NULL, 0);
+    xTaskCreatePinnedToCore(brain_executor_task, "brain_exec", 8192, NULL, 3, NULL, 0);
 #endif
     
     ESP_LOGI(TAG, "Brain Block initialized!");

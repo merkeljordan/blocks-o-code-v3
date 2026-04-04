@@ -770,7 +770,7 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
               brainDetectToSendMs: brainDetectToSendMs,
             );
             connectionStatus =
-                'Block config: ${config.totalBlocks} block(s), $errorCount error(s)';
+                'Block config: ${config.childBlockCount} I2C + brain (${config.totalBlocks} in stack), $errorCount error(s)';
             _lastHeartbeatTime = DateTime.now();
           });
           _schedulePlaythroughEvaluation(
@@ -3673,7 +3673,7 @@ class BlockConfigScreen extends StatelessWidget {
                                   .where((v) => v.severity == Severity.error)
                                   .length;
                               final statusText = currentConfiguration != null
-                                  ? 'Block config: ${currentConfiguration!.totalBlocks} block(s), $errorCount error(s)'
+                                  ? 'Block config: ${currentConfiguration!.childBlockCount} I2C + brain (${currentConfiguration!.totalBlocks} in stack), $errorCount error(s)'
                                   : connectionStatus;
                               return Text(
                                 statusText,
@@ -3802,10 +3802,17 @@ class BlockConfigScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Total Blocks: ${config.totalBlocks}',
+            'Stack: ${config.totalBlocks} blocks',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: colorScheme.onTertiaryContainer,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${config.childBlockCount} on I2C · brain included in stack',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onTertiaryContainer.withOpacity(0.85),
             ),
           ),
           const SizedBox(height: 12),
@@ -3855,13 +3862,16 @@ class BlockConfigScreen extends StatelessWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     BlockInfo block,
-    int index,
-    {bool isActive = false}
-  ) {
+    int index, {
+    bool isActive = false,
+  }) {
     final blockType = block.blockType;
     final blockColor = _getBlockTypeColor(colorScheme, blockType);
     final cardColor = isActive
-        ? Color.alphaBlend(blockColor.withOpacity(0.30), blockColor.withOpacity(0.22))
+        ? Color.alphaBlend(
+            blockColor.withOpacity(0.30),
+            blockColor.withOpacity(0.22),
+          )
         : blockColor.withOpacity(0.2);
     final borderColor = isActive
         ? Colors.white.withOpacity(0.9)

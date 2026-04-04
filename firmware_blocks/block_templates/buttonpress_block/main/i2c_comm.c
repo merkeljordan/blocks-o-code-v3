@@ -13,7 +13,7 @@
 static const char *TAG = "BUTTONPRESS_BLOCK";
 
 // Dynamic child-bus address (derived from chip identity + block type)
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_BUTTONPRESS_BLOCK
 #define MY_BLOCK_TYPE   BLOCK_TYPE_BUTTON
 
 // ============================================================================
@@ -37,7 +37,7 @@ static void populate_identity_registers(void) {
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_BUTTONPRESS_BLOCK;
     }
     registers[REG_WHOAMI]   = MY_BLOCK_TYPE;  // Block type
     registers[REG_STATUS]   = STATUS_READY;   // Status

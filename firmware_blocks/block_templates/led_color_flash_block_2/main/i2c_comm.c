@@ -11,8 +11,7 @@
 
 static const char *TAG = "I2C_COMM";
 
-// TODO: Change per board
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_LED_COLOR_FLASH_BLOCK_2
 #define MY_BLOCK_TYPE   BLOCK_TYPE_LED_FLASH
 
 // ============================================================================
@@ -36,7 +35,7 @@ static void populate_identity_registers(void) {
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_LED_COLOR_FLASH_BLOCK_2;
     }
     registers[REG_WHOAMI]   = MY_BLOCK_TYPE;  // Block type
     registers[REG_STATUS]   = STATUS_READY;   // Status

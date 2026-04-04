@@ -5,5 +5,8 @@ idf_component_register(
         "DACOutput.cpp"
         "SinWaveGenerator.cpp"
     INCLUDE_DIRS "."
-    REQUIRES driver freertos
+    REQUIRES
+        driver
+        freertos
+        espressif__arduino-esp32
 )

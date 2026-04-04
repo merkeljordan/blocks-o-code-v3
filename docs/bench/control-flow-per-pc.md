@@ -54,9 +54,9 @@ The Brain consumes these overrides via:
 **Steps**
 - Set loop count to a non-default value and confirm Brain logs the override.
 - Physically reorder blocks or add/remove a block to force a scan/topology change.
-- Confirm Brain logs config refresh and stops execution (if it was running).
+- Confirm Brain logs config refresh. If a run was active, the executor should **continue** with the program snapshot from `START` until DONE/STOP/ERROR; the next `START` should follow the newly committed topology.
 
 **Expected**
-- Per-`pc` tables are cleared on `brain_event_handler_refresh_config_event_map()`.
+- Per-`pc` tables are rebuilt on the next `START` from the latest scan + stash state.
 - On the new topology, LOOP should re-submit defaults (or be reconfigured) so overrides are repopulated.
 

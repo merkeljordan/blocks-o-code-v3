@@ -32,7 +32,7 @@ void main() {
             blocks: _brainOnlyBlocks(),
           ),
         );
-        await _waitForText(tester, 'Total Blocks: 1');
+        await _waitForText(tester, 'Stack: 1 blocks');
 
         // SNAP-ON: simulate a new child block detected on I2C.
         final snapDetectedAt = DateTime.now().millisecondsSinceEpoch;
@@ -42,7 +42,7 @@ void main() {
             blocks: _brainAndLedBlocks(),
           ),
         );
-        await _waitForText(tester, 'Total Blocks: 2');
+        await _waitForText(tester, 'Stack: 2 blocks');
         await _waitForText(tester, 'LED Color Flash Block');
         final snapLatencyMs = DateTime.now().millisecondsSinceEpoch - snapDetectedAt;
 
@@ -54,7 +54,7 @@ void main() {
             blocks: _brainOnlyBlocks(),
           ),
         );
-        await _waitForText(tester, 'Total Blocks: 1');
+        await _waitForText(tester, 'Stack: 1 blocks');
         await _waitForTextToDisappear(tester, 'LED Color Flash Block');
         final removeLatencyMs =
             DateTime.now().millisecondsSinceEpoch - removeDetectedAt;

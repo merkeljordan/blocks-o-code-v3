@@ -552,28 +552,19 @@ static void home_action_event_cb(lv_event_t *e)
 
     if (strcmp(action_name, "Start") == 0) {
         ESP_LOGI(TAG, "Home action pressed: Start");
-        // IMPORTANT: Enqueue success does NOT mean execution started.
-        // We only enqueue when the validation gate is open.
         if (!brain_event_handler_can_start_execution()) {
             const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+            const block_config_state_t *cfg = block_config_manager_get_state();
             if (s_status_label != NULL) {
-                if (validation != NULL && !validation->has_received_validation) {
-                    lv_label_set_text(s_status_label, "START blocked: waiting for validation");
-                } else if (validation != NULL && !validation->app_config_valid) {
-                    lv_label_set_text(s_status_label, "START blocked: config invalid");
+                if (validation != NULL && validation->has_received_validation &&
+                    !validation->app_config_valid) {
+                    lv_label_set_text(s_status_label, "START blocked: app config invalid");
+                } else if (cfg == NULL || cfg->block_count == 0U) {
+                    lv_label_set_text(s_status_label, "START blocked: no blocks detected");
                 } else {
-                    lv_label_set_text(s_status_label, "START blocked: validation gate");
+                    lv_label_set_text(s_status_label,
+                                      "START blocked: no typed blocks (wait for scan)");
                 }
-            }
-            return;
-        }
-
-        // Extra safety: even with valid config, executor_start() refuses to run when
-        // there are no program blocks loaded from the latest scan.
-        const block_config_state_t *cfg = block_config_manager_get_state();
-        if (cfg == NULL || cfg->block_count == 0) {
-            if (s_status_label != NULL) {
-                lv_label_set_text(s_status_label, "START blocked: no blocks detected");
             }
             return;
         }
@@ -581,9 +572,10 @@ static void home_action_event_cb(lv_event_t *e)
         bool handled = brain_event_handle_message("START");
         if (s_status_label != NULL) {
             if (handled) {
-                lv_label_set_text(s_status_label, "START requested");
+                lv_label_set_text(s_status_label, "Running");
             } else {
-                lv_label_set_text(s_status_label, "START rejected: queue/state");
+                lv_label_set_text(s_status_label,
+                                  "START failed — busy or executor error (retry)");
             }
         }
         return;

@@ -31,7 +31,6 @@ esp_err_t i2c_runtime_broadcast(uint8_t address,
                                 block_type_t step_type);
 esp_err_t i2c_execute(uint8_t address);
 esp_err_t i2c_reset(uint8_t address);
-esp_err_t i2c_set_child_address(uint8_t current_address, uint8_t new_address);
 esp_err_t i2c_oled_text(uint8_t address, const char *msg);
 esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len);
 esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len);

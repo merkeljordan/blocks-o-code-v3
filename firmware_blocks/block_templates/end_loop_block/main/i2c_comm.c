@@ -19,7 +19,7 @@ extern uint8_t end_loop_block_get_status_flags(void);
 static const char *TAG = "END_LOOP_BLOCK";
 
 // TODO: Change per block
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_END_LOOP_BLOCK
 #define MY_BLOCK_TYPE   BLOCK_TYPE_END_LOOP
 
 // ============================================================================
@@ -43,7 +43,7 @@ static void populate_identity_registers(void) {
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_END_LOOP_BLOCK;
     }
     registers[REG_WHOAMI]   = MY_BLOCK_TYPE;  // Block type
     registers[REG_STATUS]   = STATUS_READY;   // Status

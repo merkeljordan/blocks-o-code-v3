@@ -26,19 +26,22 @@
 #include <Arduino.h>
 
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-// Linker symbols generated from EMBED_FILES (bootupsound.wav).
-extern const uint8_t bootupsound_wav_start[] asm("_binary_bootupsound_wav_start");
-extern const uint8_t bootupsound_wav_end[]   asm("_binary_bootupsound_wav_end");
 
 extern "C" {
 
 static const char *TAG = "AUDIO";
 #define SPEAKER_AMP_ENABLE_GPIO 5
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
+#define SPEAKER_PWM_GPIO 25
+#define SPEAKER_BOOT_LEDC_MODE LEDC_LOW_SPEED_MODE
+#define SPEAKER_BOOT_LEDC_TIMER LEDC_TIMER_0
+#define SPEAKER_BOOT_LEDC_CHANNEL LEDC_CHANNEL_0
+#define SPEAKER_BOOT_LEDC_DUTY_RES LEDC_TIMER_10_BIT
+#define SPEAKER_BOOT_VOLUME_PERCENT 30
 
 static void speaker_amp_set_enabled(bool on) {
     int level_on = SPEAKER_AMP_ENABLE_ACTIVE_HIGH ? 1 : 0;
@@ -52,8 +55,8 @@ static bool s_inited = false;
 // Global DAC bridge used by all playback APIs in this file.
 static DACOutput *s_dac = NULL;
 
-// User-facing volume control (0..100%).
-static uint8_t s_volume_percent = 0;
+// User-facing volume control (0..100%). Default matches Brain / music blocks.
+static uint8_t s_volume_percent = 30;
 
 // Map UI percent to linear gain scalar.
 static float volume_to_gain(uint8_t pct)
@@ -83,16 +86,85 @@ public:
 
 static SilenceSource s_silence;
 
-// --------------------------------------------------------------------------
-// delay_ms
-// --------------------------------------------------------------------------
-// Internal helper used by blocking playback APIs.
-// Called by: speaker_play_* functions, beep helpers.
 static void delay_ms(uint32_t ms)
 {
     if (ms) {
         vTaskDelay(pdMS_TO_TICKS(ms));
     }
+}
+
+static uint32_t boot_pwm_get_duty(uint8_t volume_percent)
+{
+    if (volume_percent > 100U) {
+        volume_percent = 100U;
+    }
+
+    uint32_t max_duty = (1U << SPEAKER_BOOT_LEDC_DUTY_RES) - 1U;
+    return (max_duty * volume_percent) / 200U;
+}
+
+static esp_err_t ensure_dac_ready(void)
+{
+    if (s_dac != NULL) {
+        return ESP_OK;
+    }
+
+    s_dac = new DACOutput();
+    if (s_dac == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    s_dac->start(&s_silence);
+    return ESP_OK;
+}
+
+static esp_err_t boot_pwm_play_tone(uint32_t hz, uint32_t ms)
+{
+    if (hz == 0U || ms == 0U) {
+        return ESP_OK;
+    }
+
+    ledc_timer_config_t timer_config = {
+        .speed_mode = SPEAKER_BOOT_LEDC_MODE,
+        .duty_resolution = SPEAKER_BOOT_LEDC_DUTY_RES,
+        .timer_num = SPEAKER_BOOT_LEDC_TIMER,
+        .freq_hz = 1000,
+        .clk_cfg = LEDC_AUTO_CLK,
+        .deconfigure = false,
+    };
+    esp_err_t err = ledc_timer_config(&timer_config);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    ledc_channel_config_t channel_config = {
+        .gpio_num = SPEAKER_PWM_GPIO,
+        .speed_mode = SPEAKER_BOOT_LEDC_MODE,
+        .channel = SPEAKER_BOOT_LEDC_CHANNEL,
+        .intr_type = LEDC_INTR_DISABLE,
+        .timer_sel = SPEAKER_BOOT_LEDC_TIMER,
+        .duty = 0,
+        .hpoint = 0,
+        .sleep_mode = LEDC_SLEEP_MODE_NO_ALIVE_NO_PD,
+        .flags = {.output_invert = 0},
+    };
+    err = ledc_channel_config(&channel_config);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = ledc_set_freq(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_TIMER, hz);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    uint32_t duty = boot_pwm_get_duty(SPEAKER_BOOT_VOLUME_PERCENT);
+    ledc_set_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL, duty);
+    ledc_update_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL);
+    delay_ms(ms);
+    ledc_set_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL, 0);
+    ledc_update_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL);
+    return ESP_OK;
 }
 
 // --------------------------------------------------------------------------
@@ -121,15 +193,8 @@ esp_err_t speaker_init(void)
     }
     speaker_amp_set_enabled(true);
 
-    s_dac = new DACOutput();
-    if (!s_dac) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    // Start DAC writer against silence first to avoid startup pops/noise.
-    s_dac->start(&s_silence);
     s_inited = true;
-    ESP_LOGI(TAG, "Speaker ready (I2S DAC on GPIO25)");
+    ESP_LOGI(TAG, "Speaker amp ready on GPIO%d", SPEAKER_PWM_GPIO);
     return ESP_OK;
 }
 
@@ -178,14 +243,24 @@ esp_err_t speaker_stop(void)
 // Calls: speaker_play_tone + delay_ms
 esp_err_t speaker_play_boot_sound(void)
 {
-    if (!s_inited || !s_dac) {
+    if (!s_inited) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    ESP_LOGI(TAG, "Playing boot PWM tone sequence");
-    (void)speaker_play_tone(440, 80);
-    (void)speaker_play_tone(660, 80);
-    (void)speaker_play_tone(880, 120);
+    if (s_dac != NULL) {
+        s_dac->setSampleSource(&s_silence);
+    }
+
+    ESP_LOGI(TAG, "Playing Note-style boot PWM sequence");
+    (void)boot_pwm_play_tone(440, 100);
+    delay_ms(40);
+    (void)boot_pwm_play_tone(660, 100);
+    delay_ms(40);
+    (void)boot_pwm_play_tone(880, 130);
+
+    if (s_dac != NULL) {
+        s_dac->setSampleSource(&s_silence);
+    }
 
     ESP_LOGI(TAG, "Boot tone sequence finished");
     return ESP_OK;
@@ -199,15 +274,20 @@ esp_err_t speaker_play_boot_sound(void)
 esp_err_t speaker_play_wav(const uint8_t *data, size_t len)
 {
     // Validate arguments and init state.
-    if (!s_inited || !s_dac || !data || len == 0) {
+    if (!s_inited || !data || len == 0) {
         return ESP_ERR_INVALID_ARG;
+    }
+
+    esp_err_t err = ensure_dac_ready();
+    if (err != ESP_OK) {
+        return err;
     }
 
     WAVFileReader reader(data, data + len);
     reader.setGain(volume_to_gain(s_volume_percent));
 
     int data_bytes = reader.getDataBytes();
-    int bytes_per_sec = reader.sampleRate() * 4;
+    int bytes_per_sec = reader.bytesPerSecond();
     uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 /
                                       (bytes_per_sec ? bytes_per_sec : 1));
     duration_ms += 300;
@@ -226,13 +306,18 @@ esp_err_t speaker_play_wav(const uint8_t *data, size_t len)
 // Calls: SinWaveGenerator + DACOutput::setSampleSource + delay_ms.
 esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 {
-    if (!s_inited || !s_dac) {
+    if (!s_inited) {
         return ESP_ERR_INVALID_STATE;
     }
 
     // Treat invalid/empty tone as no-op.
     if (hz == 0 || ms == 0) {
         return ESP_OK;
+    }
+
+    esp_err_t err = ensure_dac_ready();
+    if (err != ESP_OK) {
+        return err;
     }
 
     // Keep requested frequency, but lower magnitude to avoid clipping.

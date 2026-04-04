@@ -21,7 +21,7 @@ extern uint8_t music_block_get_status_flags(void);
 static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
 
 // Fixed child-bus address/type for the music sequence block.
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_MUSIC_SEQUENCE_BLOCK_2
 #define MY_BLOCK_TYPE   BLOCK_TYPE_MUSIC_SEQ
 
 // Simple register map for Brain-side WHOAMI/status reads.
@@ -45,7 +45,7 @@ static void populate_identity_registers(void)
 static void init_registers(void)
 {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_MUSIC_SEQUENCE_BLOCK_2;
     }
     s_registers[REG_WHOAMI] = MY_BLOCK_TYPE;
     s_registers[REG_STATUS] = STATUS_READY;

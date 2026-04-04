@@ -136,9 +136,9 @@ typedef enum {
 
 ### **Runtime Execution Semantics (Current)**
 
-- **Deterministic batched broadcast:** when the executor reaches an output step (`LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain fans out `CMD_EXECUTE` to **all present blocks** in deterministic configuration order.
-- **Shared delay tick:** `DELAY` steps are scheduled on the Brain's shared monotonic timebase (`wait_until_ms = now + delay_ms`) and resume on expiry.
-- **Per-context IF/LOOP evaluation:** `IF` and `LOOP` are interpreted at the current program-counter position, including nested boundary matching and per-position overrides (`loop_count`, `delay_ms`).
+- **Sequential action + runtime broadcast:** at `LED_FLASH` / `NOTE` / `MUSIC_SEQ` steps, the Brain sends action I2C only to the child at the current `pc` (`CMD_EXECUTE` / `CMD_PLAY_NOTE` / LED setup as applicable). It still fans out `CMD_RUNTIME_BROADCAST` to all present blocks for strip/matrix/speaker parity.
+- **Shared delay tick:** `DELAY` holds `pc` on the delay opcode until `wait_until_ms`, then advances.
+- **Per-context IF/LOOP/BUTTON evaluation:** canonical order is `IF` → `BUTTON` → `THEN` → body → `END_IF`; the BUTTON immediately after `IF` is bound for the condition, which is evaluated at `THEN` after the wait. **`LOOP` / `END_LOOP`** delimit a body: only the blocks **between** them run repeatedly (`loop_count` from the LOOP block / overrides); `LOOP` and `END_LOOP` themselves are not re-executed as body steps.
 
 See also: [Broadcast Execution Semantics](../../docs/architecture/broadcast-execution-semantics.md)
 

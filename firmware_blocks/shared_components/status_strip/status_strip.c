@@ -16,6 +16,7 @@ typedef struct {
 } status_strip_pixel_t;
 
 static const char *TAG = "STATUS_STRIP";
+static const uint8_t STATUS_STRIP_SAFE_BRIGHTNESS_MAX = 96U;
 static led_strip_handle_t s_strip = NULL;
 static status_strip_pixel_t *s_pixels = NULL;
 static gpio_num_t s_gpio_num = GPIO_NUM_NC;
@@ -65,18 +66,18 @@ uint8_t status_strip_runtime_brightness(brain_runtime_broadcast_state_t state)
 {
     switch (state) {
         case BRAIN_RUNTIME_IDLE:
-            return 96U;
+            return 64U;
         case BRAIN_RUNTIME_RUNNING:
-            return 160U;
+            return 80U;
         case BRAIN_RUNTIME_STEP:
-            return 255U;
+            return 96U;
         case BRAIN_RUNTIME_DONE:
-            return 220U;
+            return 80U;
         case BRAIN_RUNTIME_ERROR:
         case BRAIN_RUNTIME_STOP:
-            return 192U;
-        default:
             return 96U;
+        default:
+            return 64U;
     }
 }
 
@@ -287,6 +288,9 @@ void status_strip_clear(void)
 
 void status_strip_set_brightness(uint8_t brightness)
 {
+    if (brightness > STATUS_STRIP_SAFE_BRIGHTNESS_MAX) {
+        brightness = STATUS_STRIP_SAFE_BRIGHTNESS_MAX;
+    }
     s_brightness = brightness;
 }
 
@@ -404,6 +408,7 @@ bool status_strip_handle_runtime_broadcast(const char *tag,
     uint8_t pc = payload[1];
     uint8_t step_type = payload[2];
     (void)status_strip_render_runtime_visuals(tag, cfg, block_type, state, pc, step_type);
-    status_strip_play_runtime_audio_event(state, pc, step_type);
+    // Runtime beeps play only on the Brain (see broadcast_runtime_state); child blocks
+    // only update LEDs so the bus does not trigger overlapping speaker tones.
     return true;
 }

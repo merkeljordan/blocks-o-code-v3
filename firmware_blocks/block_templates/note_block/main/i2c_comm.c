@@ -21,8 +21,8 @@ extern uint8_t note_block_get_pending_event_len(void);
 
 static const char *TAG = "NOTE_BLOCK";
 
-// Fixed child-bus address/type for the Note block.
-#define MY_ADDRESS      block_compute_i2c_address(MY_BLOCK_TYPE)
+// Fixed child-bus address/type for the Note block (see BLOCK_BOOT_I2C_ADDR_NOTE_BLOCK).
+#define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_NOTE_BLOCK
 #define MY_BLOCK_TYPE   BLOCK_TYPE_NOTE
 
 // Simple register map for Brain-side WHOAMI/status reads.
@@ -46,7 +46,7 @@ static void populate_identity_registers(void)
 static void init_registers(void)
 {
     if (s_runtime_address == 0u) {
-        s_runtime_address = block_compute_i2c_address(MY_BLOCK_TYPE);
+        s_runtime_address = BLOCK_BOOT_I2C_ADDR_NOTE_BLOCK;
     }
     s_registers[REG_WHOAMI]   = MY_BLOCK_TYPE;
     s_registers[REG_STATUS]   = STATUS_READY;
