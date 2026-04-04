@@ -13,6 +13,14 @@
  * - tft_ui.c / main.c -> speaker_play_song(index)
  * - speaker_play_song -> speaker_play_wav(...)
  * - speaker_play_wav -> DACOutput writer pipeline
+ *
+ * I2S settings for music:
+ * - All embedded music WAV assets are encoded at 11025 Hz, 16-bit, mono.
+ * - The I2S peripheral sample rate is updated dynamically to match each
+ *   WAV file's embedded sample rate (via DACOutput::setSampleSource).
+ * - Bit depth is fixed at 16-bit (I2S_BITS_PER_SAMPLE_16BIT) in DACOutput.
+ * - Resulting I2S bit clock for music: 11025 Hz * 16 bits * 2 ch = 352,800 bps
+ * - For tones/silence the I2S runs at SPEAKER_DEFAULT_SAMPLE_RATE_HZ (44100 Hz).
  */
 
 #include "speaker.h"

@@ -8,6 +8,19 @@ This module now uses a **WAV + I2S DAC** audio path (not the older PWM-only path
 - Default data pin path: DAC right channel (GPIO25 on classic ESP32)
 - API surface: `components/audio/audio_speaker.h`
 
+## I2S Settings
+
+| Setting | Music (WAV) | Tones / Silence |
+|---------|-------------|-----------------|
+| Sample rate | **11025 Hz** (read from WAV header) | 44100 Hz (`SPEAKER_DEFAULT_SAMPLE_RATE_HZ`) |
+| Bit depth | 16-bit | 16-bit |
+| Channels | Mono (stereo WAVs are downmixed) | Stereo (both channels identical) |
+| I2S bit clock (music) | 11025 × 16 × 2 = **352,800 bps** | — |
+
+The I2S sample rate is updated dynamically when the active `SampleSource` changes
+(see `DACOutput::setSampleSource`). Music WAV assets must be encoded at **16-bit PCM**;
+other bit depths are rejected by `WAVFileReader`.
+
 ## Core Files
 
 - `components/audio/speaker.cpp`

@@ -46,7 +46,20 @@ Main functions:
 4. Writer task streams frames to I2S DAC.
 5. Source is returned to silence after playback.
 
-## Requirements
+## I2S Settings
+
+| Setting | Value |
+|---------|-------|
+| Mode | I2S master TX, built-in DAC |
+| Default sample rate (silence/tones) | 44100 Hz (`SPEAKER_DEFAULT_SAMPLE_RATE_HZ`) |
+| Music WAV sample rate | 11025 Hz (read from WAV header, applied dynamically) |
+| Bit depth | 16-bit (`I2S_BITS_PER_SAMPLE_16BIT`) |
+| DAC output pin | GPIO25 (right DAC channel) |
+
+Sample rate is set at `DACOutput::start()` from the initial silence source and updated via
+`i2s_set_sample_rates()` in `DACOutput::setSampleSource()` whenever a new source is installed.
+
+
 
 - ESP-IDF driver component
 - Arduino compatibility layer (`espressif__arduino-esp32`)

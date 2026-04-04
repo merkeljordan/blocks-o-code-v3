@@ -38,6 +38,12 @@ static const char *TAG = "AUDIO";
 #define SPEAKER_AMP_ENABLE_GPIO 5
 #define SPEAKER_AMP_ENABLE_ACTIVE_HIGH 0
 
+// Default I2S sample rate used for silence and generated tones.
+// Music WAV assets are encoded at 11025 Hz and the I2S rate is updated
+// dynamically in DACOutput::setSampleSource() to match each WAV file's
+// embedded sample rate.
+#define SPEAKER_DEFAULT_SAMPLE_RATE_HZ 44100
+
 // Set true after successful speaker_init().
 static bool s_inited = false;
 
@@ -68,7 +74,7 @@ static float volume_to_gain(uint8_t pct)
 class SilenceSource : public SampleSource {
 public:
     // Called by DACOutput::start() and other sample-rate consumers.
-    int sampleRate() override { return 44100; }
+    int sampleRate() override { return SPEAKER_DEFAULT_SAMPLE_RATE_HZ; }
 
     // Called repeatedly by DACOutput writer task.
     void getFrames(Frame_t *frames, int number_frames) override {
@@ -242,7 +248,7 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
 
     // Keep requested frequency, but lower magnitude to avoid clipping.
     float tone_magnitude = 0.1f * volume_to_gain(s_volume_percent);
-    SinWaveGenerator tone(44100, (int)hz, tone_magnitude);
+    SinWaveGenerator tone(SPEAKER_DEFAULT_SAMPLE_RATE_HZ, (int)hz, tone_magnitude);
 
     s_dac->setSampleSource(&tone);
     delay_ms(ms);
