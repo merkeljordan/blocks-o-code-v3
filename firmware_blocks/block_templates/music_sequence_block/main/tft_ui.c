@@ -59,7 +59,6 @@ static uint8_t battery_monitor_get_percent(void)
 #define BATTERY_REFRESH_MS 3000U
 
 #define UI_ACTION_QUEUE_LEN  8
-#define UI_PREVIEW_QUEUE_LEN 1
 
 #if !defined(MUSIC_SEQ_UI_SIMULATOR)
 /* TFT + touch wiring and runtime config. */
@@ -100,7 +99,8 @@ static esp_lcd_touch_handle_t   s_touch_handle    = NULL;
 static esp_timer_handle_t       s_lvgl_tick_timer = NULL;
 static SemaphoreHandle_t        s_state_mutex     = NULL;
 static QueueHandle_t            s_action_queue    = NULL;
-static QueueHandle_t            s_preview_queue   = NULL;
+static TaskHandle_t             s_preview_task_handle = NULL;
+static volatile uint8_t         s_preview_request_idx = 0;
 #else
 typedef struct {
     music_ui_action_t items[UI_ACTION_QUEUE_LEN];
@@ -114,7 +114,9 @@ static sim_action_queue_t s_action_queue = {0};
 static bool s_ui_started = false;
 static uint8_t s_song_index = 0;
 static bool s_config_valid = false;
-static bool s_is_playing = false;
+/* Preview worker vs Brain CMD_EXECUTE must not share one flag (Brain can leave UI stuck). */
+static bool s_preview_playing = false;
+static bool s_brain_playing = false;
 static music_age_range_t s_age_filter = MUSIC_AGE_RANGE_ALL;
 static char s_status_text[96];
 
@@ -509,26 +511,30 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 static void request_preview(uint8_t idx)
 {
 #if defined(MUSIC_SEQ_UI_SIMULATOR)
-    if (s_is_playing) {
+    if (s_preview_playing || s_brain_playing) {
         copy_text_safe(s_status_text, sizeof(s_status_text), "Already playing...");
         gui_refresh_from_state();
         return;
     }
 
-    s_is_playing = true;
+    s_preview_playing = true;
     copy_text_safe(s_status_text, sizeof(s_status_text), "Playing...");
     gui_refresh_from_state();
 
     {
         esp_err_t err = speaker_play_song(idx);
         if (err != ESP_OK) {
-            s_is_playing = false;
+            s_preview_playing = false;
             copy_text_safe(s_status_text, sizeof(s_status_text), "Playback error.");
+        } else {
+            s_preview_playing = false;
+            copy_text_safe(s_status_text, sizeof(s_status_text), "Done! Tap Select to confirm.");
         }
     }
 #else
-    if (s_preview_queue != NULL) {
-        (void)xQueueOverwrite(s_preview_queue, &idx);
+    s_preview_request_idx = idx;
+    if (s_preview_task_handle != NULL) {
+        (void)xTaskNotifyGive(s_preview_task_handle);
     }
 #endif
 
@@ -613,12 +619,22 @@ static void play_btn_cb(lv_event_t *e)
         gui_refresh_from_state();
         return;
     }
-    if (s_is_playing) {
+#if defined(MUSIC_SEQ_UI_SIMULATOR)
+    if (s_preview_playing || s_brain_playing) {
         copy_text_safe(s_status_text, sizeof(s_status_text), "Already playing...");
         state_unlock();
         gui_refresh_from_state();
         return;
     }
+#else
+    /* Firmware: always allow preview queue; only Brain execution blocks the speaker. */
+    if (s_brain_playing) {
+        copy_text_safe(s_status_text, sizeof(s_status_text), "Brain is playing...");
+        state_unlock();
+        gui_refresh_from_state();
+        return;
+    }
+#endif
     idx = s_song_index;
     copy_text_safe(s_status_text, sizeof(s_status_text), "Playing...");
     state_unlock();
@@ -889,7 +905,7 @@ static void gui_refresh_from_state(void)
 
     state_lock();
     idx = s_song_index;
-    is_playing = s_is_playing;
+    is_playing = s_preview_playing || s_brain_playing;
     age_filter = s_age_filter;
     copy_text_safe(status_buf, sizeof(status_buf), s_status_text);
     state_unlock();
@@ -954,22 +970,25 @@ static void gui_refresh_from_state(void)
 static void preview_task(void *arg)
 {
     (void)arg;
-    uint8_t idx;
 
     while (1) {
-        if (xQueueReceive(s_preview_queue, &idx, portMAX_DELAY) != pdTRUE) {
-            continue;
+        (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+        /* Re-read after take: coalesces stacked xTaskNotifyGive into one play of latest idx. */
+        uint8_t idx = s_preview_request_idx;
+        while (ulTaskNotifyTake(pdFALSE, 0) > 0U) {
+            idx = s_preview_request_idx;
         }
 
         state_lock();
-        s_is_playing = true;
+        s_preview_playing = true;
         state_unlock();
 
         {
             esp_err_t err = speaker_play_song(idx);
 
             state_lock();
-            s_is_playing = false;
+            s_preview_playing = false;
             if (err == ESP_OK) {
                 copy_text_safe(s_status_text, sizeof(s_status_text), "Done! Tap Select to confirm.");
             } else {
@@ -1024,7 +1043,8 @@ esp_err_t tft_ui_start(void)
     s_song_index = 0;
     (void)get_filtered_song_index(s_age_filter, 0, &s_song_index);
     s_config_valid = false;
-    s_is_playing = false;
+    s_preview_playing = false;
+    s_brain_playing = false;
     copy_text_safe(s_status_text, sizeof(s_status_text), "Pick a song and tap Play!");
 
 #if defined(MUSIC_SEQ_UI_SIMULATOR)
@@ -1044,10 +1064,9 @@ esp_err_t tft_ui_start(void)
         return ESP_ERR_NO_MEM;
     }
 
-    s_action_queue  = xQueueCreate(UI_ACTION_QUEUE_LEN, sizeof(music_ui_action_t));
-    s_preview_queue = xQueueCreate(UI_PREVIEW_QUEUE_LEN, sizeof(uint8_t));
-    if (s_action_queue == NULL || s_preview_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create UI queues");
+    s_action_queue = xQueueCreate(UI_ACTION_QUEUE_LEN, sizeof(music_ui_action_t));
+    if (s_action_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create UI action queue");
         return ESP_ERR_NO_MEM;
     }
 
@@ -1186,7 +1205,8 @@ esp_err_t tft_ui_start(void)
                                                     MUSIC_UI_CORE_ID);
         BaseType_t ok_preview = xTaskCreatePinnedToCore(preview_task, "music_preview",
                                                         PREVIEW_TASK_STACK_SIZE, NULL,
-                                                        PREVIEW_TASK_PRIORITY, NULL,
+                                                        PREVIEW_TASK_PRIORITY,
+                                                        &s_preview_task_handle,
                                                         MUSIC_AUDIO_CORE_ID);
 
         if (ok_gui != pdPASS || ok_preview != pdPASS) {
@@ -1233,7 +1253,7 @@ void tft_ui_set_playback_state(const music_playback_state_t *state)
     }
 
     state_lock();
-    s_is_playing = state->is_playing;
+    s_brain_playing = state->is_playing;
     state_unlock();
 #if defined(MUSIC_SEQ_UI_SIMULATOR)
     gui_refresh_from_state();

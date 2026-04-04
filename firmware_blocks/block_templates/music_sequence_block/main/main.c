@@ -200,7 +200,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(30);
+    speaker_set_volume(60);
     g_speaker_ready = true;
     speaker_play_boot_sound();
 

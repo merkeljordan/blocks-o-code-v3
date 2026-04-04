@@ -3,8 +3,6 @@
 #include "driver/i2s.h"
 #include <math.h>
 
-#include "freertos/semphr.h"
-
 #include "SampleSource.h"
 #include "DACOutput.h"
 
@@ -21,15 +19,22 @@ void i2sWriterTask(void *param)
         i2s_event_t evt;
         if (xQueueReceive(output->m_i2sQueue, &evt, portMAX_DELAY) == pdPASS)
         {
-            if (evt.type == I2S_EVENT_TX_DONE && output->m_stream_mutex != nullptr)
+            if (evt.type == I2S_EVENT_TX_DONE)
             {
-                xSemaphoreTake(output->m_stream_mutex, portMAX_DELAY);
                 size_t bytesWritten = 0;
                 do
                 {
                     if (availableBytes == 0)
                     {
-                        output->m_sample_generator->getFrames(frames, NUM_FRAMES_TO_SEND);
+                        SampleSource *gen = output->m_sample_generator;
+                        if (gen != nullptr) {
+                            gen->getFrames(frames, NUM_FRAMES_TO_SEND);
+                        } else {
+                            for (int i = 0; i < NUM_FRAMES_TO_SEND; i++) {
+                                frames[i].left = 32768;
+                                frames[i].right = 32768;
+                            }
+                        }
                         availableBytes = NUM_FRAMES_TO_SEND * sizeof(uint32_t);
                         buffer_position = 0;
                     }
@@ -41,7 +46,6 @@ void i2sWriterTask(void *param)
                         buffer_position += bytesWritten;
                     }
                 } while (bytesWritten > 0);
-                xSemaphoreGive(output->m_stream_mutex);
             }
         }
     }
@@ -64,14 +68,13 @@ void DACOutput::start(SampleSource *sample_generator)
     i2s_set_dac_mode(I2S_DAC_CHANNEL_RIGHT_EN);
     i2s_zero_dma_buffer(I2S_NUM_0);
 
-    m_stream_mutex = xSemaphoreCreateMutex();
     m_active_sample_rate = (uint32_t)m_sample_generator->sampleRate();
     xTaskCreate(i2sWriterTask, "i2s Writer Task", 4096, this, 1, &m_i2sWriterTaskHandle);
 }
 
 void DACOutput::setSampleSource(SampleSource *source)
 {
-    if (source == nullptr || m_stream_mutex == nullptr) {
+    if (source == nullptr) {
         return;
     }
 
@@ -80,17 +83,17 @@ void DACOutput::setSampleSource(SampleSource *source)
         new_rate = 44100U;
     }
 
-    xSemaphoreTake(m_stream_mutex, portMAX_DELAY);
-    m_sample_generator = source;
-
+    /* Reclock before swapping the generator so the writer never pulls new PCM at the
+     * old I2S bit clock. No stream mutex: i2s_set_clk can block on DMA; holding a
+     * mutex that the writer needs caused permanent deadlocks on the second song. */
     if (new_rate != m_active_sample_rate) {
-        m_active_sample_rate = new_rate;
         (void)i2s_set_clk(I2S_NUM_0,
-                          m_active_sample_rate,
+                          new_rate,
                           I2S_BITS_PER_SAMPLE_16BIT,
                           I2S_CHANNEL_STEREO);
         i2s_zero_dma_buffer(I2S_NUM_0);
+        m_active_sample_rate = new_rate;
     }
 
-    xSemaphoreGive(m_stream_mutex);
+    m_sample_generator = source;
 }

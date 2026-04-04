@@ -290,7 +290,8 @@ esp_err_t speaker_play_wav(const uint8_t *data, size_t len)
     int bytes_per_sec = reader.bytesPerSecond();
     uint32_t duration_ms = (uint32_t)((uint64_t)data_bytes * 1000 /
                                       (bytes_per_sec ? bytes_per_sec : 1));
-    duration_ms += 300;
+    /* Short tail so UI/speaker isn't "busy" long after PCM has finished. */
+    duration_ms += 80;
 
     s_dac->setSampleSource(&reader);
     delay_ms(duration_ms);
