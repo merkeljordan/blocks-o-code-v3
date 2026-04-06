@@ -118,7 +118,9 @@ static esp_err_t ensure_dac_ready(void)
     return ESP_OK;
 }
 
-static esp_err_t boot_pwm_play_tone(uint32_t hz, uint32_t ms)
+// PWM square tone on SPEAKER_PWM_GPIO (same path as boot). Used for boot sequence
+// and note blocks so melodic notes match startup loudness/timbre.
+static esp_err_t pwm_play_tone(uint32_t hz, uint32_t ms, uint8_t volume_percent)
 {
     if (hz == 0U || ms == 0U) {
         return ESP_OK;
@@ -158,7 +160,7 @@ static esp_err_t boot_pwm_play_tone(uint32_t hz, uint32_t ms)
         return err;
     }
 
-    uint32_t duty = boot_pwm_get_duty(SPEAKER_BOOT_VOLUME_PERCENT);
+    uint32_t duty = boot_pwm_get_duty(volume_percent);
     ledc_set_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL, duty);
     ledc_update_duty(SPEAKER_BOOT_LEDC_MODE, SPEAKER_BOOT_LEDC_CHANNEL);
     delay_ms(ms);
@@ -240,7 +242,7 @@ esp_err_t speaker_stop(void)
 // speaker_play_boot_sound
 // --------------------------------------------------------------------------
 // Called by: startup flow in main.
-// Calls: speaker_play_tone + delay_ms
+// Calls: pwm_play_tone + delay_ms
 esp_err_t speaker_play_boot_sound(void)
 {
     if (!s_inited) {
@@ -252,11 +254,11 @@ esp_err_t speaker_play_boot_sound(void)
     }
 
     ESP_LOGI(TAG, "Playing Note-style boot PWM sequence");
-    (void)boot_pwm_play_tone(440, 100);
+    (void)pwm_play_tone(440, 100, SPEAKER_BOOT_VOLUME_PERCENT);
     delay_ms(40);
-    (void)boot_pwm_play_tone(660, 100);
+    (void)pwm_play_tone(660, 100, SPEAKER_BOOT_VOLUME_PERCENT);
     delay_ms(40);
-    (void)boot_pwm_play_tone(880, 130);
+    (void)pwm_play_tone(880, 130, SPEAKER_BOOT_VOLUME_PERCENT);
 
     if (s_dac != NULL) {
         s_dac->setSampleSource(&s_silence);
@@ -330,6 +332,26 @@ esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
     s_dac->setSampleSource(&s_silence);
     delay_ms(50);
     return ESP_OK;
+}
+
+// --------------------------------------------------------------------------
+// speaker_play_note_tone
+// --------------------------------------------------------------------------
+// Note blocks: same PWM output stage as boot (not the quiet I2S sine path).
+esp_err_t speaker_play_note_tone(uint32_t hz, uint32_t ms)
+{
+    if (!s_inited) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (hz == 0U || ms == 0U) {
+        return ESP_OK;
+    }
+
+    if (s_dac != NULL) {
+        s_dac->setSampleSource(&s_silence);
+    }
+
+    return pwm_play_tone(hz, ms, s_volume_percent);
 }
 
 // --------------------------------------------------------------------------

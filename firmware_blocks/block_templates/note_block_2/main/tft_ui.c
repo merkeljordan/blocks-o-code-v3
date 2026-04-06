@@ -47,7 +47,7 @@ extern bool note_block_submit_sequence(const uint8_t *notes, uint8_t count);
 #if !defined(NOTE_UI_SIMULATOR)
 /* TFT + touch wiring and runtime config. */
 #define TFT_SPI_HOST               SPI3_HOST
-#define TFT_PIXEL_CLOCK_HZ         (20 * 1000 * 1000)
+#define TFT_PIXEL_CLOCK_HZ         (40 * 1000000)
 #define TFT_CMD_BITS               8
 #define TFT_PARAM_BITS             8
 #define TFT_H_RES                  240

@@ -259,7 +259,7 @@ static void play_note(uint8_t note_id)
     const uint32_t count = (uint32_t)(sizeof(k_note_freqs_hz) / sizeof(k_note_freqs_hz[0]));
     uint32_t freq = k_note_freqs_hz[note_id < count ? note_id : 0U];
     show_note_color(note_id);
-    (void)speaker_play_tone(freq, 400U);
+    (void)speaker_play_note_tone(freq, 400U);
     restore_idle_color();
 }
 

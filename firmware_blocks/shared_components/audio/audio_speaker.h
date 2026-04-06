@@ -17,6 +17,7 @@ esp_err_t speaker_stop(void);
 esp_err_t speaker_play_boot_sound(void);
 esp_err_t speaker_play_wav(const uint8_t *data, size_t len);
 esp_err_t speaker_play_tone(uint32_t freq_hz, uint32_t duration_ms);
+esp_err_t speaker_play_note_tone(uint32_t freq_hz, uint32_t duration_ms);
 
 void speaker_beep_ok(void);
 void speaker_beep_error(void);
