@@ -648,7 +648,7 @@ static lv_obj_t *create_picker_screen(void)
     lv_obj_set_width(title, 150);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 8);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 12);
 
     // Back arrow (to Mode)
     lv_obj_t *back_btn = lv_button_create(scr);
