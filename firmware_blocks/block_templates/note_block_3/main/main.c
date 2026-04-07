@@ -22,7 +22,7 @@ extern esp_err_t i2c_slave_init(void);
 extern void i2c_task(void *arg);
 
 #define BLOCK_NAME         "NOTE"
-#define BLOCK_I2C_ADDRESS  block_compute_i2c_address(BLOCK_TYPE_NOTE)
+#define BLOCK_I2C_ADDRESS  BLOCK_BOOT_I2C_ADDR_NOTE_BLOCK_3
 #define BLOCK_TYPE_NOTE_STR "NOTE"
 #define NOTE_BLOCK_MAX_SEQUENCE_LEN  15
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
@@ -259,7 +259,7 @@ static void play_note(uint8_t note_id)
     const uint32_t count = (uint32_t)(sizeof(k_note_freqs_hz) / sizeof(k_note_freqs_hz[0]));
     uint32_t freq = k_note_freqs_hz[note_id < count ? note_id : 0U];
     show_note_color(note_id);
-    (void)speaker_play_tone(freq, 400U);
+    (void)speaker_play_note_tone(freq, 400U);
     restore_idle_color();
 }
 

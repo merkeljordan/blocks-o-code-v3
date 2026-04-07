@@ -29,7 +29,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "END_IF"
 #define BLOCK_TYPE            BLOCK_TYPE_END_IF
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_END_IF_BLOCK
 
 static const char *TAG = "END_IF_BLOCK";
 
@@ -152,6 +152,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_END_IF, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

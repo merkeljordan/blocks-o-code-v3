@@ -6,13 +6,8 @@ build-sandbox/
 # ESP-IDF config backups
 sdkconfig.old
 
-# Dependency lock
+# ESP-IDF Component Manager lock + managed deps (generated)
 dependencies.lock
-
-# Dependency lock
-dependencies.lock
-
-# ESP-IDF managed dependencies (generated)
 **/managed_components/
 
 # VSCode

@@ -31,6 +31,7 @@ void tft_ui_start(void)
         .min_value = 1,
         .max_value = 99,
         .step = 1,
+        /* Keep in sync with LOOP_DEFAULT_ITERATIONS in main.c (applied on boot). */
         .default_value = 1,
         .value_suffix = "x",
         .submit_cb = submit_loop_value,

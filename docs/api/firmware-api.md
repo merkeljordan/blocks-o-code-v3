@@ -2,6 +2,8 @@
 
 This document provides API reference for the ESP32 Brain Block firmware.
 
+Related decision spec: [Broadcast Execution Semantics](../architecture/broadcast-execution-semantics.md)
+
 ## App -> Brain Events
 
 ### `config_validation`
@@ -75,6 +77,7 @@ void brain_executor_set_button_state(bool is_pressed);
 esp_err_t brain_executor_start(void);
 void brain_executor_stop(void);
 void brain_executor_tick(void);
+bool brain_executor_prefers_i2c_yield(void);
 ```
 
 Executor state enum:
@@ -86,9 +89,12 @@ Executor state enum:
 - `EXECUTOR_DONE`
 
 Notes:
-- Executor is tick-driven (periodic task) and non-blocking.
-- IF/LOOP/DELAY control flow is interpreted with a program counter.
-- Config refresh during execution triggers an execution stop to avoid stale topology behavior.
+- Executor is tick-driven (periodic task). Control flow steps are non-blocking; output steps that wait on children (e.g. NOTE sequence, MUSIC busy) block within the tick until complete or `STOP`.
+- IF/LOOP/DELAY/BUTTON wait control flow is interpreted with a program counter.
+- I2C topology scans may commit new `block_config_manager` state while a run is in progress; the executor keeps using the program snapshot and per-block I2C addresses captured at `START` until the run ends (STOP, DONE, or ERROR). Stale topology during a run is intentional; the next `START` picks up the latest scan.
+- A FreeRTOS recursive mutex serializes `brain_executor_tick()` and block-event handling paths that mutate executor context, button/IF latch state, and shared params.
+- **Bus sharing:** All Brain I²C uses a recursive master mutex. While `brain_executor_prefers_i2c_yield()` is true (`EXECUTOR_RUNNING`, `EXECUTOR_WAIT_DELAY`, `EXECUTOR_WAIT_INPUT`), firmware **backs off** background traffic: the block-config scan task in `app.c` sleeps longer between scans (~450 ms vs ~50 ms idle), and the block event poll task in `main.c` sleeps longer between rounds (~120 ms vs ~40 ms idle), so executor dispatch spends less time waiting behind scans/polls.
+- **STOP:** `brain_event_handle_message("STOP")` sets `stop_requested` **before** waiting on the executor mutex, and `brain_executor_stop()` sets it without taking that mutex, so long NOTE playback (mutex held for the whole step) still sees STOP. The flag is `volatile` so wait loops observe it immediately.
 
 ### Control Flow Execution Semantics (IF / LOOP / DELAY)
 
@@ -99,29 +105,59 @@ The Brain executes a “program” that is the scanned block list (excluding the
 
 At each tick (`brain_executor_tick()`), the executor advances `pc` or transitions into a wait state.
 
-**Output steps**:
-- For output/action block types (currently `LED_FLASH`, `NOTE`, `MUSIC_SEQ`), the Brain broadcasts `CMD_EXECUTE` to all present blocks.
-- For `LED_FLASH` steps, the Brain first pushes the current `color_id` to each LED flash block (via `i2c_set_led_color_id`) before broadcasting execute.
+**Output steps (sequential action, shared UX broadcast)**:
+- For `LED_FLASH`, `NOTE`, and `MUSIC_SEQ` steps, the Brain sends **action** I2C only to the child at the current program index `pc` (from the `START` snapshot): `i2c_set_led_color_id` + `CMD_EXECUTE` for LED; for NOTE, one or more `CMD_PLAY_NOTE` commands—**one note** if the user submitted a single note, or **the full sequence in order** if they submitted a sequence (each note is waited out via the child `STATUS_BUSY` / timing before the next, and `pc` does not advance until the step finishes or `STOP` interrupts); matrix/speaker strip parity still follows `CMD_RUNTIME_BROADCAST`; `CMD_EXECUTE` for `MUSIC_SEQ` (that block’s locally selected song).
+- Separately, the Brain still fans out `CMD_RUNTIME_BROADCAST` to **all** present children for strip/matrix/speaker parity.
+
+### Shared Runtime Broadcast Contract
+
+The Brain also emits `CMD_RUNTIME_BROADCAST` for synchronized cross-peripheral UX parity.
+
+Wire payload:
+- `byte0`: `brain_runtime_broadcast_state_t`
+- `byte1`: highlighted `pc` (or `BRAIN_RUNTIME_PC_NONE`)
+- `byte2`: current `block_type_t` step type (or `BLOCK_TYPE_UNKNOWN`)
+
+Defined states:
+- `BRAIN_RUNTIME_IDLE`
+- `BRAIN_RUNTIME_RUNNING`
+- `BRAIN_RUNTIME_STEP`
+- `BRAIN_RUNTIME_DONE`
+- `BRAIN_RUNTIME_ERROR`
+- `BRAIN_RUNTIME_STOP`
+
+Behavior:
+- Brain event handler is the single source of truth for when runtime broadcasts are emitted.
+- Child blocks treat `CMD_RUNTIME_BROADCAST` as shared UX state, not as an action-execution command.
+- Action commands are addressed to the current `pc` target only (`CMD_EXECUTE`, `CMD_PLAY_NOTE`, LED color + execute, etc.).
+- Blocks without a relevant peripheral should no-op safely.
+
+**Optional future extension (not default):**
+- A two-phase sync pattern (`PREPARE` then short-window `GO`) may be added in a future protocol revision for tighter perceived simultaneity across target blocks.
+- Current/default behavior remains deterministic batched fan-out over standard I2C command dispatch.
 
 **DELAY** (`BLOCK_TYPE_DELAY`):
-- On a DELAY step, the executor sets `wait_until_ms = now + delay_ms` and enters `EXECUTOR_WAIT_DELAY`.
-- When the delay expires, execution resumes at the next `pc`.
+- On a DELAY step, the executor sets `wait_until_ms = now + delay_ms`, enters `EXECUTOR_WAIT_DELAY`, and **keeps `pc` on the DELAY opcode** until the wait completes.
+- When the delay expires, the executor advances `pc` past the delay and resumes.
 - `delay_ms` is chosen per-program-position when available (see “Block -> Brain control-flow config submit” below). Otherwise it falls back to the executor global parameter `brain_executor_params_t.delay_ms`.
 
+**BUTTON** (`BLOCK_TYPE_BUTTON`):
+- Treated as an input step: the executor issues `CMD_EXECUTE` once to that block (local feedback), enters `EXECUTOR_WAIT_INPUT`, and does not advance `pc` until a `BRAIN_BLOCK_EVENT_BUTTON_PRESS` arrives from **that** block’s I2C address. `CMD_RUNTIME_BROADCAST` continues to use `RUNNING` + the BUTTON step type so children show the waiting/active step.
+
 **IF / THEN / END_IF** (`BLOCK_TYPE_IF`, `BLOCK_TYPE_THEN`, `BLOCK_TYPE_END_IF`):
-- The executor treats IF as a conditional gate.
-- Current condition implementation: `button_pressed` (set via `brain_executor_set_button_state()`).
-- Condition behavior: any `BUTTON_PRESS` event sets `button_pressed=true`, and the executor auto-clears it after the condition is consumed (single-press semantics).
-- When IF condition is false, the executor skips forward to the matching `END_IF` (accounting for nesting) and continues after it.
-- When IF condition is true, the executor starts executing the IF body (after IF, or after THEN if present).
-- `THEN` and `END_IF` are markers and do not perform an action; the executor simply advances past them.
+- Canonical physical/program order: **`IF` → `BUTTON` → `THEN` → outputs → `END_IF`**. The executor enters the `IF` by pushing a small frame and advancing to the `BUTTON` step (no condition yet). The `BUTTON` step uses `EXECUTOR_WAIT_INPUT` until that block’s press (latching the source address). At **`THEN`**, the executor evaluates the condition: the latch must match the **bound** BUTTON, which is the block **immediately after `IF`** (`program[if_pc+1]` must be `BLOCK_TYPE_BUTTON`, and it must lie before the matching `THEN`). Other button blocks do not satisfy the condition. The latch is consumed when `THEN` is evaluated.
+- When the condition is false at `THEN`, the executor jumps to the matching `END_IF + 1` (skipping the output body) and pops the IF frame.
+- When the condition is true, execution continues with the steps after `THEN` until the matching `END_IF`; `END_IF` pops the frame for that block. Nested `IF`s use a bounded IF stack (depth 4).
 
 **LOOP / END_LOOP** (`BLOCK_TYPE_LOOP`, `BLOCK_TYPE_END_LOOP`):
-- On LOOP, the executor finds the matching `END_LOOP` (accounting for nesting) and pushes a loop frame:
+- The **loop body** is only the program slots **between** the matching pair: indices `(loop_pc + 1) … (end_loop_pc - 1)` inclusive. Those steps—outputs, delays, nested control flow, etc.—are what repeat; the `LOOP` and `END_LOOP` blocks themselves are boundaries and are not part of the repeated body.
+- On `LOOP`, the executor finds the matching `END_LOOP` (accounting for nesting) and pushes a loop frame:
   - `loop_start_pc`: the `LOOP` index
   - `loop_end_pc`: the `END_LOOP` index
   - `remaining_iterations`: `loop_count` (per-program-position when available; otherwise from executor params; minimum 1)
-- When `pc` reaches `END_LOOP`, it either jumps back to `loop_start_pc + 1` while iterations remain, or pops the loop frame and continues after `END_LOOP`.
+- The executor then advances into the body (`pc = loop_start_pc + 1`).
+- When `pc` reaches `END_LOOP`, it either jumps back to `loop_start_pc + 1` for another full pass through the body while iterations remain, or pops the loop frame and continues with the step **after** `END_LOOP`.
+- Iteration counts from the loop block (register / submit) are **capped at 64** to avoid runaway programs if the bus returns garbage or an extreme UI value.
 
 ### Control Flow Child UX (TFT + Status Strip)
 
@@ -136,6 +172,13 @@ For task-6 LED mirroring, these same blocks also accept Brain-driven `CMD_MATRIX
 - the Brain's local strip program map
 - child status strips
 - the control-flow block TFT/matrix local execute feedback
+
+With issue `#67`, canonical blocks additionally accept `CMD_RUNTIME_BROADCAST` and render shared parity UX from the same command path:
+- `IDLE`: identity-color idle visual, no audio
+- `RUNNING`: running visual for the active program step
+- `STEP`: highlighted current action plus a short tick for speaker-capable blocks
+- `DONE`: success visual plus completion tone
+- `ERROR` / `STOP`: error visual plus error/stop tone
 
 ### Block -> Brain control-flow config submit (I2C `STATUS_DATA_READY` + `CMD_GET_DATA`)
 
@@ -157,6 +200,7 @@ The Brain interprets the first byte as a **block-originated event ID**, followed
 **Per-program-position semantics**:
 - LOOP: `loop_count` is stored per scanned program index (`pc`) based on the current `block_config_manager_get_state_snapshot()` ordering.
 - DELAY: `delay_ms` is stored per scanned program index (`pc`) based on the current `block_config_manager_get_state_snapshot()` ordering.
+- LED_FLASH / NOTE: selection submits are stored per program index (and stashed by I2C address until the next `START` binds them). During execution, LED uses the per-`pc` color when set; NOTE uses per-`pc` note or sequence—**single submit** plays one note, **sequence submit** plays every note in order before the executor advances past that NOTE step.
 - During execution, when the executor hits a `BLOCK_TYPE_LOOP` or `BLOCK_TYPE_DELAY` at a given `pc`, it prefers the stored per-`pc` value; otherwise it falls back to `brain_executor_params_t.loop_count` / `brain_executor_params_t.delay_ms`.
 
 ### Scan-Derived Event Map (`block_config_manager`)

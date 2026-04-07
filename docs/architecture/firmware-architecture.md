@@ -90,6 +90,8 @@ firmware_blocks/brain_block/
 
 **Purpose**: Enforce execution validity and interpret block sequence flow.
 
+Decision reference: [Broadcast Execution Semantics](broadcast-execution-semantics.md)
+
 **Responsibilities**:
 - Track app-driven validation state (`config_validation` events)
 - Expose execution gate (`can_start_execution`)

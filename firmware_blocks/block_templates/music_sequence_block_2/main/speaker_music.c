@@ -5,7 +5,7 @@
  * Music-block-specific layer on top of generic audio APIs.
  *
  * Why this file exists:
- * - `components/audio` handles low-level playback (wav/tone output).
+ * - Shared `audio` component (`shared_components/audio`) handles wav/tone output.
  * - This file maps UI concepts (song index) to actual song assets.
  * - This file keeps legacy note/sequence/preset APIs available.
  *

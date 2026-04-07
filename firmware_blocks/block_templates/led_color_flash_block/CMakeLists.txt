@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON CACHE BOOL "" FORCE)
 
 set(EXTRA_COMPONENT_DIRS
-    "components"
+    "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/audio"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor"
     "${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard"
 )

@@ -8,6 +8,7 @@ class BlockConfiguration {
   final DateTime timestamp;
   final int? detectedUptimeMs;
   final int? sentUptimeMs;
+  final RuntimeStatus? runtime;
   
   /// The original block count reported by firmware before any synthetic blocks were added
   final int originalFirmwareBlockCount;
@@ -22,10 +23,16 @@ class BlockConfiguration {
     DateTime? timestamp,
     this.detectedUptimeMs,
     this.sentUptimeMs,
+    this.runtime,
     int? originalFirmwareBlockCount,
     this.hasSyntheticBrainBlock = false,
   }) : timestamp = timestamp ?? DateTime.now(),
        this.originalFirmwareBlockCount = originalFirmwareBlockCount ?? totalBlocks;
+
+  /// Child blocks on the I²C bus. Firmware always prepends the synthetic brain as the
+  /// first `blocks[]` entry, so children = stack size minus one.
+  int get childBlockCount =>
+      blocks.length <= 1 ? 0 : blocks.length - 1;
 
   /// Create from JSON map
   factory BlockConfiguration.fromJson(Map<String, dynamic> json) {
@@ -54,12 +61,14 @@ class BlockConfiguration {
     final detectedUptimeMs =
         _parseMillisecondsValue(json['detected_uptime_ms']);
     final sentUptimeMs = _parseMillisecondsValue(json['sent_uptime_ms']);
+    final runtimeJson = json['runtime'] as Map<String, dynamic>?;
+    final runtime =
+        runtimeJson == null ? null : RuntimeStatus.fromJson(runtimeJson);
 
     // If the firmware reports zero blocks, treat this as a "brain-only" configuration
     // and inject a synthetic Brain Block so the app can still visualize it.
     List<BlockInfo> finalBlocks = blocks;
-    int reportedTotalBlocks = config['total_blocks'] as int? ?? blocks.length;
-    int originalFirmwareCount = reportedTotalBlocks;
+    final int? firmwareReportedTotal = _intFromJson(config['total_blocks']);
     bool hasSynthetic = false;
 
     /// Creates a synthetic Brain Block for visualization when no blocks are detected.
@@ -94,20 +103,34 @@ class BlockConfiguration {
 
     if (blocks.isEmpty) {
       finalBlocks = [buildBrainBlock()];
-      reportedTotalBlocks = 1;
       hasSynthetic = true;
     }
 
+    // Stack size is always the rendered list length. Firmware also sends
+    // total_blocks (children + brain); accept int or double from JSON decoders.
+    final int stackTotal = finalBlocks.length;
+    final int originalFirmwareCount = firmwareReportedTotal ?? stackTotal;
+
     return BlockConfiguration(
-      totalBlocks: reportedTotalBlocks,
+      totalBlocks: stackTotal,
       blocks: finalBlocks,
       errors: errors,
       timestamp: timestamp,
       detectedUptimeMs: detectedUptimeMs,
       sentUptimeMs: sentUptimeMs,
+      runtime: runtime,
       originalFirmwareBlockCount: originalFirmwareCount,
       hasSyntheticBrainBlock: hasSynthetic,
     );
+  }
+
+  static int? _intFromJson(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.round();
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   static int? _parseMillisecondsValue(dynamic value) {
@@ -124,6 +147,7 @@ class BlockConfiguration {
       'timestamp': timestamp.millisecondsSinceEpoch,
       if (detectedUptimeMs != null) 'detected_uptime_ms': detectedUptimeMs,
       if (sentUptimeMs != null) 'sent_uptime_ms': sentUptimeMs,
+      if (runtime != null) 'runtime': runtime!.toJson(),
       'config': {
         'total_blocks': totalBlocks,
         'blocks': blocks.map((b) => b.toJson()).toList(),
@@ -152,6 +176,75 @@ class BlockConfiguration {
   /// Get all blocks of a specific type
   List<BlockInfo> getBlocksByType(BlockType type) {
     return blocks.where((b) => b.blockType == type).toList();
+  }
+
+  BlockConfiguration copyWith({
+    int? totalBlocks,
+    List<BlockInfo>? blocks,
+    List<ConfigurationError>? errors,
+    DateTime? timestamp,
+    int? detectedUptimeMs,
+    int? sentUptimeMs,
+    RuntimeStatus? runtime,
+    bool clearRuntime = false,
+    int? originalFirmwareBlockCount,
+    bool? hasSyntheticBrainBlock,
+  }) {
+    return BlockConfiguration(
+      totalBlocks: totalBlocks ?? this.totalBlocks,
+      blocks: blocks ?? this.blocks,
+      errors: errors ?? this.errors,
+      timestamp: timestamp ?? this.timestamp,
+      detectedUptimeMs: detectedUptimeMs ?? this.detectedUptimeMs,
+      sentUptimeMs: sentUptimeMs ?? this.sentUptimeMs,
+      runtime: clearRuntime ? null : (runtime ?? this.runtime),
+      originalFirmwareBlockCount:
+          originalFirmwareBlockCount ?? this.originalFirmwareBlockCount,
+      hasSyntheticBrainBlock:
+          hasSyntheticBrainBlock ?? this.hasSyntheticBrainBlock,
+    );
+  }
+}
+
+class RuntimeStatus {
+  final String state;
+  final int stateCode;
+  final int pc;
+  final String? stepType;
+  final int? updatedAtMs;
+
+  const RuntimeStatus({
+    required this.state,
+    required this.stateCode,
+    required this.pc,
+    this.stepType,
+    this.updatedAtMs,
+  });
+
+  factory RuntimeStatus.fromJson(Map<String, dynamic> json) {
+    return RuntimeStatus(
+      state: json['state'] as String? ?? 'unknown',
+      stateCode: json['state_code'] as int? ?? -1,
+      pc: json['pc'] as int? ?? -1,
+      stepType: json['step_type'] as String?,
+      updatedAtMs: BlockConfiguration._parseMillisecondsValue(
+        json['updated_at_ms'],
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'state': state,
+      'state_code': stateCode,
+      'pc': pc,
+      if (stepType != null) 'step_type': stepType,
+      if (updatedAtMs != null) 'updated_at_ms': updatedAtMs,
+    };
+  }
+
+  bool get isActivelyPointingAtBlock {
+    return (state == 'running' || state == 'step') && pc >= 0 && pc != 0xFF;
   }
 }
 
@@ -191,11 +284,15 @@ class BlockInfo {
     );
   }
 
-  /// Parse I2C address (handles hex strings like "0x08" or integers)
+  /// Parse I2C address (handles hex strings, int, or JSON num/double)
   static int _parseI2CAddress(dynamic address) {
     if (address is int) {
       return address;
-    } else if (address is String) {
+    }
+    if (address is num) {
+      return address.toInt();
+    }
+    if (address is String) {
       if (address.startsWith('0x') || address.startsWith('0X')) {
         return int.parse(address.substring(2), radix: 16);
       }

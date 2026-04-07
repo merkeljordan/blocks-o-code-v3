@@ -29,7 +29,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "END_LOOP"
 #define BLOCK_TYPE            BLOCK_TYPE_END_LOOP
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_END_LOOP_BLOCK
 
 static const char *TAG = "END_LOOP_BLOCK";
 
@@ -155,6 +155,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_END_LOOP, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

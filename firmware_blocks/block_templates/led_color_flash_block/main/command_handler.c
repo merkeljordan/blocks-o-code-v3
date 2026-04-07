@@ -239,6 +239,14 @@ void handle_command(uint8_t *buffer, int len) {
                                            (len > 1) ? (size_t)(len - 1) : 0U)) {
         return;
     }
+    if (status_strip_handle_runtime_broadcast(TAG,
+                                              &kStatusStripConfig,
+                                              BLOCK_TYPE_LED_FLASH,
+                                              (i2c_command_t)cmd,
+                                              (len > 1) ? &buffer[1] : NULL,
+                                              (len > 1) ? (size_t)(len - 1) : 0U)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

@@ -4,7 +4,6 @@ enum BlockType {
   ifBlock,
   thenBlock,
   endIfBlock,
-  discoModeBlock,
   noteBlock,
   musicSequenceBlock,
   ledColorFlashBlock,
@@ -13,7 +12,7 @@ enum BlockType {
   endLoopBlock,
   delayBlock;
 
-  /// Get the string identifier for this block type (used in JSON/WHOAMI)
+  /// Get the string identifier for this block type (used in JSON from brain)
   String get identifier {
     switch (this) {
       case BlockType.brainBlock:
@@ -24,8 +23,6 @@ enum BlockType {
         return 'then_block';
       case BlockType.endIfBlock:
         return 'end_if_block';
-      case BlockType.discoModeBlock:
-        return 'disco_mode_block';
       case BlockType.noteBlock:
         return 'note_block';
       case BlockType.musicSequenceBlock:
@@ -54,8 +51,6 @@ enum BlockType {
         return 'Then Block';
       case BlockType.endIfBlock:
         return 'End If Block';
-      case BlockType.discoModeBlock:
-        return 'Disco Mode Block';
       case BlockType.noteBlock:
         return 'Note Block';
       case BlockType.musicSequenceBlock:
@@ -87,7 +82,6 @@ enum BlockType {
         return BlockCategory.controlFlow;
       case BlockType.buttonPress:
         return BlockCategory.input;
-      case BlockType.discoModeBlock:
       case BlockType.noteBlock:
       case BlockType.musicSequenceBlock:
       case BlockType.ledColorFlashBlock:
@@ -175,13 +169,6 @@ class BlockTypeDefinition {
         category: BlockCategory.controlFlow,
         capabilities: ['conditional_terminator'],
         iconName: 'end_if',
-      ),
-      BlockTypeDefinition(
-        type: BlockType.discoModeBlock,
-        displayName: 'Disco Mode Block',
-        category: BlockCategory.output,
-        capabilities: ['led_pattern', 'visual_output'],
-        iconName: 'disco',
       ),
       BlockTypeDefinition(
         type: BlockType.noteBlock,

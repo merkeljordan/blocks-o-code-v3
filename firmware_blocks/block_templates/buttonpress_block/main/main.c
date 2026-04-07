@@ -124,6 +124,9 @@ void command_handle(i2c_command_t cmd,
     if (tx_len) {
         *tx_len = 0;
     }
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_BUTTON, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

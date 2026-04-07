@@ -24,6 +24,8 @@ Enhancement:
 */
 
 #include <string.h>
+#include <strings.h>
+#include <stdlib.h>
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -62,9 +64,11 @@ Enhancement:
 #define TCP_RETRY_MS          2000
 #define TCP_SEND_INTERVAL_MS  5000
 #define TCP_RX_BUF_SIZE       512
-#define BLOCK_CONFIG_SCAN_INTERVAL_MS  500   /* Max interval when stable; quick removal detection */
-#define BLOCK_CONFIG_JSON_BUFFER_SIZE  2048  // JSON buffer size
-#define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 6144
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS_IDLE     50
+#define BLOCK_CONFIG_SCAN_INTERVAL_MS_ACTIVE  450
+#define BLOCK_CONFIG_SCAN_TASK_STACK_SIZE 8192
+#define TCP_CLIENT_TASK_STACK_SIZE     8192
+#define JSON_HEAP_LOG_INTERVAL_MS      5000ULL
 
 static const char *TAG = "brain_block";
 static EventGroupHandle_t s_wifi_event_group;
@@ -76,11 +80,27 @@ static volatile bool s_companion_connected = false;
 static EventGroupHandle_t s_block_config_event_group;
 #define BLOCK_CONFIG_CHANGED_BIT BIT0
 static SemaphoreHandle_t s_block_config_json_mutex;
-static char s_block_config_json[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+static char s_block_config_json[BLOCK_CONFIG_JSON_BUFFER_BYTES];
 /* Keep scan JSON buffer out of task stack to avoid overflow in block_cfg_scan. */
-static char s_block_config_scan_json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+static char s_block_config_scan_json_buffer[BLOCK_CONFIG_JSON_BUFFER_BYTES];
 static size_t s_block_config_json_len = 0;
 static bool s_block_config_json_valid = false;
+
+static void log_json_heap_if_due(const char *source)
+{
+    static uint64_t s_last_heap_log_ms = 0;
+    uint64_t now_ms = (uint64_t)(esp_timer_get_time() / 1000);
+
+    if ((now_ms - s_last_heap_log_ms) < JSON_HEAP_LOG_INTERVAL_MS) {
+        return;
+    }
+
+    s_last_heap_log_ms = now_ms;
+    ESP_LOGI(TAG,
+             "[%s] free_heap=%lu",
+             source,
+             (unsigned long)esp_get_free_heap_size());
+}
 
 static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *out_len) {
     if (out == NULL || out_len == NULL || out_size == 0) {
@@ -106,44 +126,114 @@ static bool copy_latest_block_config_json(char *out, size_t out_size, size_t *ou
     return ok;
 }
 
+static const char *runtime_state_to_json_string(brain_runtime_broadcast_state_t state)
+{
+    switch (state) {
+        case BRAIN_RUNTIME_IDLE:    return "idle";
+        case BRAIN_RUNTIME_RUNNING: return "running";
+        case BRAIN_RUNTIME_STEP:    return "step";
+        case BRAIN_RUNTIME_DONE:    return "done";
+        case BRAIN_RUNTIME_ERROR:   return "error";
+        case BRAIN_RUNTIME_STOP:    return "stop";
+        default:                    return "unknown";
+    }
+}
+
+static bool build_runtime_update_json(char *out, size_t out_size, size_t *out_len)
+{
+    if (out == NULL || out_len == NULL || out_size < 64u) {
+        return false;
+    }
+
+    const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
+    if (runtime == NULL) {
+        return false;
+    }
+
+    bool ok = false;
+    cJSON *root = NULL;
+    char *json_string = NULL;
+
+    root = cJSON_CreateObject();
+    if (root == NULL) {
+        goto cleanup;
+    }
+
+    cJSON_AddStringToObject(root, "type", "runtime_update");
+    cJSON_AddNumberToObject(root, "timestamp", (double)(esp_timer_get_time() / 1000));
+
+    cJSON *runtime_obj = cJSON_CreateObject();
+    if (runtime_obj == NULL) {
+        goto cleanup;
+    }
+    cJSON_AddItemToObject(root, "runtime", runtime_obj);
+    cJSON_AddStringToObject(runtime_obj, "state",
+                            runtime_state_to_json_string(runtime->state));
+    cJSON_AddNumberToObject(runtime_obj, "state_code", runtime->state);
+    cJSON_AddNumberToObject(runtime_obj, "pc", runtime->pc);
+    cJSON_AddStringToObject(runtime_obj, "step_type",
+                            block_type_to_json_string(runtime->step_type));
+    cJSON_AddNumberToObject(runtime_obj, "updated_at_ms",
+                            (double)runtime->updated_at_ms);
+
+    json_string = cJSON_PrintUnformatted(root);
+    if (json_string == NULL) {
+        goto cleanup;
+    }
+
+    size_t json_len = strlen(json_string);
+    if (json_len + 2u > out_size) {
+        goto cleanup;
+    }
+
+    memcpy(out, json_string, json_len);
+    out[json_len] = '\n';
+    out[json_len + 1u] = '\0';
+    *out_len = json_len + 1u;
+    ok = true;
+
+cleanup:
+    if (json_string != NULL) {
+        free(json_string);
+    }
+    if (root != NULL) {
+        cJSON_Delete(root);
+    }
+    return ok;
+}
+
+static bool runtime_snapshot_equals(const brain_runtime_snapshot_t *a,
+                                    const brain_runtime_snapshot_t *b)
+{
+    if (a == NULL || b == NULL) {
+        return false;
+    }
+
+    return a->state == b->state &&
+           a->pc == b->pc &&
+           a->step_type == b->step_type &&
+           a->updated_at_ms == b->updated_at_ms;
+}
+
 static void block_config_scan_task(void *pvParameters) {
     (void)pvParameters;
-
-    // Adaptive interval: scan fast around changes, back off when stable.
-    const TickType_t fast_delay = pdMS_TO_TICKS(10);   /* Right after add/remove */
-    const TickType_t max_delay = pdMS_TO_TICKS(BLOCK_CONFIG_SCAN_INTERVAL_MS);
-    TickType_t delay_ticks = fast_delay;
-    int stable_scans = 0;
 
     while (1) {
         block_config_manager_scan();
         bool config_changed = block_config_manager_has_changed();
+        log_json_heap_if_due("block_cfg_scan");
 
         if (config_changed) {
             ESP_LOGW(TAG, "Block configuration changed; resetting validation state");
             brain_event_handler_reset_validation();
             s_validation_requested_by_start = false;
-            // Rescan in ~10 ms so removal/add is seen by the app quickly.
-            delay_ticks = fast_delay;
-            stable_scans = 0;
-        } else {
-            // No change: gradually back off up to max_delay to reduce bus traffic.
-            if (delay_ticks < max_delay) {
-                stable_scans++;
-                if (stable_scans >= 4) { // every few stable scans, increase delay a bit
-                    delay_ticks += pdMS_TO_TICKS(500);
-                    if (delay_ticks > max_delay) {
-                        delay_ticks = max_delay;
-                    }
-                    stable_scans = 0;
-                }
-            }
         }
 
         // Update cached JSON if changed or if we don't have a valid cache yet.
         if (config_changed || !s_block_config_json_valid) {
-            if (block_config_manager_get_json(s_block_config_scan_json_buffer,
-                                              sizeof(s_block_config_scan_json_buffer)) == ESP_OK) {
+            esp_err_t jerr = block_config_manager_get_json(s_block_config_scan_json_buffer,
+                                                           sizeof(s_block_config_scan_json_buffer));
+            if (jerr == ESP_OK) {
                 size_t json_len = strlen(s_block_config_scan_json_buffer);
                 // Ensure newline-terminated (desktop parser expects newline)
                 if (json_len < sizeof(s_block_config_scan_json_buffer) - 1) {
@@ -166,10 +256,16 @@ static void block_config_scan_task(void *pvParameters) {
                 if (s_block_config_event_group != NULL) {
                     xEventGroupSetBits(s_block_config_event_group, BLOCK_CONFIG_CHANGED_BIT);
                 }
+            } else {
+                ESP_LOGE(TAG,
+                         "block_config_manager_get_json failed (%s); keeping previous JSON (companion may be stale)",
+                         esp_err_to_name(jerr));
             }
         }
 
-        vTaskDelay(delay_ticks);
+        uint32_t scan_ms = brain_executor_prefers_i2c_yield() ? BLOCK_CONFIG_SCAN_INTERVAL_MS_ACTIVE
+                                                              : BLOCK_CONFIG_SCAN_INTERVAL_MS_IDLE;
+        vTaskDelay(pdMS_TO_TICKS(scan_ms));
     }
 }
 
@@ -234,24 +330,20 @@ static void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-static bool brain_executor_scan_pause_active(void)
-{
-    const brain_executor_context_t *ctx = brain_executor_get_context();
-    if (ctx == NULL) {
-        return false;
-    }
-
-    return (ctx->state == EXECUTOR_RUNNING ||
-            ctx->state == EXECUTOR_WAIT_DELAY ||
-            ctx->state == EXECUTOR_WAIT_INPUT);
-}
-
 static void tcp_client_task(void *pvParameters)
 {
     char rx_buffer[TCP_RX_BUF_SIZE];
     int sock = -1;
     struct sockaddr_in dest_addr;
-    char json_buffer[BLOCK_CONFIG_JSON_BUFFER_SIZE];
+    char *json_buffer = malloc(BLOCK_CONFIG_JSON_BUFFER_BYTES);
+    brain_runtime_snapshot_t last_sent_runtime = {0};
+    bool last_sent_runtime_valid = false;
+
+    if (json_buffer == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate JSON buffer for tcp_client_task");
+        vTaskDelete(NULL);
+        return;
+    }
 
     while (1) {
         /* Wait for Wi‑Fi connection */
@@ -306,7 +398,7 @@ static void tcp_client_task(void *pvParameters)
 
         // Send most recent cached configuration immediately on connect.
         size_t json_len = 0;
-        if (!copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len)) {
+        if (!copy_latest_block_config_json(json_buffer, BLOCK_CONFIG_JSON_BUFFER_BYTES, &json_len)) {
             // Wait briefly for the scan task to populate initial JSON.
             if (s_block_config_event_group != NULL) {
                 xEventGroupWaitBits(s_block_config_event_group,
@@ -315,7 +407,7 @@ static void tcp_client_task(void *pvParameters)
                                     pdFALSE,
                                     pdMS_TO_TICKS(1500));
             }
-            (void)copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &json_len);
+            (void)copy_latest_block_config_json(json_buffer, BLOCK_CONFIG_JSON_BUFFER_BYTES, &json_len);
         }
 
         if (json_len > 0) {
@@ -329,6 +421,22 @@ static void tcp_client_task(void *pvParameters)
             ESP_LOGW(TAG, "No cached block configuration available yet");
         }
 
+        const brain_runtime_snapshot_t *initial_runtime = brain_event_handler_get_runtime_snapshot();
+        if (initial_runtime != NULL) {
+            char runtime_json[256];
+            size_t runtime_len = 0;
+            if (build_runtime_update_json(runtime_json, sizeof(runtime_json), &runtime_len) &&
+                runtime_len > 0) {
+                int written = send(sock, runtime_json, runtime_len, 0);
+                if (written < 0) {
+                    ESP_LOGE(TAG, "Error sending initial runtime update: errno %d", errno);
+                } else {
+                    last_sent_runtime = *initial_runtime;
+                    last_sent_runtime_valid = true;
+                }
+            }
+        }
+
         /* Main send/receive loop */
         while (1) {
             // Send updated config when scan task reports a change.
@@ -340,7 +448,7 @@ static void tcp_client_task(void *pvParameters)
                                                           0);
                 if (cfg_bits & BLOCK_CONFIG_CHANGED_BIT) {
                     size_t updated_len = 0;
-                    if (copy_latest_block_config_json(json_buffer, sizeof(json_buffer), &updated_len) &&
+                    if (copy_latest_block_config_json(json_buffer, BLOCK_CONFIG_JSON_BUFFER_BYTES, &updated_len) &&
                         updated_len > 0) {
                         int written = send(sock, json_buffer, updated_len, 0);
                         if (written < 0) {
@@ -350,6 +458,23 @@ static void tcp_client_task(void *pvParameters)
                             ESP_LOGI(TAG, "Sent block configuration (%d bytes)", written);
                         }
                     }
+                }
+            }
+
+            const brain_runtime_snapshot_t *runtime = brain_event_handler_get_runtime_snapshot();
+            if (runtime != NULL &&
+                (!last_sent_runtime_valid || !runtime_snapshot_equals(&last_sent_runtime, runtime))) {
+                char runtime_json[256];
+                size_t runtime_len = 0;
+                if (build_runtime_update_json(runtime_json, sizeof(runtime_json), &runtime_len) &&
+                    runtime_len > 0) {
+                    int written = send(sock, runtime_json, runtime_len, 0);
+                    if (written < 0) {
+                        ESP_LOGE(TAG, "Error sending runtime update: errno %d", errno);
+                        break;
+                    }
+                    last_sent_runtime = *runtime;
+                    last_sent_runtime_valid = true;
                 }
             }
 
@@ -369,17 +494,26 @@ static void tcp_client_task(void *pvParameters)
                         if (strcmp(type, "heartbeat") == 0) {
                             // Respond to heartbeat
                             ESP_LOGI(TAG, "Received heartbeat, sending acknowledgment");
-                            cJSON *ack_json = cJSON_CreateObject();
-                            cJSON_AddStringToObject(ack_json, "type", "heartbeat_ack");
-                            cJSON_AddNumberToObject(ack_json, "timestamp", (double)(esp_timer_get_time() / 1000));
-                            char *ack_string = cJSON_Print(ack_json);
+                            cJSON *ack_json = NULL;
+                            char *ack_string = NULL;
+                            ack_json = cJSON_CreateObject();
+                            if (ack_json != NULL) {
+                                cJSON_AddStringToObject(ack_json, "type", "heartbeat_ack");
+                                cJSON_AddNumberToObject(ack_json, "timestamp", (double)(esp_timer_get_time() / 1000));
+                                ack_string = cJSON_PrintUnformatted(ack_json);
+                            }
                             if (ack_string != NULL) {
-                                strcat(ack_string, "\n");
                                 send(sock, ack_string, strlen(ack_string), 0);
+                                send(sock, "\n", 1, 0);
+                            }
+                            if (ack_string != NULL) {
                                 free(ack_string);
                             }
-                            cJSON_Delete(ack_json);
+                            if (ack_json != NULL) {
+                                cJSON_Delete(ack_json);
+                            }
                             cJSON_Delete(json);
+                            log_json_heap_if_due("tcp_json");
                             vTaskDelay(pdMS_TO_TICKS(100)); // Small delay before next iteration
                             continue;
                         } else if (strcmp(type, "config_validation") == 0) {
@@ -407,10 +541,12 @@ static void tcp_client_task(void *pvParameters)
                                      (unsigned long long)timestamp_ms);
 
                             cJSON_Delete(json);
+                            log_json_heap_if_due("tcp_json");
                             continue;
                         }
                     }
                     cJSON_Delete(json);
+                    log_json_heap_if_due("tcp_json");
                 }
 
                 // Parse newline-delimited commands and act
@@ -494,11 +630,13 @@ static void tcp_client_task(void *pvParameters)
             sock = -1;
         }
         s_companion_connected = false;
+        last_sent_runtime_valid = false;
 
         ESP_LOGI(TAG, "Disconnected, reconnecting in %d ms", TCP_RETRY_MS);
         vTaskDelay(pdMS_TO_TICKS(TCP_RETRY_MS));
     }
 
+    free(json_buffer);
     vTaskDelete(NULL);
 }
 
@@ -528,15 +666,16 @@ void start_network_client(void)
     if (s_block_config_json_mutex == NULL) {
         s_block_config_json_mutex = xSemaphoreCreateMutex();
     }
-    xTaskCreate(block_config_scan_task,
-                "block_cfg_scan",
-                BLOCK_CONFIG_SCAN_TASK_STACK_SIZE,
-                NULL,
-                4,
-                NULL);
+    xTaskCreatePinnedToCore(block_config_scan_task,
+                            "block_cfg_scan",
+                            BLOCK_CONFIG_SCAN_TASK_STACK_SIZE,
+                            NULL,
+                            4,
+                            NULL,
+                            0);
 
     wifi_init_sta();
 
     /* Start TCP client task on Core 0 to keep Core 1 available for GUI. */
-    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", 8192, NULL, 5, NULL, 0);
+    xTaskCreatePinnedToCore(tcp_client_task, "tcp_client_task", TCP_CLIENT_TASK_STACK_SIZE, NULL, 5, NULL, 0);
 }

@@ -13,6 +13,7 @@ static const char *TAG = "LED_MATRIX";
 
 // Module-private state
 static led_strip_handle_t led_strip = NULL;
+static bool s_matrix_ready = false;
 static uint8_t matrix_brightness = 50;  // 0-255 (~20% starting)
 
 // ============================================================================
@@ -41,11 +42,14 @@ esp_err_t led_matrix_init(void) {
     esp_err_t err = led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to create LED strip: %s", esp_err_to_name(err));
+        led_strip = NULL;
+        s_matrix_ready = false;
         return err;
     }
 
     // Clear matrix on startup
     led_strip_clear(led_strip);
+    s_matrix_ready = true;
 
     ESP_LOGI(TAG, "LED Matrix initialized successfully!");
     return ESP_OK;
@@ -56,6 +60,9 @@ esp_err_t led_matrix_init(void) {
 // MATRIX FILL
 // ============================================================================
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
+    if (!s_matrix_ready || led_strip == NULL) {
+        return;
+    }
     ESP_LOGI(TAG, "Filling matrix RGB(%d, %d, %d) @ brightness %d",
              r, g, b, matrix_brightness);
 
@@ -73,6 +80,9 @@ void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
 // MATRIX CLEAR
 // ============================================================================
 void matrix_clear(void) {
+    if (!s_matrix_ready || led_strip == NULL) {
+        return;
+    }
     ESP_LOGI(TAG, "Clearing matrix");
     led_strip_clear(led_strip);
 }
@@ -81,6 +91,9 @@ void matrix_clear(void) {
 // MATRIX SHOW (Refresh Display)
 // ============================================================================
 void matrix_show(void) {
+    if (!s_matrix_ready || led_strip == NULL) {
+        return;
+    }
     led_strip_refresh(led_strip);
 }
 

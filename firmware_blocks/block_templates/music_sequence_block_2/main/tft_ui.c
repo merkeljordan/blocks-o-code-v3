@@ -148,7 +148,7 @@ static size_t get_filtered_song_position(uint8_t song_index, music_age_range_t a
 static void select_filtered_song_by_delta(int delta);
 static void change_age_filter(int delta);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 static void copy_text_safe(char *dst, size_t dst_len, const char *src)
@@ -414,7 +414,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
     lv_color_t fill_color = battery_color_for_percent(percent);
@@ -428,7 +428,11 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
         fill_width = 1U;
     }
 
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, fill_color, 0);
 }
@@ -436,9 +440,10 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
+    const bool is_charging = battery_monitor_is_charging();
 
-    update_battery_indicator(&s_intro_battery, percent);
-    update_battery_indicator(&s_song_battery, percent);
+    update_battery_indicator(&s_intro_battery, percent, is_charging);
+    update_battery_indicator(&s_song_battery, percent, is_charging);
 }
 
 #if !defined(MUSIC_SEQ_UI_SIMULATOR)

@@ -204,7 +204,7 @@ static lv_obj_t *create_blocks_screen(void);
 static void blocks_back_event_cb(lv_event_t *e);
 static void block_card_event_cb(lv_event_t *e);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 static lv_color_t battery_color_for_percent(unsigned percent)
@@ -262,7 +262,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
 
@@ -275,7 +275,11 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
         fill_width = 1U;
     }
 
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, battery_color_for_percent(percent), 0);
 }
@@ -283,8 +287,9 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
-    update_battery_indicator(&s_home_battery, percent);
-    update_battery_indicator(&s_blocks_battery, percent);
+    const bool is_charging = battery_monitor_is_charging();
+    update_battery_indicator(&s_home_battery, percent, is_charging);
+    update_battery_indicator(&s_blocks_battery, percent, is_charging);
 }
 
 /* ESP timer callback that feeds LVGL's internal timing system.
@@ -547,28 +552,19 @@ static void home_action_event_cb(lv_event_t *e)
 
     if (strcmp(action_name, "Start") == 0) {
         ESP_LOGI(TAG, "Home action pressed: Start");
-        // IMPORTANT: Enqueue success does NOT mean execution started.
-        // We only enqueue when the validation gate is open.
         if (!brain_event_handler_can_start_execution()) {
             const brain_validation_state_t *validation = brain_event_handler_get_validation_state();
+            const block_config_state_t *cfg = block_config_manager_get_state();
             if (s_status_label != NULL) {
-                if (validation != NULL && !validation->has_received_validation) {
-                    lv_label_set_text(s_status_label, "START blocked: waiting for validation");
-                } else if (validation != NULL && !validation->app_config_valid) {
-                    lv_label_set_text(s_status_label, "START blocked: config invalid");
+                if (validation != NULL && validation->has_received_validation &&
+                    !validation->app_config_valid) {
+                    lv_label_set_text(s_status_label, "START blocked: app config invalid");
+                } else if (cfg == NULL || cfg->block_count == 0U) {
+                    lv_label_set_text(s_status_label, "START blocked: no blocks detected");
                 } else {
-                    lv_label_set_text(s_status_label, "START blocked: validation gate");
+                    lv_label_set_text(s_status_label,
+                                      "START blocked: no typed blocks (wait for scan)");
                 }
-            }
-            return;
-        }
-
-        // Extra safety: even with valid config, executor_start() refuses to run when
-        // there are no program blocks loaded from the latest scan.
-        const block_config_state_t *cfg = block_config_manager_get_state();
-        if (cfg == NULL || cfg->block_count == 0) {
-            if (s_status_label != NULL) {
-                lv_label_set_text(s_status_label, "START blocked: no blocks detected");
             }
             return;
         }
@@ -576,9 +572,10 @@ static void home_action_event_cb(lv_event_t *e)
         bool handled = brain_event_handle_message("START");
         if (s_status_label != NULL) {
             if (handled) {
-                lv_label_set_text(s_status_label, "START requested");
+                lv_label_set_text(s_status_label, "Running");
             } else {
-                lv_label_set_text(s_status_label, "START rejected: queue/state");
+                lv_label_set_text(s_status_label,
+                                  "START failed — busy or executor error (retry)");
             }
         }
         return;

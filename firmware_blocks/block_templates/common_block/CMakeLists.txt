@@ -8,6 +8,7 @@ set(EXTRA_COMPONENT_DIRS "components")
 list(APPEND EXTRA_COMPONENT_DIRS
     ${CMAKE_CURRENT_LIST_DIR}/../../shared_components/battery_monitor
     ${CMAKE_CURRENT_LIST_DIR}/../../shared_components/startup_guard
+    ${CMAKE_CURRENT_LIST_DIR}/../../shared_components/audio
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

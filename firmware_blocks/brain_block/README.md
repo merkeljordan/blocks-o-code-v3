@@ -134,6 +134,14 @@ typedef enum {
 
 ## Code Flow
 
+### **Runtime Execution Semantics (Current)**
+
+- **Sequential action + runtime broadcast:** at `LED_FLASH` / `NOTE` / `MUSIC_SEQ` steps, the Brain sends action I2C only to the child at the current `pc` (`CMD_EXECUTE` / `CMD_PLAY_NOTE` / LED setup as applicable). It still fans out `CMD_RUNTIME_BROADCAST` to all present blocks for strip/matrix/speaker parity.
+- **Shared delay tick:** `DELAY` holds `pc` on the delay opcode until `wait_until_ms`, then advances.
+- **Per-context IF/LOOP/BUTTON evaluation:** canonical order is `IF` → `BUTTON` → `THEN` → body → `END_IF`; the BUTTON immediately after `IF` is bound for the condition, which is evaluated at `THEN` after the wait. **`LOOP` / `END_LOOP`** delimit a body: only the blocks **between** them run repeatedly (`loop_count` from the LOOP block / overrides); `LOOP` and `END_LOOP` themselves are not re-executed as body steps.
+
+See also: [Broadcast Execution Semantics](../../docs/architecture/broadcast-execution-semantics.md)
+
 ### **Initialization Sequence**
 ```
 1. app_main() starts

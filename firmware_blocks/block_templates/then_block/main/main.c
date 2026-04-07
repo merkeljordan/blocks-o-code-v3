@@ -29,7 +29,7 @@ void i2c_task(void *arg);
 
 #define BLOCK_NAME            "THEN"
 #define BLOCK_TYPE            BLOCK_TYPE_THEN
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_THEN_BLOCK
 
 static const char *TAG = "THEN_BLOCK";
 
@@ -164,6 +164,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_THEN, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

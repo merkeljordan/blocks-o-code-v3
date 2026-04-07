@@ -29,7 +29,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "IF"
 #define BLOCK_TYPE            BLOCK_TYPE_IF
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_IF_BLOCK
 
 static const char *TAG = "IF_BLOCK";
 
@@ -154,6 +154,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_IF, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:

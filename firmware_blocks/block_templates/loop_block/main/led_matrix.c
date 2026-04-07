@@ -10,6 +10,7 @@ static const char *TAG = "LED_MATRIX";
 // LED Matrix Configuration (update per block)
 #define LED_GPIO            15
 #define LED_MATRIX_SIZE     16
+#define LED_MATRIX_SAFE_BRIGHTNESS_MAX 96U
 
 // Module-private state
 static led_strip_handle_t led_strip = NULL;
@@ -93,6 +94,9 @@ void matrix_show(void) {
 // SET BRIGHTNESS
 // ============================================================================
 void matrix_set_brightness(uint8_t brightness) {
+    if (brightness > LED_MATRIX_SAFE_BRIGHTNESS_MAX) {
+        brightness = LED_MATRIX_SAFE_BRIGHTNESS_MAX;
+    }
     matrix_brightness = brightness;
     ESP_LOGI(TAG, "Brightness set to %d", matrix_brightness);
 }

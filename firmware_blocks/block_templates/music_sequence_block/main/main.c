@@ -200,7 +200,7 @@ static void peripherals_init(void)
         return;
     }
 
-    speaker_set_volume(30);
+    speaker_set_volume(60);
     g_speaker_ready = true;
     speaker_play_boot_sound();
 
@@ -279,6 +279,9 @@ void command_handle(i2c_command_t cmd,
                                            rx,
                                            rx_len)) {
         // Keep handling command below so matrix and strip stay mirrored.
+    }
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_MUSIC_SEQ, cmd, rx, rx_len)) {
+        return;
     }
 
     switch (cmd) {
@@ -445,8 +448,6 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
-    (void)speaker_play_boot_sound();
-
     err = i2c_slave_init();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "i2c_slave_init failed: %s", esp_err_to_name(err));

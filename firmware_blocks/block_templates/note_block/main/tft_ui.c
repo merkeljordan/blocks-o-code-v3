@@ -103,7 +103,7 @@ static battery_indicator_t s_picker_battery = {0};
 static const char *note_name(uint8_t note_id);
 static uint32_t battery_color_for_percent(unsigned percent);
 static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indicator);
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent);
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging);
 static void refresh_battery_indicators(void);
 
 static lv_obj_t *create_mode_screen(void);
@@ -168,7 +168,7 @@ static void create_battery_indicator(lv_obj_t *parent, battery_indicator_t *indi
     lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
 }
 
-static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent)
+static void update_battery_indicator(battery_indicator_t *indicator, unsigned percent, bool is_charging)
 {
     uint32_t fill_width = 0;
 
@@ -187,15 +187,20 @@ static void update_battery_indicator(battery_indicator_t *indicator, unsigned pe
 
     lv_obj_set_size(indicator->fill, (lv_coord_t)fill_width, 8);
     lv_obj_set_style_bg_color(indicator->fill, lv_color_hex(battery_color_for_percent(percent)), 0);
-    lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    if (is_charging) {
+        lv_label_set_text(indicator->text, LV_SYMBOL_CHARGE);
+    } else {
+        lv_label_set_text_fmt(indicator->text, "%u%%", percent);
+    }
 }
 
 static void refresh_battery_indicators(void)
 {
     const unsigned percent = (unsigned)battery_monitor_get_percent();
-    update_battery_indicator(&s_intro_battery, percent);
-    update_battery_indicator(&s_mode_battery, percent);
-    update_battery_indicator(&s_picker_battery, percent);
+    const bool is_charging = battery_monitor_is_charging();
+    update_battery_indicator(&s_intro_battery, percent, is_charging);
+    update_battery_indicator(&s_mode_battery, percent, is_charging);
+    update_battery_indicator(&s_picker_battery, percent, is_charging);
 }
 
 static void sequence_clear(void)
@@ -643,7 +648,7 @@ static lv_obj_t *create_picker_screen(void)
     lv_obj_set_width(title, 150);
     lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 8);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, -18, 12);
 
     // Back arrow (to Mode)
     lv_obj_t *back_btn = lv_button_create(scr);
@@ -666,7 +671,7 @@ static lv_obj_t *create_picker_screen(void)
     lv_label_set_long_mode(s_status_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(s_status_label, lv_color_hex(0xFFE88A), 0);
     lv_obj_set_style_text_align(s_status_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 46);
+    lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 44);
 
     s_sequence_label = lv_label_create(scr);
     lv_label_set_text(s_sequence_label, "");
@@ -674,14 +679,14 @@ static lv_obj_t *create_picker_screen(void)
     lv_label_set_long_mode(s_sequence_label, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_color(s_sequence_label, lv_color_hex(0xC7C7FF), 0);
     lv_obj_set_style_text_align(s_sequence_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_sequence_label, LV_ALIGN_TOP_MID, 0, 66);
+    lv_obj_align(s_sequence_label, LV_ALIGN_TOP_MID, 0, 76);
     lv_obj_add_flag(s_sequence_label, LV_OBJ_FLAG_HIDDEN);
 
     // Little "sound wave" animation (hidden until a note is tapped).
     s_wave_container = lv_obj_create(scr);
     lv_obj_set_size(s_wave_container, 120, 48);
     // Place between note keys and SUBMIT (bottom gap).
-    lv_obj_align(s_wave_container, LV_ALIGN_BOTTOM_MID, 12, -48);
+    lv_obj_align(s_wave_container, LV_ALIGN_BOTTOM_MID, 12, -36);
     lv_obj_set_style_bg_opa(s_wave_container, LV_OPA_0, 0);
     lv_obj_set_style_border_width(s_wave_container, 0, 0);
     lv_obj_set_style_pad_all(s_wave_container, 0, 0);
@@ -699,7 +704,7 @@ static lv_obj_t *create_picker_screen(void)
     }
 
     // Layout: 3 columns; A B C / D E F / G centered
-    const lv_coord_t x0 = 12, y0 = 84, dx = 76, dy = 52;
+    const lv_coord_t x0 = 12, y0 = 112, dx = 76, dy = 52;
     create_note_key(scr, "A", x0 + dx * 0, y0 + dy * 0, lv_color_hex(0xFFB3BA), 0);
     create_note_key(scr, "B", x0 + dx * 1, y0 + dy * 0, lv_color_hex(0xFFDFBA), 1);
     create_note_key(scr, "C", x0 + dx * 2, y0 + dy * 0, lv_color_hex(0xFFFFBA), 2);
@@ -710,7 +715,7 @@ static lv_obj_t *create_picker_screen(void)
 
     lv_obj_t *submit_btn = lv_button_create(scr);
     lv_obj_set_size(submit_btn, 180, 40);
-    lv_obj_align(submit_btn, LV_ALIGN_BOTTOM_MID, 0, -14);
+    lv_obj_align(submit_btn, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_set_style_radius(submit_btn, 14, 0);
     lv_obj_set_style_bg_color(submit_btn, lv_color_hex(0x7CF29A), 0);
     lv_obj_set_style_bg_color(submit_btn, lv_color_hex(0x4ED86F), LV_STATE_PRESSED);

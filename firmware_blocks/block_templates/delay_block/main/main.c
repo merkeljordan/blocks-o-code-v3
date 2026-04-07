@@ -30,7 +30,7 @@ extern void i2c_task(void *arg);
 
 #define BLOCK_NAME            "DELAY"
 #define BLOCK_TYPE            BLOCK_TYPE_DELAY
-#define BLOCK_I2C_ADDRESS     block_compute_i2c_address(BLOCK_TYPE)
+#define BLOCK_I2C_ADDRESS     BLOCK_BOOT_I2C_ADDR_DELAY_BLOCK
 
 static const char *TAG = "DELAY_BLOCK";
 
@@ -61,9 +61,28 @@ static struct {
     size_t payload_len;
 } g_pending_event;
 
+static void set_status_flags(uint8_t status_flags);
+static void config_reset(void);
+static void publish_delay_ms_event(uint32_t delay_ms);
+
 static bool config_is_valid(void)
 {
     return g_config_valid;
+}
+
+void delay_block_set_delay_ms_from_ui(uint32_t delay_ms)
+{
+    g_config.delay_ms = delay_ms;
+    g_config_valid = true;
+    set_status_flags(STATUS_READY);
+    publish_delay_ms_event(delay_ms);
+}
+
+static void config_reset(void)
+{
+    memset(&g_config, 0, sizeof(g_config));
+    g_config_valid = false;
+    memset(&g_pending_event, 0, sizeof(g_pending_event));
 }
 
 static void publish_delay_ms_event(uint32_t delay_ms)
@@ -81,6 +100,15 @@ static void publish_delay_ms_event(uint32_t delay_ms)
 uint8_t delay_block_get_pending_data_len(void)
 {
     return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+}
+
+// uint32_t LE in I2C regs REG_DELAY_MS0..3 — Brain reads at program start.
+uint32_t delay_block_get_delay_ms_for_brain(void)
+{
+    if (!g_config_valid || g_config.delay_ms == 0U) {
+        return 500U;
+    }
+    return g_config.delay_ms;
 }
 
 static void render_status_strip(uint8_t status_flags)
@@ -168,6 +196,9 @@ void command_handle(i2c_command_t cmd,
     }
 
     (void)status_strip_handle_matrix_command(TAG, &kStatusStripConfig, cmd, rx, rx_len);
+    if (status_strip_handle_runtime_broadcast(TAG, &kStatusStripConfig, BLOCK_TYPE_DELAY, cmd, rx, rx_len)) {
+        return;
+    }
 
     switch (cmd) {
         case CMD_PING:
@@ -275,14 +306,22 @@ void app_main(void) {
         speaker_play_boot_sound();
     }
 
-    // Initialize LED Matrix
-    ret = led_matrix_init();
+    /* I²C before optional matrix: brain discovery must work even if WS2812 fails. */
+    ret = i2c_slave_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize LED matrix!");
+        ESP_LOGE(TAG, "Failed to initialize I²C slave!");
         speaker_beep_error();
         return;
     }
-    show_status_matrix(g_status_flags);
+    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+
+    ret = led_matrix_init();
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "LED matrix init failed; I²C slave still active");
+        speaker_beep_error();
+    } else {
+        show_status_matrix(g_status_flags);
+    }
 
     tft_ui_start();
     tft_ui_set_idle();
@@ -290,19 +329,8 @@ void app_main(void) {
 
     battery_monitor_start();
 
-    // Initialize I²C slave
-    ret = i2c_slave_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to initialize I²C slave!");
-        speaker_beep_error();
-        return;
-    }
-
     vTaskDelay(pdMS_TO_TICKS(500));
     ESP_LOGI(TAG, "Block ready and waiting for commands!\n");
-
-    // Create tasks
-    xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
 
     ESP_LOGI(TAG, "All tasks created successfully!");
 }
