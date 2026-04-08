@@ -8,6 +8,7 @@ class WAVFileReader : public SampleSource
 private:
     int m_num_channels;
     int m_sample_rate;
+    int m_bits_per_sample;
     const uint8_t *m_data;
     int m_data_bytes;
     int m_pos;
@@ -18,8 +19,8 @@ public:
     void setGain(float gain) { m_gain = gain; }
     int sampleRate() { return m_sample_rate; }
     int numChannels() const { return m_num_channels; }
-    /** PCM 16-bit: sample_rate * channels * 2 */
-    int bytesPerSecond() const { return m_sample_rate * m_num_channels * 2; }
+    int bitsPerSample() const { return m_bits_per_sample; }
+    int bytesPerSecond() const { return m_sample_rate * m_num_channels * (m_bits_per_sample / 8); }
     int getDataBytes() { return m_data_bytes; }
     int getPos() { return m_pos; }
     void resetPos() { m_pos = 0; }

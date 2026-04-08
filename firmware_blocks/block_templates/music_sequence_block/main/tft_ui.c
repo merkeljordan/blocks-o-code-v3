@@ -756,10 +756,10 @@ static lv_obj_t *create_song_screen(void)
         lv_obj_align(card, LV_ALIGN_TOP_MID, 0, 102);
 
         s_song_name_label = lv_label_create(card);
-        lv_obj_set_width(s_song_name_label, 200);
-        lv_label_set_long_mode(s_song_name_label, LV_LABEL_LONG_CLIP);
+        lv_obj_set_width(s_song_name_label, 176);
+        lv_label_set_long_mode(s_song_name_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
         lv_obj_set_style_text_align(s_song_name_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_label_set_text(s_song_name_label, "Baby Shark");
+        lv_label_set_text(s_song_name_label, "No songs yet");
         lv_obj_set_style_text_color(s_song_name_label, lv_color_hex(0xFFFFFF), 0);
         lv_obj_align(s_song_name_label, LV_ALIGN_TOP_MID, 0, 14);
 
