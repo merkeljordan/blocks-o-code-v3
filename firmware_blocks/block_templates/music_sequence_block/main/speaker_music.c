@@ -29,16 +29,24 @@
 #define SCOPE_TONE_MS    5000
 
 // Linker symbols from main/CMakeLists.txt EMBED_FILES.
+extern const uint8_t baby_shark_wav_start[] asm("_binary_baby_shark_wav_start");
+extern const uint8_t baby_shark_wav_end[]   asm("_binary_baby_shark_wav_end");
+extern const uint8_t be_alright_wav_start[] asm("_binary_be_alright_wav_start");
+extern const uint8_t be_alright_wav_end[]   asm("_binary_be_alright_wav_end");
 extern const uint8_t espresso_wav_start[] asm("_binary_espresso_wav_start");
 extern const uint8_t espresso_wav_end[]   asm("_binary_espresso_wav_end");
-extern const uint8_t birds_of_a_feather_wav_start[] asm("_binary_birds_of_a_feather_wav_start");
-extern const uint8_t birds_of_a_feather_wav_end[]   asm("_binary_birds_of_a_feather_wav_end");
-extern const uint8_t beat_it_wav_start[] asm("_binary_beat_it_wav_start");
-extern const uint8_t beat_it_wav_end[]   asm("_binary_beat_it_wav_end");
-extern const uint8_t hakuna_matata_wav_start[] asm("_binary_hakuna_matata_wav_start");
-extern const uint8_t hakuna_matata_wav_end[]   asm("_binary_hakuna_matata_wav_end");
-extern const uint8_t babyshark_wav_start[] asm("_binary_babyshark_wav_start");
-extern const uint8_t babyshark_wav_end[]   asm("_binary_babyshark_wav_end");
+extern const uint8_t little_einsteins_wav_start[] asm("_binary_little_einsteins_wav_start");
+extern const uint8_t little_einsteins_wav_end[]   asm("_binary_little_einsteins_wav_end");
+extern const uint8_t lush_life_wav_start[] asm("_binary_lush_life_wav_start");
+extern const uint8_t lush_life_wav_end[]   asm("_binary_lush_life_wav_end");
+extern const uint8_t pink_pony_wav_start[] asm("_binary_pink_pony_wav_start");
+extern const uint8_t pink_pony_wav_end[]   asm("_binary_pink_pony_wav_end");
+extern const uint8_t no_wav_start[] asm("_binary_no_wav_start");
+extern const uint8_t no_wav_end[]   asm("_binary_no_wav_end");
+extern const uint8_t sofia_the_first_wav_start[] asm("_binary_sofia_the_first_wav_start");
+extern const uint8_t sofia_the_first_wav_end[]   asm("_binary_sofia_the_first_wav_end");
+extern const uint8_t sunflower_wav_start[] asm("_binary_sunflower_wav_start");
+extern const uint8_t sunflower_wav_end[]   asm("_binary_sunflower_wav_end");
 
 typedef struct {
     const char *name;
@@ -50,6 +58,20 @@ typedef struct {
 
 static const embedded_song_t k_song_catalog[] = {
     {
+        .name = "Baby Shark",
+        .age_range = MUSIC_AGE_RANGE_2_TO_4,
+        .wav_start = baby_shark_wav_start,
+        .wav_end = baby_shark_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Be Alright",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = be_alright_wav_start,
+        .wav_end = be_alright_wav_end,
+        .embedded = true,
+    },
+    {
         .name = "Espresso",
         .age_range = MUSIC_AGE_RANGE_8_PLUS,
         .wav_start = espresso_wav_start,
@@ -57,31 +79,38 @@ static const embedded_song_t k_song_catalog[] = {
         .embedded = true,
     },
     {
-        .name = "Birds of a Feather",
-        .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = birds_of_a_feather_wav_start,
-        .wav_end = birds_of_a_feather_wav_end,
-        .embedded = true,
-    },
-    {
-        .name = "Beat It",
-        .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = beat_it_wav_start,
-        .wav_end = beat_it_wav_end,
-        .embedded = true,
-    },
-    {
-        .name = "Hakuna Matata",
-        .age_range = MUSIC_AGE_RANGE_5_TO_7,
-        .wav_start = hakuna_matata_wav_start,
-        .wav_end = hakuna_matata_wav_end,
-        .embedded = true,
-    },
-    {
-        .name = "Baby Shark",
+        .name = "Little Einsteins",
         .age_range = MUSIC_AGE_RANGE_2_TO_4,
-        .wav_start = babyshark_wav_start,
-        .wav_end = babyshark_wav_end,
+        .wav_start = little_einsteins_wav_start,
+        .wav_end = little_einsteins_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Lush Life",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = lush_life_wav_start,
+        .wav_end = lush_life_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Pink Pony",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = pink_pony_wav_start,
+        .wav_end = pink_pony_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "No -\nMeghan Trainor",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = no_wav_start,
+        .wav_end = no_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Sofia the First",
+        .age_range = MUSIC_AGE_RANGE_5_TO_7,
+        .wav_start = sofia_the_first_wav_start,
+        .wav_end = sofia_the_first_wav_end,
         .embedded = true,
     },
 };

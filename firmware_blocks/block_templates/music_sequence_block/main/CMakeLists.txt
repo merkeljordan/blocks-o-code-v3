@@ -27,14 +27,15 @@ idf_component_register(
         battery_monitor
         startup_guard
         led_matrix
-    # Songs are embedded in flash and exposed as linker symbols.
-    # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
+        "audio/baby_shark.wav"
+        "audio/be_alright.wav"
         "audio/espresso.wav"
-        "audio/birds_of_a_feather.wav"
-        "audio/beat_it.wav"
-        "audio/hakuna_matata.wav"
-        "audio/babyshark.wav"
+        "audio/little_einsteins.wav"
+        "audio/lush_life.wav"
+        "audio/pink_pony.wav"
+        "audio/no.wav"
+        "audio/sofia_the_first.wav"
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LED_MATRIX_HAS_STATUS_STRIP)

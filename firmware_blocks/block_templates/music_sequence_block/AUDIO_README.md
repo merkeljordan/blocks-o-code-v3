@@ -36,13 +36,7 @@ Playback helpers are currently synchronous/blocking at call site. To keep UI res
 
 ## Song Catalog
 
-The current 4 MB hardware catalog is:
-
-- `Espresso` -> backed by `main/audio/espresso.wav`, `Ages 8+`
-- `Birds of a Feather` -> backed by `main/audio/birds_of_a_feather.wav`, `Ages 8+`
-- `Beat It` -> backed by `main/audio/beat_it.wav`, `Ages 8+`
-- `Hakuna Matata` -> backed by `main/audio/hakuna_matata.wav`, `Ages 5-7`
-- `Baby Shark` -> backed by `main/audio/babyshark.wav`, `Ages 2-4`
+The hardware catalog is currently empty while new WAV assets are being prepared.
 
 The UI can filter the catalog by age range:
 
@@ -55,7 +49,7 @@ To change songs:
 
 1. Add WAV assets under `main/audio/`.
 2. Embed via `main/CMakeLists.txt` `EMBED_FILES`.
-3. Update the shared catalog in `main/speaker_music.c` and the matching simulator catalog in `pc_sim/music_sequence_block/main.c`.
+3. Update the shared catalog in `main/speaker_music.c`.
 
 ## Brain Integration Notes
 

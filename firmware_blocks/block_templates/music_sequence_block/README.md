@@ -91,12 +91,7 @@ Inside Brain `dispatch_output_action(BLOCK_TYPE_MUSIC_SEQ)`:
 ## Build Notes
 
 - Main component links LVGL + TFT/touch drivers.
-- Main embeds the final 5-song hardware catalog from `main/audio/`:
-  - `Espresso`
-  - `Birds of a Feather`
-  - `Beat It`
-  - `Hakuna Matata`
-  - `Baby Shark`
+- Main currently has no embedded songs while the catalog is being refreshed.
 - Startup audio is not embedded by this block.
 - The desktop preview target lives at `pc_sim/music_sequence_block/`.
 
