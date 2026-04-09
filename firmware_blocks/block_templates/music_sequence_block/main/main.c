@@ -101,7 +101,7 @@ static void set_status_flags(uint8_t status_flags)
 static void apply_startup_reset_state(void)
 {
     g_selected_song = 0;
-    g_config_valid = false;
+    g_config_valid = true; // Default to first song enabled so CMD_EXECUTE works natively without TFT tapping
     set_status_flags(STATUS_READY);
 
     if (g_speaker_ready) {
@@ -375,7 +375,7 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_RESET:
             g_selected_song = 0;
-            g_config_valid = false;
+            g_config_valid = true;  // Keep active after reset
             g_status_flags = STATUS_READY;
             if (g_leds_ready) {
                 music_leds_show_idle();

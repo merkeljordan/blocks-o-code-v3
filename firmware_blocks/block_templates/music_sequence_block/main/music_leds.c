@@ -47,11 +47,10 @@ static const rgb_t k_note_colors[7] = {
 };
 
 static const song_timing_t k_song_timing[] = {
-    {104U, 4U, 4U, 1U, 0U}, /* Espresso */
-    {105U, 4U, 2U, 1U, 0U}, /* Birds of a Feather */
-    {139U, 4U, 8U, 1U, 0U}, /* Beat It */
-    {89U,  4U, 1U, 2U, 1U}, /* Hakuna Matata */
-    {115U, 4U, 4U, 1U, 0U}, /* Baby Shark */
+    {104U, 4U, 4U, 1U, 0U},
+    {105U, 4U, 2U, 1U, 0U},
+    {89U,  4U, 1U, 2U, 1U},
+    {115U, 4U, 4U, 1U, 0U},
 };
 
 static void music_leds_clear_and_show(void)
@@ -84,7 +83,6 @@ static void music_leds_render_song_frame(uint8_t song_id, uint32_t frame, uint32
     static const rgb_t k_song_colors[][3] = {
         { {255, 60, 180}, {64, 220, 255}, {255, 255, 255} },
         { {80, 200, 255}, {40, 80, 255}, {180, 255, 255} },
-        { {255, 36, 36}, {255, 160, 0}, {255, 255, 120} },
         { {255, 48, 32}, {255, 120, 0}, {180, 48, 0} },
         { {0, 120, 255}, {0, 220, 255}, {255, 255, 255} },
     };

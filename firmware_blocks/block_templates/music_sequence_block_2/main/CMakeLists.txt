@@ -29,11 +29,11 @@ idf_component_register(
     # Songs are embedded in flash and exposed as linker symbols.
     # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
-        "audio/espresso.wav"
-        "audio/birds_of_a_feather.wav"
-        "audio/beat_it.wav"
-        "audio/hakuna_matata.wav"
-        "audio/babyshark.wav"
+       "audio/bubble_pop.wav"
+       "audio/hakuna_matata.wav"
+       "audio/sunflower.wav"
+       "audio/see_you_again.wav"
+       "audio/long_train_runnin.wav"
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE LED_MATRIX_HAS_STATUS_STRIP)

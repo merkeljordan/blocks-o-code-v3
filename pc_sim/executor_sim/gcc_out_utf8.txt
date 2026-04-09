@@ -1,0 +1,31 @@
+﻿gcc : c:/mingw/bin/../lib/g
+cc/x86_64-w64-mingw32/11.2.
+0/../../../../x86_64-w64-mi
+ngw32/bin/ld.exe: C:\Users\
+merke\AppData\Local\Temp\cc
+s80X3w.o: in function 
+`process_message_event':
+At line:1 char:57
++ ... ecutor_sim; gcc -g 
+-O0 -Iinclude -I. -I..\..\f
+irmware_blocks\brain_bl ...
++                 ~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (c:/  
+  mingw/bin/.....message   
+ _event'::String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+C:\Users\merke\blocks-o-cod
+e-v3\pc_sim\executor_sim/..
+/../firmware_blocks/brain_b
+lock/main/brain_event_handl
+er.c:1126: undefined 
+reference to 
+`i2c_matrix_set_brightness'
+collect2.exe: error: ld 
+returned 1 exit status

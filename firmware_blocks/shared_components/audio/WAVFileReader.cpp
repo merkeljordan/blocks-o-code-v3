@@ -16,6 +16,7 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
     m_data_bytes = 0;
     m_num_channels = 1;
     m_sample_rate = 44100;
+    m_bits_per_sample = 8;
     m_pos = 0;
     m_gain = 1.0f;
 
@@ -47,10 +48,11 @@ WAVFileReader::WAVFileReader(const uint8_t *start, const uint8_t *end)
                 Serial.printf("ERROR: audio_format %d not supported (PCM only)\n", audio_format);
                 return;
             }
-            if (bit_depth != 16) {
+            if (bit_depth != 8) {
                 Serial.printf("ERROR: bit depth %d is not supported\n", bit_depth);
                 return;
             }
+            m_bits_per_sample = bit_depth;
             found_fmt = true;
 
             Serial.printf("fmt: audio_format=%d, num_channels=%d, sample_rate=%d, bit_depth=%d\n",
@@ -90,19 +92,19 @@ void WAVFileReader::getFrames(Frame_t *frames, int number_frames)
             frames[i].right = 32768;
             continue;
         }
-        int16_t left;
-        int16_t right;
-        memcpy(&left, m_data + m_pos, sizeof(int16_t));
-        m_pos += sizeof(int16_t);
-        if (m_num_channels == 1)
-        {
+        int16_t left = 0;
+        int16_t right = 0;
+
+        uint8_t left_u8 = m_data[m_pos++];
+        left = (int16_t)(((int)left_u8 - 128) << 8);
+
+        if (m_num_channels == 1) {
             right = left;
+        } else if (m_pos < m_data_bytes) {
+            uint8_t right_u8 = m_data[m_pos++];
+            right = (int16_t)(((int)right_u8 - 128) << 8);
         }
-        else
-        {
-            memcpy(&right, m_data + m_pos, sizeof(int16_t));
-            m_pos += sizeof(int16_t);
-        }
+
         float gl = (float)left * m_gain;
         float gr = (float)right * m_gain;
         if (gl > 32767.f) {
