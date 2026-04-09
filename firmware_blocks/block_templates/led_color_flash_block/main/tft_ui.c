@@ -414,7 +414,7 @@ static lv_obj_t *create_numpad_screen(void)
     lv_obj_align(s_status_label, LV_ALIGN_TOP_MID, 0, 30);
 
     /* Numpad grid: 3 columns x 4 rows (row 4 has only "0" centered) */
-    const lv_coord_t x0 = 12, y0 = 60, dx = 76, dy = 52;
+    const lv_coord_t x0 = 12, y0 = 66, dx = 76, dy = 52;
 
     create_key(scr, 1, x0 + dx * 0, y0 + dy * 0);
     create_key(scr, 2, x0 + dx * 1, y0 + dy * 0);

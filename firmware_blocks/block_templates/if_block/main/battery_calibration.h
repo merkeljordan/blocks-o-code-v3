@@ -24,7 +24,7 @@
  * Default: 0.995f (typical ~0.5% tolerance on resistor divider)
  * Adjust if measurements show systematic over/underestimation.
  */
-#define BATTERY_CAL_SCALE 0.999f
+#define BATTERY_CAL_SCALE 0.993f
 
 /**
  * Additive correction for fixed voltage offset (e.g., diode drop, op-amp bias).
