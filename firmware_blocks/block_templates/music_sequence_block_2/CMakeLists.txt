@@ -11,4 +11,4 @@ set(EXTRA_COMPONENT_DIRS
 )
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(music_sequence_block)
+project(music_sequence_block_2)

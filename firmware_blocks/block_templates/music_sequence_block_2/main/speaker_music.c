@@ -29,16 +29,17 @@
 #define SCOPE_TONE_MS    5000
 
 // Linker symbols from main/CMakeLists.txt EMBED_FILES.
-extern const uint8_t espresso_wav_start[] asm("_binary_espresso_wav_start");
-extern const uint8_t espresso_wav_end[]   asm("_binary_espresso_wav_end");
-extern const uint8_t birds_of_a_feather_wav_start[] asm("_binary_birds_of_a_feather_wav_start");
-extern const uint8_t birds_of_a_feather_wav_end[]   asm("_binary_birds_of_a_feather_wav_end");
-extern const uint8_t beat_it_wav_start[] asm("_binary_beat_it_wav_start");
-extern const uint8_t beat_it_wav_end[]   asm("_binary_beat_it_wav_end");
+extern const uint8_t bubble_pop_wav_start[] asm("_binary_bubble_pop_wav_start");
+extern const uint8_t bubble_pop_wav_end[]   asm("_binary_bubble_pop_wav_end");
 extern const uint8_t hakuna_matata_wav_start[] asm("_binary_hakuna_matata_wav_start");
 extern const uint8_t hakuna_matata_wav_end[]   asm("_binary_hakuna_matata_wav_end");
-extern const uint8_t babyshark_wav_start[] asm("_binary_babyshark_wav_start");
-extern const uint8_t babyshark_wav_end[]   asm("_binary_babyshark_wav_end");
+extern const uint8_t sunflower_wav_start[] asm("_binary_sunflower_wav_start");
+extern const uint8_t sunflower_wav_end[]   asm("_binary_sunflower_wav_end");
+extern const uint8_t see_you_again_wav_start[] asm("_binary_see_you_again_wav_start");
+extern const uint8_t see_you_again_wav_end[]   asm("_binary_see_you_again_wav_end");
+extern const uint8_t long_train_runnin_wav_start[] asm("_binary_long_train_runnin_wav_start");
+extern const uint8_t long_train_runnin_wav_end[]   asm("_binary_long_train_runnin_wav_end");
+
 
 typedef struct {
     const char *name;
@@ -50,38 +51,38 @@ typedef struct {
 
 static const embedded_song_t k_song_catalog[] = {
     {
-        .name = "Espresso",
+        .name = "Bubble Pop",
         .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = espresso_wav_start,
-        .wav_end = espresso_wav_end,
-        .embedded = true,
-    },
-    {
-        .name = "Birds of a Feather",
-        .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = birds_of_a_feather_wav_start,
-        .wav_end = birds_of_a_feather_wav_end,
-        .embedded = true,
-    },
-    {
-        .name = "Beat It",
-        .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = beat_it_wav_start,
-        .wav_end = beat_it_wav_end,
+        .wav_start = bubble_pop_wav_start,
+        .wav_end = bubble_pop_wav_end,
         .embedded = true,
     },
     {
         .name = "Hakuna Matata",
-        .age_range = MUSIC_AGE_RANGE_5_TO_7,
+        .age_range = MUSIC_AGE_RANGE_2_TO_4,
         .wav_start = hakuna_matata_wav_start,
         .wav_end = hakuna_matata_wav_end,
         .embedded = true,
     },
     {
-        .name = "Baby Shark",
-        .age_range = MUSIC_AGE_RANGE_2_TO_4,
-        .wav_start = babyshark_wav_start,
-        .wav_end = babyshark_wav_end,
+        .name = "Sunflower",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = sunflower_wav_start,
+        .wav_end = sunflower_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "When Can I\nSee You Again?",
+        .age_range = MUSIC_AGE_RANGE_5_TO_7,
+        .wav_start = see_you_again_wav_start,
+        .wav_end = see_you_again_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Long Train\nRunnin'",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = long_train_runnin_wav_start,
+        .wav_end = long_train_runnin_wav_end,
         .embedded = true,
     },
 };

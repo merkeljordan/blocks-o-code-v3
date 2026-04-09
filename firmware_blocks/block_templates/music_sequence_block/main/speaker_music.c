@@ -31,12 +31,22 @@
 // Linker symbols from main/CMakeLists.txt EMBED_FILES.
 extern const uint8_t baby_shark_wav_start[] asm("_binary_baby_shark_wav_start");
 extern const uint8_t baby_shark_wav_end[]   asm("_binary_baby_shark_wav_end");
+extern const uint8_t be_alright_wav_start[] asm("_binary_be_alright_wav_start");
+extern const uint8_t be_alright_wav_end[]   asm("_binary_be_alright_wav_end");
 extern const uint8_t espresso_wav_start[] asm("_binary_espresso_wav_start");
 extern const uint8_t espresso_wav_end[]   asm("_binary_espresso_wav_end");
+extern const uint8_t little_einsteins_wav_start[] asm("_binary_little_einsteins_wav_start");
+extern const uint8_t little_einsteins_wav_end[]   asm("_binary_little_einsteins_wav_end");
+extern const uint8_t lush_life_wav_start[] asm("_binary_lush_life_wav_start");
+extern const uint8_t lush_life_wav_end[]   asm("_binary_lush_life_wav_end");
+extern const uint8_t pink_pony_wav_start[] asm("_binary_pink_pony_wav_start");
+extern const uint8_t pink_pony_wav_end[]   asm("_binary_pink_pony_wav_end");
 extern const uint8_t no_wav_start[] asm("_binary_no_wav_start");
 extern const uint8_t no_wav_end[]   asm("_binary_no_wav_end");
 extern const uint8_t sofia_the_first_wav_start[] asm("_binary_sofia_the_first_wav_start");
 extern const uint8_t sofia_the_first_wav_end[]   asm("_binary_sofia_the_first_wav_end");
+extern const uint8_t sunflower_wav_start[] asm("_binary_sunflower_wav_start");
+extern const uint8_t sunflower_wav_end[]   asm("_binary_sunflower_wav_end");
 
 typedef struct {
     const char *name;
@@ -55,6 +65,13 @@ static const embedded_song_t k_song_catalog[] = {
         .embedded = true,
     },
     {
+        .name = "Be Alright",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = be_alright_wav_start,
+        .wav_end = be_alright_wav_end,
+        .embedded = true,
+    },
+    {
         .name = "Espresso",
         .age_range = MUSIC_AGE_RANGE_8_PLUS,
         .wav_start = espresso_wav_start,
@@ -62,7 +79,28 @@ static const embedded_song_t k_song_catalog[] = {
         .embedded = true,
     },
     {
-        .name = "No - Meghan Trainor",
+        .name = "Little Einsteins",
+        .age_range = MUSIC_AGE_RANGE_2_TO_4,
+        .wav_start = little_einsteins_wav_start,
+        .wav_end = little_einsteins_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Lush Life",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = lush_life_wav_start,
+        .wav_end = lush_life_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "Pink Pony",
+        .age_range = MUSIC_AGE_RANGE_8_PLUS,
+        .wav_start = pink_pony_wav_start,
+        .wav_end = pink_pony_wav_end,
+        .embedded = true,
+    },
+    {
+        .name = "No -\nMeghan Trainor",
         .age_range = MUSIC_AGE_RANGE_8_PLUS,
         .wav_start = no_wav_start,
         .wav_end = no_wav_end,

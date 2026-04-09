@@ -29,7 +29,11 @@ idf_component_register(
         led_matrix
     EMBED_FILES
         "audio/baby_shark.wav"
+        "audio/be_alright.wav"
         "audio/espresso.wav"
+        "audio/little_einsteins.wav"
+        "audio/lush_life.wav"
+        "audio/pink_pony.wav"
         "audio/no.wav"
         "audio/sofia_the_first.wav"
 )

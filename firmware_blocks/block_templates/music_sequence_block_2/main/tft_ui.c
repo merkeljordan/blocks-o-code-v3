@@ -908,8 +908,19 @@ static void gui_refresh_from_state(void)
     if (s_song_name_label != NULL) {
         if (count == 0U) {
             lv_label_set_text(s_song_name_label, "No songs in this range");
+            lv_obj_align(s_song_name_label, LV_ALIGN_TOP_MID, 0, 20);
         } else {
-            lv_label_set_text(s_song_name_label, speaker_get_song_name(idx));
+            const char *song_name = speaker_get_song_name(idx);
+            lv_coord_t song_name_y = 20;
+
+            if (strchr(song_name, '\n') != NULL) {
+                song_name_y = (age_filter == MUSIC_AGE_RANGE_ALL) ? 8 : 14;
+            } else if (age_filter != MUSIC_AGE_RANGE_ALL) {
+                song_name_y = 24;
+            }
+
+            lv_label_set_text(s_song_name_label, song_name);
+            lv_obj_align(s_song_name_label, LV_ALIGN_TOP_MID, 0, song_name_y);
         }
     }
     if (s_song_age_label != NULL) {
