@@ -93,7 +93,7 @@ static bool loop_count_addr_to_slot(uint8_t addr, size_t *out_slot);
 static bool program_slot_effectively_present(uint8_t pc);
 static void dispatch_note_like_main_branch(uint8_t pc);
 
-static uint64_t now_ms(void) {
+uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
 }
 
@@ -927,10 +927,15 @@ static void dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (int)exec_ret);
             break;
         }
-        case BLOCK_TYPE_NOTE:
-            (void)addr;
-            dispatch_note_like_main_branch(pc);
+        case BLOCK_TYPE_NOTE: {
+            esp_err_t exec_ret = i2c_execute(addr);
+            ESP_LOGI(TAG,
+                     "SEQUENTIAL NOTE step pc=%u addr=0x%02X exec_ret=%d",
+                     (unsigned)pc,
+                     addr,
+                     (int)exec_ret);
             break;
+        }
         case BLOCK_TYPE_MUSIC_SEQ: {
             esp_err_t exec_ret = i2c_execute(addr);
             ESP_LOGI(TAG,
@@ -1595,7 +1600,6 @@ static void brain_executor_tick_nolock(void) {
     ESP_LOGD(TAG, "EXEC pc=%u type=%u", s_executor_ctx.pc, current);
 
     if (current == BLOCK_TYPE_BUTTON) {
-        broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, current);
         if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS && s_program_present[s_executor_ctx.pc]) {
             (void)i2c_execute(s_program_addr[s_executor_ctx.pc]);
         }
@@ -1630,15 +1634,11 @@ static void brain_executor_tick_nolock(void) {
     }
 
     if (is_output_block(current)) {
-        broadcast_runtime_state(BRAIN_RUNTIME_STEP, current);
         dispatch_output_action(s_executor_ctx.pc, current);
         if (s_executor_ctx.stop_requested) {
             return;
         }
         s_executor_ctx.pc++;
-        if (s_executor_ctx.pc < s_executor_ctx.program_len) {
-            broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
-        }
         return;
     }
 
@@ -1658,7 +1658,6 @@ static void brain_executor_tick_nolock(void) {
                      (unsigned long)delay_ms);
             s_executor_ctx.wait_until_ms = now_ms() + delay_ms;
             s_executor_ctx.state = EXECUTOR_WAIT_DELAY;
-            broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, current);
             return;
         }
 
