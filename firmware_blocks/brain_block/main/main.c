@@ -194,7 +194,7 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
 
 static uint8_t brain_led_idle_brightness(void)
 {
-    return 32U;
+    return 80U; // Single flat brightness for all states
 }
 
 static void brain_led_show_boot_ready_strip(void)
@@ -343,16 +343,8 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
         status_strip_set_brightness(status_strip_runtime_brightness(state));
     } else {
         uint16_t led_count = status_strip_get_led_count();
-        int highlight_index = brain_led_runtime_highlight_index(runtime, cfg);
-        uint8_t active_brightness = status_strip_runtime_brightness(state);
-        uint8_t idle_brightness = brain_led_idle_brightness();
+        uint8_t brightness = brain_led_idle_brightness(); // Flat brightness -- no active/idle dimming
 
-        /* Each physical LED is mapped back to a program step by proportion:
-         *
-         *   block_index = led_idx * block_count / led_count
-         *
-         * That makes the renderer configuration-driven instead of assuming a
-         * fixed number of blocks or a fixed LED allocation per block. */
         for (uint16_t led_idx = 0; led_idx < led_count; led_idx++) {
             uint8_t block_index = (uint8_t)(((uint32_t)led_idx * cfg->block_count) / led_count);
             if (block_index >= cfg->block_count) {
@@ -363,19 +355,6 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
             led_rgb_t color = entry->present
                                   ? led_contract_identity_color(entry->block_type)
                                   : led_contract_identity_color(BLOCK_TYPE_BRAIN);
-
-            /* Idle: every segment uses the same medium brightness so the full
-             * program remains readable.
-             *
-             * Busy/running: only the active step gets full brightness. All
-             * inactive steps stay visible but dim, which mirrors executor
-             * progress without losing the overall program map. */
-            uint8_t brightness = idle_brightness;
-            if (highlight_index >= 0) {
-                brightness = ((int)block_index == highlight_index)
-                                 ? active_brightness
-                                 : idle_brightness;
-            }
 
             led_rgb_t scaled = scale_led_color(color, brightness);
             status_strip_set_pixel(led_idx, scaled.r, scaled.g, scaled.b);
@@ -395,30 +374,9 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
 
 static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runtime)
 {
-    static brain_runtime_broadcast_state_t s_last_matrix_state = BRAIN_RUNTIME_IDLE;
-    static uint8_t s_last_matrix_step_type = BLOCK_TYPE_UNKNOWN;
-    static uint8_t s_last_matrix_pc = 0xFF;
-
-    brain_runtime_broadcast_state_t state = (runtime != NULL) ? runtime->state : BRAIN_RUNTIME_IDLE;
-    uint8_t step_type = (runtime != NULL) ? (uint8_t)runtime->step_type : BLOCK_TYPE_BRAIN;
-    uint8_t pc = (runtime != NULL) ? runtime->pc : BRAIN_RUNTIME_PC_NONE;
-
-    if (state == s_last_matrix_state &&
-        step_type == s_last_matrix_step_type &&
-        pc == s_last_matrix_pc) {
-        return;
-    }
-
-    (void)status_strip_render_runtime_visuals(TAG,
-                                              NULL,
-                                              BLOCK_TYPE_BRAIN,
-                                              state,
-                                              pc,
-                                              step_type);
-
-    s_last_matrix_state = state;
-    s_last_matrix_step_type = step_type;
-    s_last_matrix_pc = pc;
+    (void)runtime; // Matrix is always solid red regardless of executor state
+    matrix_fill(255, 0, 0);
+    matrix_show();
 }
 
 static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,

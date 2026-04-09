@@ -1,0 +1,500 @@
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=0, step_type=21)
+START accepted. Running ticks...
+[Tick] PC: 0, State: 1
+D (brain_evt): EXEC pc=0 type=21
+I (brain_evt): DELAY pc=0 wait_ms=500
+[Tick] PC: 0, State: 3
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=1, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=1, step_type=49)
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=49
+I (MOCK_I2C): i2c_execute(addr=0x0F)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=1 addr=0x0F exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x0F status=0x02)
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=49
+I (MOCK_I2C): i2c_execute(addr=0x10)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=2 addr=0x10 exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x10 status=0x02)
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=16
+[Tick] PC: 4, State: 1
+D (brain_evt): EXEC pc=4 type=32
+I (MOCK_I2C): i2c_execute(addr=0x15)
+[Tick] PC: 4, State: 2
+[Sim] Simulating physical button press...
+I (brain_evt): BUTTON_PRESS: addr=0x15 pressed=1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=5, step_type=17)
+[Tick] PC: 5, State: 1
+D (brain_evt): EXEC pc=5 type=17
+[Tick] PC: 6, State: 1
+D (brain_evt): EXEC pc=6 type=19
+I (brain_evt): LOOP pc=6 body through pc=12 iterations=3 src=reg
+[Tick] PC: 7, State: 1
+D (brain_evt): EXEC pc=7 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=7 addr=0x0C exec_ret=0
+[Tick] PC: 8, State: 1
+D (brain_evt): EXEC pc=8 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0D)
+I (brain_evt): SEQUENTIAL NOTE step pc=8 addr=0x0D exec_ret=0
+[Tick] PC: 9, State: 1
+D (brain_evt): EXEC pc=9 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0E)
+I (brain_evt): SEQUENTIAL NOTE step pc=9 addr=0x0E exec_ret=0
+[Tick] PC: 10, State: 1
+D (brain_evt): EXEC pc=10 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=10 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 11, State: 1
+D (brain_evt): EXEC pc=11 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x12, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x12)
+I (brain_evt): SEQUENTIAL LED step pc=11 addr=0x12 color=0 exec_ret=0
+[Tick] PC: 12, State: 1
+D (brain_evt): EXEC pc=12 type=20
+[Tick] PC: 7, State: 1
+D (brain_evt): EXEC pc=7 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=7 addr=0x0C exec_ret=0
+[Tick] PC: 8, State: 1
+D (brain_evt): EXEC pc=8 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0D)
+I (brain_evt): SEQUENTIAL NOTE step pc=8 addr=0x0D exec_ret=0
+[Tick] PC: 9, State: 1
+D (brain_evt): EXEC pc=9 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0E)
+I (brain_evt): SEQUENTIAL NOTE step pc=9 addr=0x0E exec_ret=0
+[Tick] PC: 10, State: 1
+D (brain_evt): EXEC pc=10 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=10 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 11, State: 1
+D (brain_evt): EXEC pc=11 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x12, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x12)
+I (brain_evt): SEQUENTIAL LED step pc=11 addr=0x12 color=0 exec_ret=0
+[Tick] PC: 12, State: 1
+D (brain_evt): EXEC pc=12 type=20
+[Tick] PC: 7, State: 1
+D (brain_evt): EXEC pc=7 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=7 addr=0x0C exec_ret=0
+[Tick] PC: 8, State: 1
+D (brain_evt): EXEC pc=8 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0D)
+I (brain_evt): SEQUENTIAL NOTE step pc=8 addr=0x0D exec_ret=0
+[Tick] PC: 9, State: 1
+D (brain_evt): EXEC pc=9 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0E)
+I (brain_evt): SEQUENTIAL NOTE step pc=9 addr=0x0E exec_ret=0
+[Tick] PC: 10, State: 1
+D (brain_evt): EXEC pc=10 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=10 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 11, State: 1
+D (brain_evt): EXEC pc=11 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x12, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x12)
+I (brain_evt): SEQUENTIAL LED step pc=11 addr=0x12 color=0 exec_ret=0
+[Tick] PC: 12, State: 1
+D (brain_evt): EXEC pc=12 type=20
+[Tick] PC: 13, State: 1
+D (brain_evt): EXEC pc=13 type=18
+[Tick] PC: 14, State: 1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=3, pc=13, step_type=18)
+I (brain_evt): Executor done
+Test 5 Finished. PC: 14, State: 5 (Ticks run: 58)
+??? RESULT: PASS
+--- Mock I2C Execution Spy Report ---
+  Address 0x0C received CMD_EXECUTE count: 3
+  Address 0x0D received CMD_EXECUTE count: 3
+  Address 0x0E received CMD_EXECUTE count: 3
+  Address 0x0F received CMD_EXECUTE count: 1
+  Address 0x10 received CMD_EXECUTE count: 1
+  Address 0x11 received CMD_EXECUTE count: 3
+  Address 0x12 received CMD_EXECUTE count: 3
+  Address 0x15 received CMD_EXECUTE count: 1
+
+
+=== TEST 6: EXTENDED SEQUENCE 3 ===
+I (brain_evt): Validation updated: valid=true errors=0 ts=0
+I (brain_evt): START requested: validation_received=true validation_ok=true last_errors=0 executor_state=5 block_count=14 scan_errors=0 queue_depth=0
+I (brain_evt): LOOP iterations from REG_LOOP_COUNT: pc=0 addr=0x0B count=3
+I (brain_evt): Executor started with 14 blocks
+I (brain_evt): Handled START: executor started
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=0, step_type=19)
+START accepted. Running ticks...
+[Tick] PC: 0, State: 1
+D (brain_evt): EXEC pc=0 type=19
+I (brain_evt): LOOP pc=0 body through pc=3 iterations=3 src=reg
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=1 addr=0x0C exec_ret=0
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=2 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=20
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=1 addr=0x0C exec_ret=0
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=2 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=20
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=1 addr=0x0C exec_ret=0
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=2 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=20
+[Tick] PC: 4, State: 1
+D (brain_evt): EXEC pc=4 type=21
+I (brain_evt): DELAY pc=4 wait_ms=500
+[Tick] PC: 4, State: 3
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=5, step_type=49)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=5, step_type=49)
+[Tick] PC: 5, State: 1
+D (brain_evt): EXEC pc=5 type=49
+I (MOCK_I2C): i2c_execute(addr=0x0F)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=5 addr=0x0F exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x0F status=0x02)
+[Tick] PC: 6, State: 1
+D (brain_evt): EXEC pc=6 type=49
+I (MOCK_I2C): i2c_execute(addr=0x10)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=6 addr=0x10 exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x10 status=0x02)
+[Tick] PC: 7, State: 1
+D (brain_evt): EXEC pc=7 type=16
+[Tick] PC: 8, State: 1
+D (brain_evt): EXEC pc=8 type=32
+I (MOCK_I2C): i2c_execute(addr=0x15)
+[Tick] PC: 8, State: 2
+[Sim] Simulating physical button press...
+I (brain_evt): BUTTON_PRESS: addr=0x15 pressed=1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=9, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=9, step_type=17)
+[Tick] PC: 9, State: 1
+D (brain_evt): EXEC pc=9 type=17
+[Tick] PC: 10, State: 1
+D (brain_evt): EXEC pc=10 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0D)
+I (brain_evt): SEQUENTIAL NOTE step pc=10 addr=0x0D exec_ret=0
+[Tick] PC: 11, State: 1
+D (brain_evt): EXEC pc=11 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0E)
+I (brain_evt): SEQUENTIAL NOTE step pc=11 addr=0x0E exec_ret=0
+[Tick] PC: 12, State: 1
+D (brain_evt): EXEC pc=12 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x12, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x12)
+I (brain_evt): SEQUENTIAL LED step pc=12 addr=0x12 color=0 exec_ret=0
+[Tick] PC: 13, State: 1
+D (brain_evt): EXEC pc=13 type=18
+[Tick] PC: 14, State: 1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=3, pc=13, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=3, pc=13, step_type=18)
+I (brain_evt): Executor done
+Test 6 Finished. PC: 14, State: 5 (Ticks run: 53)
+??? RESULT: PASS
+--- Mock I2C Execution Spy Report ---
+  Address 0x0C received CMD_EXECUTE count: 3
+  Address 0x0D received CMD_EXECUTE count: 1
+  Address 0x0E received CMD_EXECUTE count: 1
+  Address 0x0F received CMD_EXECUTE count: 1
+  Address 0x10 received CMD_EXECUTE count: 1
+  Address 0x11 received CMD_EXECUTE count: 3
+  Address 0x12 received CMD_EXECUTE count: 1
+  Address 0x15 received CMD_EXECUTE count: 1
+
+
+=== TEST 7: I2C FAILURE (DISCONNECT) ===
+I (brain_evt): Validation updated: valid=true errors=0 ts=0
+I (brain_evt): START requested: validation_received=true validation_ok=true last_errors=0 executor_state=5 block_count=2 scan_errors=0 queue_depth=0
+I (brain_evt): Executor started with 2 blocks
+I (brain_evt): Handled START: executor started
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=0, step_type=21)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=0, step_type=21)
+START accepted. Running ticks...
+[Tick] PC: 0, State: 1
+D (brain_evt): EXEC pc=0 type=21
+I (brain_evt): DELAY pc=0 wait_ms=500
+[Tick] PC: 0, State: 3
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=1, step_type=48)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=1, step_type=48)
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=1 addr=0x0C exec_ret=0
+[Tick] PC: 2, State: 1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=3, pc=1, step_type=48)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=3, pc=1, step_type=48)
+I (brain_evt): Executor done
+Test 7 Finished. PC: 2, State: 5 (Ticks run: 32)
+??? RESULT: FAIL (Expected PC=1 State=5, Final PC=2 State=5)
+--- Mock I2C Execution Spy Report ---
+  Address 0x0C received CMD_EXECUTE count: 1
+
+
+=== TEST 8: BUSY TIMEOUT ===
+I (brain_evt): Validation updated: valid=true errors=0 ts=0
+I (brain_evt): START requested: validation_received=true validation_ok=true last_errors=0 executor_state=5 block_count=14 scan_errors=0 queue_depth=0
+I (brain_evt): LOOP iterations from REG_LOOP_COUNT: pc=0 addr=0x0B count=3
+I (brain_evt): Executor started with 14 blocks
+I (brain_evt): Handled START: executor started
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=0, step_type=19)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=0, step_type=19)
+START accepted. Running ticks...
+[Tick] PC: 0, State: 1
+D (brain_evt): EXEC pc=0 type=19
+I (brain_evt): LOOP pc=0 body through pc=13 iterations=3 src=reg
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=49
+I (MOCK_I2C): i2c_execute(addr=0x0F)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=1 addr=0x0F exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x0F status=0x02)
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=49
+I (MOCK_I2C): i2c_execute(addr=0x10)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=2 addr=0x10 exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x10 status=0x02)
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=16
+[Tick] PC: 4, State: 1
+D (brain_evt): EXEC pc=4 type=32
+I (MOCK_I2C): i2c_execute(addr=0x15)
+[Tick] PC: 4, State: 2
+[Sim] Simulating physical button press...
+I (brain_evt): BUTTON_PRESS: addr=0x15 pressed=1
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=5, step_type=17)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=5, step_type=17)
+[Tick] PC: 5, State: 1
+D (brain_evt): EXEC pc=5 type=17
+[Tick] PC: 6, State: 1
+D (brain_evt): EXEC pc=6 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0C)
+I (brain_evt): SEQUENTIAL NOTE step pc=6 addr=0x0C exec_ret=0
+[Tick] PC: 7, State: 1
+D (brain_evt): EXEC pc=7 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0D)
+I (brain_evt): SEQUENTIAL NOTE step pc=7 addr=0x0D exec_ret=0
+[Tick] PC: 8, State: 1
+D (brain_evt): EXEC pc=8 type=48
+I (MOCK_I2C): i2c_execute(addr=0x0E)
+I (brain_evt): SEQUENTIAL NOTE step pc=8 addr=0x0E exec_ret=0
+[Tick] PC: 9, State: 1
+D (brain_evt): EXEC pc=9 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x11, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x11)
+I (brain_evt): SEQUENTIAL LED step pc=9 addr=0x11 color=0 exec_ret=0
+[Tick] PC: 10, State: 1
+D (brain_evt): EXEC pc=10 type=50
+I (MOCK_I2C): i2c_set_led_color_id(addr=0x12, color_id=0)
+I (MOCK_I2C): i2c_execute(addr=0x12)
+I (brain_evt): SEQUENTIAL LED step pc=10 addr=0x12 color=0 exec_ret=0
+[Tick] PC: 11, State: 1
+D (brain_evt): EXEC pc=11 type=21
+I (brain_evt): DELAY pc=11 wait_ms=500
+[Tick] PC: 11, State: 3
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0B, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0F, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x10, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x15, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x09, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0C, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0D, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0E, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x11, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x12, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x14, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x0A, state=1, pc=12, step_type=18)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=12, step_type=18)
+[Tick] PC: 12, State: 1
+D (brain_evt): EXEC pc=12 type=18
+[Tick] PC: 13, State: 1
+D (brain_evt): EXEC pc=13 type=20
+[Tick] PC: 1, State: 1
+D (brain_evt): EXEC pc=1 type=49
+I (MOCK_I2C): i2c_execute(addr=0x0F)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=1 addr=0x0F exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x0F status=0x02)
+[Tick] PC: 2, State: 1
+D (brain_evt): EXEC pc=2 type=49
+I (MOCK_I2C): i2c_execute(addr=0x10)
+I (brain_evt): SEQUENTIAL MUSIC_SEQ step pc=2 addr=0x10 exec_ret=0
+I (brain_evt): MUSIC_SEQ latency dispatch->BUSY = 0 ms (addr=0x10 status=0x02)
+[Tick] PC: 3, State: 1
+D (brain_evt): EXEC pc=3 type=16
+[Tick] PC: 4, State: 1
+D (brain_evt): EXEC pc=4 type=32
+I (MOCK_I2C): i2c_execute(addr=0x15)
+[Tick] PC: 4, State: 2
+Test 8 Finished. PC: 4, State: 2 (Ticks run: 600)
+??? RESULT: FAIL (Expected PC=14 State=5, Final PC=4 State=2)
+--- Mock I2C Execution Spy Report ---
+  Address 0x0C received CMD_EXECUTE count: 1
+  Address 0x0D received CMD_EXECUTE count: 1
+  Address 0x0E received CMD_EXECUTE count: 1
+  Address 0x0F received CMD_EXECUTE count: 2
+  Address 0x10 received CMD_EXECUTE count: 2
+  Address 0x11 received CMD_EXECUTE count: 1
+  Address 0x12 received CMD_EXECUTE count: 1
+  Address 0x15 received CMD_EXECUTE count: 2
+
+
+=== TEST 9: NESTING ERROR VALIDATION ===
+I (brain_evt): Validation updated: valid=true errors=0 ts=0
+I (brain_evt): START requested: validation_received=true validation_ok=true last_errors=0 executor_state=2 block_count=2 scan_errors=0 queue_depth=0
+I (brain_evt): Executor started with 2 blocks
+I (brain_evt): Handled START: executor started
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=1, pc=0, step_type=16)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=1, pc=0, step_type=16)
+START accepted. Running ticks...
+[Tick] PC: 0, State: 1
+D (brain_evt): EXEC pc=0 type=16
+W (brain_evt): IF without END_IF at pc=0
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x08, state=4, pc=0, step_type=16)
+I (MOCK_I2C): i2c_runtime_broadcast(addr=0x13, state=4, pc=0, step_type=16)
+Test 9 Finished. PC: 0, State: 5 (Ticks run: 1)
+??? RESULT: FAIL (Expected PC=-1 State=0, Final PC=0 State=5)
+--- Mock I2C Execution Spy Report ---
+

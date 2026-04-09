@@ -36,6 +36,9 @@ enum RuleViolationType {
   loopSequenceIncomplete,
   loopSequenceInvalidBlock,
   sequenceInterleaved,
+  nestingOverflow,
+  unmatchedEnd,
+  emptySequence,
 }
 
 /// Severity of a rule violation
@@ -79,240 +82,118 @@ class ConfigurationRules {
     return violations;
   }
 
-  /// Validate If Block sequences
-  static List<RuleViolation> checkIfBlockSequences(BlockConfiguration config) {
+  /// Validate If/Loop nesting and structure using a stack-based approach
+  static List<RuleViolation> checkNestingRule(BlockConfiguration config) {
     final violations = <RuleViolation>[];
     final blocks = config.blocks;
-
-    // Track state while scanning for If Block sequences
-    int i = 0;
-    while (i < blocks.length) {
-      final block = blocks[i];
-
-      // Start of If Block sequence
-      if (block.blockType == BlockType.ifBlock) {
-        final sequenceStart = i;
-        final sequenceBlocks = <int>[i]; // Track indices in sequence
-
-        // Expected sequence: If → Input → Then → Output(s) → End If
-        i++; // Move to next block
-
-        // Check for Input Block (Button Press)
-        if (i >= blocks.length || blocks[i].blockType != BlockType.buttonPress) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.ifSequenceInvalidBlock,
-            message: 'If Block at position $sequenceStart must be followed by an Input Block (Button Press)',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            expectedBlockType: BlockType.buttonPress,
-            actualBlockType: i < blocks.length ? blocks[i].blockType : null,
-            affectedBlockIndices: [sequenceStart, i < blocks.length ? i : -1],
-          ));
-          // Try to continue from next block
-          if (i < blocks.length) i++;
-          continue;
-        }
-        sequenceBlocks.add(i);
-        i++;
-
-        // Check for Then Block
-        if (i >= blocks.length || blocks[i].blockType != BlockType.thenBlock) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.ifSequenceInvalidBlock,
-            message: 'If Block sequence must have a Then Block after the Input Block',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            expectedBlockType: BlockType.thenBlock,
-            actualBlockType: i < blocks.length ? blocks[i].blockType : null,
-            affectedBlockIndices: sequenceBlocks + [i < blocks.length ? i : -1],
-          ));
-          if (i < blocks.length) i++;
-          continue;
-        }
-        sequenceBlocks.add(i);
-        i++;
-
-        // Check for at least one Output Block or Delay Block
-        bool hasOutput = false;
-        while (i < blocks.length) {
-          final currentBlock = blocks[i];
-          if (currentBlock.blockType == BlockType.endIfBlock) {
-            // Found End If Block - sequence complete
-            sequenceBlocks.add(i);
-            break;
-          } else if (currentBlock.blockType?.isOutput ?? false) {
-            // Valid output block
-            hasOutput = true;
-            sequenceBlocks.add(i);
-            i++;
-          } else if (currentBlock.blockType == BlockType.delayBlock) {
-            // Valid delay block
-            hasOutput = true;
-            sequenceBlocks.add(i);
-            i++;
-          } else {
-            // Invalid block in sequence
-            violations.add(RuleViolation(
-              type: RuleViolationType.ifSequenceInvalidBlock,
-              message: 'If Block sequence contains invalid block type: ${currentBlock.blockType?.displayName ?? "Unknown"} at position $i',
-              severity: Severity.error,
-              blockIndex: i,
-              expectedBlockType: BlockType.endIfBlock, // Expected End If or another output
-              actualBlockType: currentBlock.blockType,
-              affectedBlockIndices: sequenceBlocks + [i],
-            ));
-            i++;
-            break;
-          }
-        }
-
-        // Check if sequence was properly terminated
-        if (i >= blocks.length || blocks[i].blockType != BlockType.endIfBlock) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.ifSequenceIncomplete,
-            message: 'If Block sequence starting at position $sequenceStart is not properly terminated with End If Block',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            expectedBlockType: BlockType.endIfBlock,
-            affectedBlockIndices: sequenceBlocks,
-          ));
-        } else if (!hasOutput) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.ifSequenceIncomplete,
-            message: 'If Block sequence starting at position $sequenceStart must have at least one Output Block',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            affectedBlockIndices: sequenceBlocks,
-          ));
-        }
-
-        i++; // Move past End If Block
-      } else {
-        i++; // Continue scanning
-      }
-    }
-
-    return violations;
-  }
-
-  /// Validate Loop Block sequences
-  static List<RuleViolation> checkLoopBlockSequences(BlockConfiguration config) {
-    final violations = <RuleViolation>[];
-    final blocks = config.blocks;
-
-    int i = 0;
-    while (i < blocks.length) {
-      final block = blocks[i];
-
-      // Start of Loop Block sequence
-      if (block.blockType == BlockType.loopBlock) {
-        final sequenceStart = i;
-        final sequenceBlocks = <int>[i];
-        i++; // Move to next block
-
-        // Check for at least one Output Block or Delay Block
-        bool hasOutput = false;
-        while (i < blocks.length) {
-          final currentBlock = blocks[i];
-          if (currentBlock.blockType == BlockType.endLoopBlock) {
-            // Found End Loop Block - sequence complete
-            sequenceBlocks.add(i);
-            break;
-          } else if (currentBlock.blockType?.isOutput ?? false) {
-            // Valid output block
-            hasOutput = true;
-            sequenceBlocks.add(i);
-            i++;
-          } else if (currentBlock.blockType == BlockType.delayBlock) {
-            // Valid delay block
-            hasOutput = true;
-            sequenceBlocks.add(i);
-            i++;
-          } else {
-            // Invalid block in sequence
-            violations.add(RuleViolation(
-              type: RuleViolationType.loopSequenceInvalidBlock,
-              message: 'Loop Block sequence contains invalid block type: ${currentBlock.blockType?.displayName ?? "Unknown"} at position $i',
-              severity: Severity.error,
-              blockIndex: i,
-              expectedBlockType: BlockType.endLoopBlock, // Expected End Loop or another output
-              actualBlockType: currentBlock.blockType,
-              affectedBlockIndices: sequenceBlocks + [i],
-            ));
-            i++;
-            break;
-          }
-        }
-
-        // Check if sequence was properly terminated
-        if (i >= blocks.length || blocks[i].blockType != BlockType.endLoopBlock) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.loopSequenceIncomplete,
-            message: 'Loop Block sequence starting at position $sequenceStart is not properly terminated with End Loop Block',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            expectedBlockType: BlockType.endLoopBlock,
-            affectedBlockIndices: sequenceBlocks,
-          ));
-        } else if (!hasOutput) {
-          violations.add(RuleViolation(
-            type: RuleViolationType.loopSequenceIncomplete,
-            message: 'Loop Block sequence starting at position $sequenceStart must have at least one Output Block',
-            severity: Severity.error,
-            blockIndex: sequenceStart,
-            affectedBlockIndices: sequenceBlocks,
-          ));
-        }
-
-        i++; // Move past End Loop Block
-      } else {
-        i++; // Continue scanning
-      }
-    }
-
-    return violations;
-  }
-
-  /// Check for interleaved sequences (warning)
-  static List<RuleViolation> checkSequenceIsolation(BlockConfiguration config) {
-    final violations = <RuleViolation>[];
-    final blocks = config.blocks;
-
-    // Track active sequences
-    bool inIfSequence = false;
-    bool inLoopSequence = false;
+    final stack = <_NestingFrame>[];
 
     for (int i = 0; i < blocks.length; i++) {
       final block = blocks[i];
-      final blockType = block.blockType;
+      final type = block.blockType;
 
-      if (blockType == BlockType.ifBlock) {
-        if (inLoopSequence) {
+      if (type == BlockType.ifBlock) {
+        stack.add(_NestingFrame(type: type!, startIndex: i));
+      } else if (type == BlockType.loopBlock) {
+        stack.add(_NestingFrame(type: type!, startIndex: i));
+      } else if (type == BlockType.thenBlock) {
+        if (stack.isEmpty || stack.last.type != BlockType.ifBlock) {
           violations.add(RuleViolation(
-            type: RuleViolationType.sequenceInterleaved,
-            message: 'If Block at position $i starts while a Loop Block sequence is still active',
-            severity: Severity.warning,
+            type: RuleViolationType.unmatchedEnd,
+            message: 'Then Block at position $i is not preceded by an If Block',
+            severity: Severity.error,
             blockIndex: i,
-            affectedBlockIndices: [i],
           ));
-        }
-        inIfSequence = true;
-      } else if (blockType == BlockType.endIfBlock) {
-        inIfSequence = false;
-      } else if (blockType == BlockType.loopBlock) {
-        if (inIfSequence) {
+        } else if (stack.last.hasThen) {
           violations.add(RuleViolation(
-            type: RuleViolationType.sequenceInterleaved,
-            message: 'Loop Block at position $i starts while an If Block sequence is still active',
-            severity: Severity.warning,
+            type: RuleViolationType.ifSequenceInvalidBlock,
+            message: 'If Block at position ${stack.last.startIndex} already has a Then Block',
+            severity: Severity.error,
             blockIndex: i,
-            affectedBlockIndices: [i],
           ));
+        } else {
+          // Check if If is followed by Input before Then
+          bool foundInput = false;
+          for (int j = stack.last.startIndex + 1; j < i; j++) {
+            if (blocks[j].blockType == BlockType.buttonPress) {
+              foundInput = true;
+              break;
+            }
+          }
+          if (!foundInput) {
+            violations.add(RuleViolation(
+              type: RuleViolationType.ifSequenceInvalidBlock,
+              message: 'If Block at position ${stack.last.startIndex} must be followed by an Input Block before the Then Block',
+              severity: Severity.error,
+              blockIndex: stack.last.startIndex,
+            ));
+          }
+          stack.last.hasThen = true;
         }
-        inLoopSequence = true;
-      } else if (blockType == BlockType.endLoopBlock) {
-        inLoopSequence = false;
+      } else if (type == BlockType.endIfBlock) {
+        if (stack.isEmpty || stack.last.type != BlockType.ifBlock) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.unmatchedEnd,
+            message: 'End If Block at position $i has no matching If Block',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else {
+          final frame = stack.removeLast();
+          if (!frame.hasThen) {
+            violations.add(RuleViolation(
+              type: RuleViolationType.ifSequenceIncomplete,
+              message: 'If Block at position ${frame.startIndex} is missing a Then Block',
+              severity: Severity.error,
+              blockIndex: frame.startIndex,
+            ));
+          }
+          if (!frame.hasContent(i)) {
+            violations.add(RuleViolation(
+              type: RuleViolationType.emptySequence,
+              message: 'If Block sequence starting at ${frame.startIndex} has no executable content',
+              severity: Severity.warning,
+              blockIndex: frame.startIndex,
+            ));
+          }
+        }
+      } else if (type == BlockType.endLoopBlock) {
+        if (stack.isEmpty || stack.last.type != BlockType.loopBlock) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.unmatchedEnd,
+            message: 'End Loop Block at position $i has no matching Loop Block',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else {
+          final frame = stack.removeLast();
+          if (!frame.hasContent(i)) {
+            violations.add(RuleViolation(
+              type: RuleViolationType.emptySequence,
+              message: 'Loop Block sequence starting at ${frame.startIndex} has no executable content',
+              severity: Severity.warning,
+              blockIndex: frame.startIndex,
+            ));
+          }
+        }
+      } else if (type?.isOutput ?? false || type == BlockType.delayBlock) {
+        for (var frame in stack) {
+          frame.contentCount++;
+        }
       }
+    }
+
+    // Check for unclosed sequences
+    while (stack.isNotEmpty) {
+      final frame = stack.removeLast();
+      violations.add(RuleViolation(
+        type: (frame.type == BlockType.ifBlock) 
+            ? RuleViolationType.ifSequenceIncomplete 
+            : RuleViolationType.loopSequenceIncomplete,
+        message: '${frame.type == BlockType.ifBlock ? "If" : "Loop"} Block at position ${frame.startIndex} is not properly terminated',
+        severity: Severity.error,
+        blockIndex: frame.startIndex,
+      ));
     }
 
     return violations;
@@ -325,12 +206,20 @@ class ConfigurationRules {
     // Check Brain Block rule
     violations.addAll(checkBrainBlockRule(config));
 
-    // Always validate sequences too, so users can see all placement issues
-    // in a single pass (Brain Block plus If/Loop/ordering problems).
-    violations.addAll(checkIfBlockSequences(config));
-    violations.addAll(checkLoopBlockSequences(config));
-    violations.addAll(checkSequenceIsolation(config));
+    // Validate nesting (IF/LOOP) and structural integrity
+    violations.addAll(checkNestingRule(config));
 
     return violations;
   }
+}
+
+class _NestingFrame {
+  final BlockType type;
+  final int startIndex;
+  bool hasThen = false;
+  int contentCount = 0;
+
+  _NestingFrame({required this.type, required this.startIndex});
+
+  bool hasContent(int endIndex) => contentCount > 0;
 }

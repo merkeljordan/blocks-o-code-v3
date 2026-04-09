@@ -1,0 +1,29 @@
+gcc : ..\..\firmware_blocks
+\brain_block\main\brain_eve
+nt_handler.c: In function 
+'wait_for_status_busy':
+At line:1 char:1
++ gcc -g -O0 -DMOCK_NOW_MS 
+-Iinclude -I. -I..\..\firmw
+are_blocks\brain_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: (..\  
+  ..\firmware_...r_statu   
+ s_busy'::String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+..\..\firmware_blocks\brain
+_block\main\brain_event_han
+dler.c:104:22: warning: 
+implicit declaration of 
+function 'now_ms' [-Wimplic
+it-function-declaration]
+  104 |     uint64_t start 
+= now_ms();
+      |                    
+  ^~~~~~
