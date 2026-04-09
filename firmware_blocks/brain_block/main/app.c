@@ -56,7 +56,7 @@ Enhancement:
 #define WIFI_PASS       "blocksocode"       // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening server) */
-#define SERVER_IP       "172.20.10.3" // <-- Set your server's IP address here (ipconfig)
+#define SERVER_IP       "172.20.10.4" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT     41233
 
 /* reconnect / timing settings */

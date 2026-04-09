@@ -19,6 +19,7 @@ void matrix_set_brightness(uint8_t brightness);
 uint8_t matrix_get_brightness(void);
 
 void led_matrix_set_status_mirror(bool enabled);
+void led_matrix_set_lock(bool locked);
 
 #ifdef __cplusplus
 }

@@ -112,10 +112,16 @@ static esp_err_t i2c_send_payload(uint8_t address, const uint8_t *data, size_t l
     i2c_master_write(cmd, data, len, true);
     i2c_master_stop(cmd);
 
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, timeout_ticks);
-    if (ret == ESP_ERR_TIMEOUT) {
-        // This is a bus timeout (not the mutex timeout), since we already acquired the lock.
-        (void)i2c_bus_recover_locked();
+    esp_err_t ret = ESP_FAIL;
+    for (int retry = 0; retry < 3; retry++) {
+        ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, timeout_ticks);
+        if (ret == ESP_OK) {
+            break;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            (void)i2c_bus_recover_locked();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
     i2c_cmd_link_delete(cmd);
     i2c_unlock();
@@ -230,17 +236,26 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
     // latch the register on the write phase and reply on the read phase see a
     // consistent sequence. Split write/read with STOP between often leaves
     // REG_LOOP_COUNT and similar reads stuck at power-on defaults (loop count 1).
-    esp_err_t ret = i2c_master_write_read_device(
-        I2C_PORT_NUM,
-        addr,
-        &reg,
-        1U,
-        out,
-        len,
-        pdMS_TO_TICKS(50));
-    if (ret == ESP_ERR_TIMEOUT) {
-        (void)i2c_bus_recover_locked();
+    esp_err_t ret = ESP_FAIL;
+    for (int retry = 0; retry < 3; retry++) {
+        ret = i2c_master_write_read_device(
+            I2C_PORT_NUM,
+            addr,
+            &reg,
+            1U,
+            out,
+            len,
+            pdMS_TO_TICKS(50));
+        
+        if (ret == ESP_OK) {
+            break;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            (void)i2c_bus_recover_locked();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
+
     i2c_unlock();
     return ret;
 }
@@ -462,22 +477,32 @@ static esp_err_t i2c_send_cmd(uint8_t address, uint8_t cmd_byte) {
     }
 
     uint8_t data[1] = {cmd_byte};
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    if (cmd == NULL) {
-        i2c_unlock();
-        return ESP_ERR_NO_MEM;
+    esp_err_t ret = ESP_FAIL;
+
+    for (int retry = 0; retry < 3; retry++) {
+        i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+        if (cmd == NULL) {
+            ret = ESP_ERR_NO_MEM;
+            break;
+        }
+
+        i2c_master_start(cmd);
+        i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
+        i2c_master_write(cmd, data, 1, true);
+        i2c_master_stop(cmd);
+
+        ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
+        i2c_cmd_link_delete(cmd);
+
+        if (ret == ESP_OK) {
+            break;
+        }
+        if (ret == ESP_ERR_TIMEOUT) {
+            (void)i2c_bus_recover_locked();
+        }
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, (address << 1) | I2C_MASTER_WRITE, true);
-    i2c_master_write(cmd, data, 1, true);
-    i2c_master_stop(cmd);
-
-    esp_err_t ret = i2c_master_cmd_begin(I2C_PORT_NUM, cmd, pdMS_TO_TICKS(100));
-    if (ret == ESP_ERR_TIMEOUT) {
-        (void)i2c_bus_recover_locked();
-    }
-    i2c_cmd_link_delete(cmd);
     i2c_unlock();
     return ret;
 }

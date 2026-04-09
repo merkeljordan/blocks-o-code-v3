@@ -63,16 +63,17 @@ static const status_strip_config_t kBrainStatusStripConfig = {
     .led_count = BRAIN_STATUS_STRIP_LED_COUNT,
 };
 
-static bool executor_state_is_active(brain_executor_state_t state);
 static uint8_t brain_led_idle_brightness(void);
 static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness);
-static int brain_led_runtime_highlight_index(const brain_runtime_snapshot_t *runtime,
-                                             const block_config_state_t *cfg);
 static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runtime);
+#if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START
+static bool executor_state_is_active(brain_executor_state_t state);
+#endif
 
 // ============================================================================
 // REGISTRY SCAN TASK - Scans every 1 second and prints results
 // ============================================================================
+#if ENABLE_DEBUG_REGISTRY_SCAN_TASK
 static void registry_scan_task(void *arg) {
     while (1) {
         device_registry_scan();
@@ -80,6 +81,7 @@ static void registry_scan_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
+#endif
 
 // Poll child blocks for DATA_READY and forward block-originated events.
 static void block_event_poll_task(void *arg) {
@@ -163,6 +165,7 @@ static void block_event_poll_task(void *arg) {
 // ============================================================================
 // BLOCK CONFIG SCAN TASK - Keeps scans running even when app/TCP is disconnected
 // ============================================================================
+#if ENABLE_BACKGROUND_BLOCK_SCAN_TASK
 static void block_scan_task(void *arg) {
     (void)arg;
     // start_network_client() initializes block_config_manager before this task is created,
@@ -177,7 +180,9 @@ static void block_scan_task(void *arg) {
         vTaskDelay(pdMS_TO_TICKS(BACKGROUND_BLOCK_SCAN_INTERVAL_MS));
     }
 }
+#endif
 
+#if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START
 static bool config_has_block_type(const block_config_state_t *cfg, block_type_t type)
 {
     if (cfg == NULL) {
@@ -191,6 +196,7 @@ static bool config_has_block_type(const block_config_state_t *cfg, block_type_t 
     }
     return false;
 }
+#endif
 
 static uint8_t brain_led_idle_brightness(void)
 {
@@ -233,27 +239,6 @@ static led_rgb_t scale_led_color(led_rgb_t color, uint8_t brightness)
         .g = (uint8_t)(((uint16_t)color.g * brightness) / 255U),
         .b = (uint8_t)(((uint16_t)color.b * brightness) / 255U),
     };
-}
-
-static int brain_led_runtime_highlight_index(const brain_runtime_snapshot_t *runtime,
-                                             const block_config_state_t *cfg)
-{
-    if (runtime == NULL || cfg == NULL || cfg->block_count == 0) {
-        return -1;
-    }
-
-    if (runtime->pc == BRAIN_RUNTIME_PC_NONE) {
-        return (runtime->state == BRAIN_RUNTIME_RUNNING ||
-                runtime->state == BRAIN_RUNTIME_STEP)
-                   ? 0
-                   : -1;
-    }
-
-    if (runtime->pc >= cfg->block_count) {
-        return (int)(cfg->block_count - 1);
-    }
-
-    return (int)runtime->pc;
 }
 
 static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
@@ -374,8 +359,15 @@ static void brain_led_refresh_local_strip(const block_config_state_t *cfg,
 
 static void brain_led_refresh_local_matrix(const brain_runtime_snapshot_t *runtime)
 {
-    (void)runtime; // Matrix is always solid red regardless of executor state
-    matrix_fill(255, 0, 0);
+    brain_runtime_broadcast_state_t state = (runtime != NULL) ? runtime->state : BRAIN_RUNTIME_IDLE;
+    uint8_t step_type = (runtime != NULL) ? (uint8_t)runtime->step_type : (uint8_t)BLOCK_TYPE_UNKNOWN;
+
+    // Use shared logic from status_strip to ensure Brain matrix matches identity or status
+    led_contract_rgb_t color = status_strip_runtime_color(state, BLOCK_TYPE_BRAIN, step_type);
+    uint8_t brightness = status_strip_runtime_brightness(state);
+
+    matrix_set_brightness(brightness);
+    matrix_fill(color.r, color.g, color.b);
     matrix_show();
 }
 
@@ -383,18 +375,52 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
                                            const brain_executor_context_t *ctx)
 {
     (void)cfg;
-    (void)ctx;
-    // Child-facing runtime parity is now driven by brain_event_handler.c via
-    // CMD_RUNTIME_BROADCAST. Keep the local Brain strip renderer here, but
-    // avoid maintaining a second child mirroring path from main.c.
+    if (ctx == NULL) {
+        return;
+    }
+
+    // Periodically re-broadcast terminal states (DONE, ERROR, STOP) to keep child
+    // block visuals in sync if they missed the initial broadcast or were reset by pings.
+    static uint32_t s_last_broadcast_ms = 0;
+    static brain_executor_state_t s_last_state = EXECUTOR_IDLE;
+    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+
+    bool is_terminal = (ctx->state == EXECUTOR_DONE ||
+                        ctx->state == EXECUTOR_STOPPED ||
+                        ctx->state == EXECUTOR_ERROR);
+
+    bool state_just_became_terminal = (is_terminal && !((s_last_state == EXECUTOR_DONE ||
+                                                          s_last_state == EXECUTOR_STOPPED ||
+                                                          s_last_state == EXECUTOR_ERROR)));
+    s_last_state = ctx->state;
+
+    if (is_terminal && (state_just_became_terminal || (now - s_last_broadcast_ms >= 500))) {
+        s_last_broadcast_ms = now;
+        brain_runtime_broadcast_state_t broadcast_state = BRAIN_RUNTIME_DONE;
+        if (ctx->state == EXECUTOR_STOPPED) broadcast_state = BRAIN_RUNTIME_STOP;
+        if (ctx->state == EXECUTOR_ERROR) broadcast_state = BRAIN_RUNTIME_ERROR;
+
+        ESP_LOGD(TAG, "Periodic terminal state broadcast: %d", (int)broadcast_state);
+        // Step through all present blocks to broadcast terminal state.
+        // Child blocks show their full-matrix status color when pc is BRAIN_RUNTIME_PC_NONE.
+        if (cfg != NULL) {
+            for (int i = 0; i < cfg->block_count; i++) {
+                if (cfg->blocks[i].present) {
+                    (void)i2c_runtime_broadcast(cfg->blocks[i].i2c_address, broadcast_state, BRAIN_RUNTIME_PC_NONE, BLOCK_TYPE_UNKNOWN);
+                }
+            }
+        }
+    }
 }
 
+#if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START
 static bool executor_state_is_active(brain_executor_state_t state)
 {
     return (state == EXECUTOR_RUNNING ||
             state == EXECUTOR_WAIT_DELAY ||
             state == EXECUTOR_WAIT_INPUT);
 }
+#endif
 
 static void brain_executor_task(void *arg)
 {
@@ -409,7 +435,9 @@ static void brain_executor_task(void *arg)
 #endif
 
     uint64_t last_scan_ts = 0;
+#if ENABLE_BRAIN_EXECUTOR_DEMO_AUTO_START
     bool demo_auto_started_once = false;
+#endif
 
     while (1) {
         const block_config_state_t *cfg = block_config_manager_get_state();
@@ -428,7 +456,7 @@ static void brain_executor_task(void *arg)
             config_has_block_type(cfg, BLOCK_TYPE_MUSIC_SEQ) &&
             ctx != NULL &&
             !executor_state_is_active(ctx->state) &&
-            (ctx->state == EXECUTOR_IDLE || ctx->state == EXECUTOR_DONE || ctx->state == EXECUTOR_STOPPED)) {
+            (ctx->state == EXECUTOR_IDLE || ctx->state == EXECUTOR_DONE || ctx->state == EXECUTOR_STOPPED || ctx->state == EXECUTOR_ERROR)) {
             esp_err_t err = brain_executor_start();
             if (err == ESP_OK) {
                 demo_auto_started_once = true;
@@ -448,6 +476,28 @@ static void brain_executor_task(void *arg)
         brain_led_refresh_local_strip(cfg, runtime);
         brain_led_refresh_local_matrix(runtime);
         brain_led_refresh_child_blocks(cfg, ctx);
+
+        // --- Periodic Heartbeat Log (Clean Summary) ---
+        static uint32_t s_last_heartbeat_ms = 0;
+        uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+        if (now - s_last_heartbeat_ms >= 2000) {
+            s_last_heartbeat_ms = now;
+            int block_count = (cfg != NULL) ? cfg->block_count : 0;
+            const char *state_str = "UNKNOWN";
+            if (ctx != NULL) {
+                switch(ctx->state) {
+                    case EXECUTOR_IDLE:    state_str = "IDLE"; break;
+                    case EXECUTOR_RUNNING: state_str = "RUNNING"; break;
+                    case EXECUTOR_DONE:    state_str = "DONE"; break;
+                    case EXECUTOR_ERROR:   state_str = "ERROR"; break;
+                    case EXECUTOR_STOPPED: state_str = "STOPPED"; break;
+                    default:               state_str = "WAITING"; break;
+                }
+            }
+            ESP_LOGI("BRAIN_STATE", "HEARTBEAT: [Chain: %d blocks] [Executor: %s @ PC %d]", 
+                     block_count, state_str, (ctx != NULL ? ctx->pc : 0));
+        }
+
         vTaskDelay(pdMS_TO_TICKS(BRAIN_EXECUTOR_TICK_INTERVAL_MS));
     }
 }

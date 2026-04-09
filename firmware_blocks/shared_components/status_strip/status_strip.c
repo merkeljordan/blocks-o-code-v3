@@ -72,10 +72,10 @@ uint8_t status_strip_runtime_brightness(brain_runtime_broadcast_state_t state)
         case BRAIN_RUNTIME_STEP:
             return 96U;
         case BRAIN_RUNTIME_DONE:
-            return 80U;
+            return 255U;
         case BRAIN_RUNTIME_ERROR:
         case BRAIN_RUNTIME_STOP:
-            return 96U;
+            return 255U;
         default:
             return 64U;
     }
@@ -158,10 +158,18 @@ esp_err_t status_strip_render_runtime_visuals(const char *tag,
 {
     led_contract_rgb_t color = status_strip_runtime_color(state, block_type, step_type);
     uint8_t brightness = status_strip_runtime_brightness(state);
+    bool is_terminal = (state == BRAIN_RUNTIME_DONE ||
+                        state == BRAIN_RUNTIME_ERROR ||
+                        state == BRAIN_RUNTIME_STOP);
 
+    led_matrix_set_lock(false); // Unlock to allow our own update
     matrix_set_brightness(brightness);
     matrix_fill(color.r, color.g, color.b);
     matrix_show();
+
+    if (is_terminal) {
+        led_matrix_set_lock(true); // Lock for terminal states
+    }
 
     if (cfg != NULL && status_strip_ensure_ready(cfg) == ESP_OK) {
         status_strip_fill(color.r, color.g, color.b);

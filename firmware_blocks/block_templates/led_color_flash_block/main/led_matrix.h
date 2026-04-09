@@ -48,6 +48,7 @@
   uint8_t  matrix_get_brightness(void);
   uint16_t matrix_get_size(void);
   void     led_matrix_set_status_mirror(bool enabled);
+  void     led_matrix_set_lock(bool locked);
  
  /* Return the human-readable name for a pattern ID (e.g. "Color Wipe").
   * Used by the TFT UI status label and ESP_LOG messages. */

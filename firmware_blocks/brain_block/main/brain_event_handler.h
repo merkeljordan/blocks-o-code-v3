@@ -25,7 +25,8 @@ typedef enum {
     /** DELAY: pc stays on the delay opcode until wait_until_ms. */
     EXECUTOR_WAIT_DELAY,
     EXECUTOR_STOPPED,
-    EXECUTOR_DONE
+    EXECUTOR_DONE,
+    EXECUTOR_ERROR
 } brain_executor_state_t;
 
 typedef struct {
@@ -81,6 +82,7 @@ void brain_executor_set_button_state(bool is_pressed);
 esp_err_t brain_executor_start(void);
 void brain_executor_stop(void);
 void brain_executor_tick(void);
+void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block_type_t step_type);
 
 /** True while the executor is actively running a program (including DELAY / BUTTON wait). Background I²C (config scan, event poll) should use longer intervals to reduce bus contention with dispatch. */
 bool brain_executor_prefers_i2c_yield(void);

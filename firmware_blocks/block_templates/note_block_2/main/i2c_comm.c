@@ -194,7 +194,7 @@ void i2c_task(void *arg)
             continue;
         }
 
-        ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
+        ESP_LOGD(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
 
         if (len >= 2 && ((i2c_command_t)rx_buf[0]) == CMD_SET_I2C_ADDRESS) {
             esp_err_t err = rebind_i2c_slave_address(rx_buf[1]);
@@ -214,7 +214,7 @@ void i2c_task(void *arg)
 
             (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
 
-            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
+            ESP_LOGD(TAG, "Register 0x%02X -> 0x%02X", reg, value);
             continue;
         }
 

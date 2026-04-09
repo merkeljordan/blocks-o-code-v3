@@ -23,6 +23,7 @@ static matrix_rgb_t matrix_pixels[LED_MATRIX_SIZE];
 
 #ifdef LED_MATRIX_HAS_STATUS_STRIP
 static bool status_mirror_enabled = false;
+static bool s_matrix_locked = false;
 #endif
 
 static uint8_t scale_channel(uint8_t channel)
@@ -99,6 +100,11 @@ void led_matrix_startup_animation(void)
 
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b)
 {
+#ifdef LED_MATRIX_HAS_STATUS_STRIP
+    if (s_matrix_locked) {
+        return;
+    }
+#endif
     uint8_t sr = scale_channel(r);
     uint8_t sg = scale_channel(g);
     uint8_t sb = scale_channel(b);
@@ -157,5 +163,14 @@ void led_matrix_set_status_mirror(bool enabled)
     }
 #else
     (void)enabled;
+#endif
+}
+
+void led_matrix_set_lock(bool locked)
+{
+#ifdef LED_MATRIX_HAS_STATUS_STRIP
+    s_matrix_locked = locked;
+#else
+    (void)locked;
 #endif
 }

@@ -74,7 +74,13 @@ static portMUX_TYPE s_pending_event_spinlock = portMUX_INITIALIZER_UNLOCKED;
 // ============================================================================
 // ASYNCHRONOUS NOTE PLAYBACK
 // ============================================================================
+typedef enum {
+    PLAYBACK_SINGLE,
+    PLAYBACK_SEQUENCE
+} playback_type_t;
+
 typedef struct {
+    playback_type_t type;
     uint8_t note_id;
 } playback_cmd_t;
 
@@ -134,7 +140,22 @@ static void note_playback_task(void *arg)
         if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
             bool has_pending_event = false;
             peripherals_show_running();
-            play_note(cmd.note_id);
+
+            if (cmd.type == PLAYBACK_SINGLE) {
+                play_note(cmd.note_id, true);
+            } else {
+                // PLAYBACK_SEQUENCE: use current s_config.
+                if (s_config.is_custom_sequence && s_config.seq_len > 0) {
+                    for (uint8_t i = 0; i < s_config.seq_len; i++) {
+                        // Restore idle color only after the LAST note has finished.
+                        bool is_last = (i == s_config.seq_len - 1);
+                        play_note(s_config.seq[i], is_last);
+                    }
+                } else {
+                    play_note(s_config.note_id, true);
+                }
+            }
+
             portENTER_CRITICAL(&s_pending_event_spinlock);
             has_pending_event = s_pending_event_valid;
             portEXIT_CRITICAL(&s_pending_event_spinlock);
@@ -244,7 +265,7 @@ static void restore_idle_color(void)
 // ============================================================================
 // NOTE EXECUTION
 // ============================================================================
-static void play_note(uint8_t note_id)
+static void play_note(uint8_t note_id, bool restore_idle)
 {
     // note_id 0–6 maps to A–G per project convention.
     static const uint32_t k_note_freqs_hz[] = {
@@ -260,7 +281,9 @@ static void play_note(uint8_t note_id)
     uint32_t freq = k_note_freqs_hz[note_id < count ? note_id : 0U];
     show_note_color(note_id);
     (void)speaker_play_note_tone(freq, 400U);
-    restore_idle_color();
+    if (restore_idle) {
+        restore_idle_color();
+    }
 }
 
 void note_block_preview_note(uint8_t note_id)
@@ -375,7 +398,10 @@ void command_handle(i2c_command_t cmd,
     case CMD_PLAY_NOTE:
         if (rx && rx_len >= 1) {
             if (s_playback_queue != NULL) {
-                playback_cmd_t cmd_play = { .note_id = rx[0] };
+                playback_cmd_t cmd_play = {
+                    .type = PLAYBACK_SINGLE,
+                    .note_id = rx[0]
+                };
                 if (xQueueSendToBack(s_playback_queue, &cmd_play, 0) == pdPASS) {
                     set_status_flags(STATUS_BUSY);
                 } else {
@@ -443,16 +469,17 @@ void command_handle(i2c_command_t cmd,
             set_status_flags(STATUS_ERROR);
             break;
         }
-        set_status_flags(STATUS_BUSY);
-        peripherals_show_running();
-        if (s_config.is_custom_sequence && s_config.seq_len > 0) {
-            for (uint8_t i = 0; i < s_config.seq_len; i++) {
-                play_note(s_config.seq[i]);
+
+        if (s_playback_queue != NULL) {
+            playback_cmd_t cmd_exec = { .type = PLAYBACK_SEQUENCE };
+            if (xQueueSendToBack(s_playback_queue, &cmd_exec, 0) == pdPASS) {
+                set_status_flags(STATUS_BUSY);
+            } else {
+                set_status_flags(STATUS_ERROR);
             }
         } else {
-            play_note(s_config.note_id);
+            set_status_flags(STATUS_ERROR);
         }
-        set_status_flags(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
         break;
 
     case CMD_RESET:

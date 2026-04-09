@@ -20,6 +20,7 @@ static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;
 static matrix_rgb_t matrix_pixels[LED_MATRIX_SIZE];
 static bool status_mirror_enabled = false;
+static bool s_matrix_locked = false;
 
 static void render_status_strip_mirror(void)
 {
@@ -96,6 +97,9 @@ void led_matrix_startup_animation(void) {
 // MATRIX FILL
 // ============================================================================
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
+    if (s_matrix_locked) {
+        return;
+    }
     uint8_t sr = (r * matrix_brightness) / 255;
     uint8_t sg = (g * matrix_brightness) / 255;
     uint8_t sb = (b * matrix_brightness) / 255;
@@ -136,4 +140,8 @@ void led_matrix_set_status_mirror(bool enabled) {
     if (enabled) {
         render_status_strip_mirror();
     }
+}
+
+void led_matrix_set_lock(bool locked) {
+    s_matrix_locked = locked;
 }

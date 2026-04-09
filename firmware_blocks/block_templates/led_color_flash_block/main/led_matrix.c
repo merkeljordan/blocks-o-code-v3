@@ -58,6 +58,7 @@ static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
 static rgb_t matrix_pixels[LED_MATRIX_SIZE];
 static bool status_mirror_enabled = false;
+static bool s_matrix_locked = false;
 
 static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
 static void fill_scaled(uint8_t r, uint8_t g, uint8_t b);
@@ -540,9 +541,14 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
   *  directly for raw I2C commands (CMD_MATRIX_FILL, CMD_MATRIX_CLEAR,
   *  CMD_MATRIX_BRIGHTNESS, CMD_MATRIX_SHOW).                           */
  
+ 
+
  void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
-     fill_scaled(r, g, b);
- }
+    if (s_matrix_locked) {
+        return;
+    }
+    fill_scaled(r, g, b);
+}
  
  void matrix_set_pixel(uint16_t idx, uint8_t r, uint8_t g, uint8_t b) {
      set_pixel_scaled(idx, r, g, b);
@@ -571,7 +577,7 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
  }
 
  void led_matrix_set_status_mirror(bool enabled) {
-     status_mirror_enabled = enabled;
+    status_mirror_enabled = enabled;
      if (!enabled) {
          return;
      }
@@ -579,6 +585,10 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
      // on the status strip instead of waiting for the next animation tick.
      render_status_strip_mirror();
  }
+
+void led_matrix_set_lock(bool locked) {
+    s_matrix_locked = locked;
+}
  
  /** Return human-readable pattern name for TFT / log display. */
  const char *led_pattern_name(uint8_t pattern_id) {

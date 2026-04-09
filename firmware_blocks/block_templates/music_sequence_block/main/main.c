@@ -75,6 +75,16 @@ static bool g_leds_ready = false;
 static uint8_t g_status_flags = STATUS_READY;
 static TaskHandle_t g_exec_task_handle = NULL;
 static TaskHandle_t g_i2c_task_handle = NULL;
+static QueueHandle_t g_playback_queue = NULL;
+
+typedef enum {
+    PLAYBACK_CMD_SONG
+} playback_cmd_type_t;
+
+typedef struct {
+    playback_cmd_type_t type;
+    uint8_t id; // song_id
+} playback_request_t;
 
 static void render_status_strip(uint8_t status_flags)
 {
@@ -225,42 +235,9 @@ static void peripherals_error_feedback(void)
 
 static void handle_play_note(const uint8_t *rx, size_t rx_len)
 {
-    static const uint32_t k_note_freq_hz[7] = {
-        220U, /* A */
-        247U, /* B */
-        262U, /* C */
-        294U, /* D */
-        330U, /* E */
-        349U, /* F */
-        392U, /* G */
-    };
-
-    uint8_t note_id;
-    esp_err_t err;
-
-    if (!g_speaker_ready || rx == NULL || rx_len < 1U) {
-        return;
-    }
-
-    note_id = rx[0];
-    if (note_id >= 7U) {
-        note_id = 0U;
-    }
-
-    set_status_flags(STATUS_BUSY);
-
-    if (g_leds_ready) {
-        music_leds_show_note_color(note_id, 0U);
-    }
-    err = speaker_play_tone(k_note_freq_hz[note_id], 400U);
-    if (g_leds_ready) {
-        music_leds_show_idle();
-    }
-
-    clear_busy_and_refresh_ready_state();
-    if (err != ESP_OK) {
-        set_status_flags(STATUS_ERROR);
-    }
+    // Music Sequence block only plays songs, not individual tones.
+    (void)rx;
+    (void)rx_len;
 }
 
 void command_handle(i2c_command_t cmd,
@@ -336,40 +313,24 @@ void command_handle(i2c_command_t cmd,
                 break;
             }
 
-            ESP_LOGI(TAG, "CMD_EXECUTE: playing song %u", (unsigned)g_selected_song);
-
-            set_status_flags(STATUS_BUSY);
-
-            tft_ui_set_playback_state(&(music_playback_state_t) {
-                .is_playing = true,
-                .active_song_index = g_selected_song,
-            });
-            tft_ui_set_status_message("Brain executing selected song...");
-
-            {
-                if (g_leds_ready) {
-                    music_leds_start_song_pattern(g_selected_song);
-                }
-                esp_err_t err = speaker_play_song(g_selected_song);
-
-                if (g_leds_ready) {
-                    music_leds_stop_song_pattern();
-                }
-                tft_ui_set_playback_state(&(music_playback_state_t) {
-                    .is_playing = false,
-                    .active_song_index = g_selected_song,
-                });
-
-                clear_busy_and_refresh_ready_state();
-                if (err != ESP_OK) {
-                    set_status_flags(STATUS_ERROR);
-                    tft_ui_set_status_message("Playback error.");
-                    ESP_LOGE(TAG,
-                             "CMD_EXECUTE: speaker_play_song failed err=%d",
-                             (int)err);
+            if (g_playback_queue != NULL) {
+                playback_request_t req = {
+                    .type = PLAYBACK_CMD_SONG,
+                    .id = g_selected_song
+                };
+                if (xQueueSend(g_playback_queue, &req, 0) == pdPASS) {
+                    set_status_flags(STATUS_BUSY);
+                    tft_ui_set_playback_state(&(music_playback_state_t) {
+                        .is_playing = true,
+                        .active_song_index = g_selected_song,
+                    });
+                    tft_ui_set_status_message("Brain executing selected song...");
                 } else {
-                    tft_ui_set_status_message("Playback complete. Ready.");
+                    set_status_flags(STATUS_ERROR);
+                    tft_ui_set_status_message("Queue full, try again.");
                 }
+            } else {
+                set_status_flags(STATUS_ERROR);
             }
             break;
 
@@ -391,6 +352,44 @@ void command_handle(i2c_command_t cmd,
             (void)rx;
             (void)rx_len;
             break;
+    }
+}
+
+static void playback_task(void *arg)
+{
+    playback_request_t req;
+
+    ESP_LOGI(TAG, "playback_task started");
+
+    while (1) {
+        if (xQueueReceive(g_playback_queue, &req, portMAX_DELAY) == pdTRUE) {
+            esp_err_t err = ESP_OK;
+
+            if (req.type == PLAYBACK_CMD_SONG) {
+                ESP_LOGI(TAG, "Playback task: playing song %u", (unsigned)req.id);
+                if (g_leds_ready) {
+                    music_leds_start_song_pattern(req.id);
+                }
+                err = speaker_play_song(req.id);
+                if (g_leds_ready) {
+                    music_leds_stop_song_pattern();
+                }
+                tft_ui_set_playback_state(&(music_playback_state_t) {
+                    .is_playing = false,
+                    .active_song_index = req.id,
+                });
+                if (err == ESP_OK) {
+                    tft_ui_set_status_message("Playback complete. Ready.");
+                } else {
+                    tft_ui_set_status_message("Playback error.");
+                }
+            }
+
+            clear_busy_and_refresh_ready_state();
+            if (err != ESP_OK) {
+                set_status_flags(STATUS_ERROR);
+            }
+        }
     }
 }
 
@@ -475,9 +474,18 @@ void app_main(void)
         return;
     }
 
+    g_playback_queue = xQueueCreate(8, sizeof(playback_request_t));
+    if (g_playback_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create playback queue");
+        return;
+    }
+
     ok_exec = xTaskCreatePinnedToCore(execution_task, "music_exec",
                                       EXEC_TASK_STACK_SIZE, NULL, 4,
                                       &g_exec_task_handle, EXEC_CORE_ID);
+    (void)xTaskCreatePinnedToCore(playback_task, "music_pb",
+                                  EXEC_TASK_STACK_SIZE, NULL, 4,
+                                  NULL, EXEC_CORE_ID);
     ok_i2c = xTaskCreatePinnedToCore(i2c_task, "music_i2c",
                                      I2C_TASK_STACK_SIZE, NULL, 5,
                                      &g_i2c_task_handle, I2C_CORE_ID);

@@ -99,13 +99,13 @@ uint64_t now_ms(void) {
 
 static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_t *out_elapsed_ms, uint8_t *out_status)
 {
-    uint64_t start = now_ms();
+    uint32_t start = (uint32_t)now_ms();
     uint8_t status = 0;
-    esp_err_t last_err = ESP_FAIL;
+    uint32_t error_count = 0;
 
-    while ((now_ms() - start) <= timeout_ms) {
-        last_err = i2c_read_reg(addr, REG_STATUS, &status, 1);
-        if (last_err == ESP_OK) {
+    while (now_ms() < start + timeout_ms) {
+        if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
+            error_count = 0;
             if ((status & STATUS_BUSY) != 0U) {
                 if (out_elapsed_ms != NULL) {
                     *out_elapsed_ms = (uint32_t)(now_ms() - start);
@@ -114,6 +114,12 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
                     *out_status = status;
                 }
                 return ESP_OK;
+            }
+        } else {
+            error_count++;
+            if (error_count > 10) {
+                ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): persistent I2C errors", addr);
+                return ESP_FAIL;
             }
         }
         vTaskDelay(pdMS_TO_TICKS(1));
@@ -125,7 +131,62 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     if (out_status != NULL) {
         *out_status = status;
     }
-    return last_err;
+    return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t wait_for_status_idle(uint8_t addr,
+                                      uint32_t timeout_ms,
+                                      uint32_t *out_elapsed_ms,
+                                      uint8_t *out_status)
+{
+    uint32_t start = (uint32_t)now_ms();
+    uint8_t status = 0;
+    uint32_t error_count = 0;
+
+    while (now_ms() < start + timeout_ms) {
+        // If we can't read the status (e.g. slave is blocking bus), we treat it as BUSY.
+        // We only return ESP_OK if we explicitly read a status byte that has STATUS_BUSY cleared.
+        if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
+            error_count = 0;
+            if ((status & STATUS_BUSY) == 0U) {
+                if (out_elapsed_ms != NULL) {
+                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                }
+                if (out_status != NULL) {
+                    *out_status = status;
+                }
+                return ESP_OK;
+            }
+        } else {
+            error_count++;
+            if (error_count > 50) { // More lenient for idle polling
+                ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): persistent I2C errors (status=0x%02X)", addr, status);
+                return ESP_FAIL;
+            }
+        }
+        if (s_executor_ctx.stop_requested) {
+            ESP_LOGW(TAG, "wait_for_status_idle(0x%02X): stop requested, aborting wait", addr);
+            return ESP_ERR_TIMEOUT;
+        }
+        // Yield more during long playback so other tasks continue.
+        vTaskDelay(pdMS_TO_TICKS(10));
+        
+        static uint64_t last_log = 0;
+        if ((now_ms() - start) > 2000 && (now_ms() - last_log) > 1000) {
+            ESP_LOGI(TAG, "wait_for_status_idle(0x%02X): still waiting, elapsed=%llu ms, last_status=0x%02X",
+                     addr, (now_ms() - start), status);
+            last_log = now_ms();
+        }
+    }
+    ESP_LOGW(TAG, "wait_for_status_idle(0x%02X): TIMEOUT after %lu ms", addr, (unsigned long)timeout_ms);
+
+    if (out_elapsed_ms != NULL) {
+        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+    }
+    if (out_status != NULL) {
+        *out_status = status;
+    }
+    return ESP_ERR_TIMEOUT;
 }
 
 // Matches `main` branch: NOTE steps use CMD_EXECUTE on each NOTE child (plays its SUBMIT'd sequence
@@ -632,7 +693,7 @@ static block_type_t executor_broadcast_step_type(void)
     return s_executor_ctx.program[pc];
 }
 
-static void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block_type_t step_type)
+void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block_type_t step_type)
 {
     block_config_state_t config_snapshot;
     uint8_t pc = executor_broadcast_pc();
@@ -919,26 +980,36 @@ static void dispatch_output_action(uint8_t pc, block_type_t step_type)
                 ESP_LOGW(TAG, "LED_FLASH set color failed addr=0x%02X (ret=%d)", addr, (int)set_ret);
             }
             esp_err_t exec_ret = i2c_execute(addr);
-            ESP_LOGI(TAG,
+            ESP_LOGD(TAG,
                      "SEQUENTIAL LED step pc=%u addr=0x%02X color=%u exec_ret=%d",
                      (unsigned)pc,
                      addr,
                      (unsigned)color_id,
                      (int)exec_ret);
+
+            uint32_t wait_ms = 0;
+            uint8_t status = 0;
+            (void)wait_for_status_busy(addr, 200U, &wait_ms, &status);
+            (void)wait_for_status_idle(addr, 10000U, &wait_ms, &status);
             break;
         }
         case BLOCK_TYPE_NOTE: {
             esp_err_t exec_ret = i2c_execute(addr);
-            ESP_LOGI(TAG,
+            ESP_LOGD(TAG,
                      "SEQUENTIAL NOTE step pc=%u addr=0x%02X exec_ret=%d",
                      (unsigned)pc,
                      addr,
                      (int)exec_ret);
+
+            uint32_t wait_ms = 0;
+            uint8_t status = 0;
+            (void)wait_for_status_busy(addr, 200U, &wait_ms, &status);
+            (void)wait_for_status_idle(addr, 10000U, &wait_ms, &status);
             break;
         }
         case BLOCK_TYPE_MUSIC_SEQ: {
             esp_err_t exec_ret = i2c_execute(addr);
-            ESP_LOGI(TAG,
+            ESP_LOGD(TAG,
                      "SEQUENTIAL MUSIC_SEQ step pc=%u addr=0x%02X exec_ret=%d",
                      (unsigned)pc,
                      addr,
@@ -963,6 +1034,14 @@ static void dispatch_output_action(uint8_t pc, block_type_t step_type)
                          addr,
                          (int)busy_ret,
                          (unsigned)status);
+            }
+
+            esp_err_t idle_ret = wait_for_status_idle(addr, 60000U, &elapsed_ms, &status);
+            if (idle_ret == ESP_OK) {
+                ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
+            } else {
+                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X)",
+                         addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
             }
             break;
         }
@@ -1666,7 +1745,7 @@ static void brain_executor_tick_nolock(void) {
             if (end_if_index < 0) {
                 ESP_LOGW(TAG, "IF without END_IF at pc=%u", s_executor_ctx.pc);
                 broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
-                s_executor_ctx.state = EXECUTOR_DONE;
+                s_executor_ctx.state = EXECUTOR_ERROR;
                 return;
             }
 
@@ -1674,14 +1753,14 @@ static void brain_executor_tick_nolock(void) {
             if (then_index < 0) {
                 ESP_LOGW(TAG, "IF without THEN at pc=%u", s_executor_ctx.pc);
                 broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
-                s_executor_ctx.state = EXECUTOR_DONE;
+                s_executor_ctx.state = EXECUTOR_ERROR;
                 return;
             }
 
             if (s_if_depth >= BRAIN_EXECUTOR_MAX_IF_DEPTH) {
                 ESP_LOGW(TAG, "IF stack overflow at pc=%u", s_executor_ctx.pc);
                 broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
-                s_executor_ctx.state = EXECUTOR_DONE;
+                s_executor_ctx.state = EXECUTOR_ERROR;
                 return;
             }
 
@@ -1709,7 +1788,7 @@ static void brain_executor_tick_nolock(void) {
             if (end_loop_index < 0) {
                 ESP_LOGW(TAG, "LOOP without END_LOOP at pc=%u", s_executor_ctx.pc);
                 broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
-                s_executor_ctx.state = EXECUTOR_DONE;
+                s_executor_ctx.state = EXECUTOR_ERROR;
                 return;
             }
 
@@ -1733,7 +1812,7 @@ static void brain_executor_tick_nolock(void) {
             if (s_executor_ctx.loop_depth >= BRAIN_EXECUTOR_MAX_LOOP_DEPTH) {
                 ESP_LOGW(TAG, "Loop stack overflow");
                 broadcast_runtime_state(BRAIN_RUNTIME_ERROR, current);
-                s_executor_ctx.state = EXECUTOR_DONE;
+                s_executor_ctx.state = EXECUTOR_ERROR;
                 return;
             }
 
