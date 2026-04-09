@@ -160,18 +160,6 @@ esp_err_t status_strip_render_runtime_visuals(const char *tag,
     uint8_t brightness = status_strip_runtime_brightness(state);
 
     matrix_set_brightness(brightness);
-    if (state == BRAIN_RUNTIME_IDLE) {
-        matrix_clear();
-        matrix_show();
-        if (cfg != NULL && status_strip_ensure_ready(cfg) == ESP_OK) {
-            status_strip_clear();
-            status_strip_set_brightness(brightness);
-            return status_strip_show();
-        }
-        (void)tag;
-        return ESP_OK;
-    }
-
     matrix_fill(color.r, color.g, color.b);
     matrix_show();
 
