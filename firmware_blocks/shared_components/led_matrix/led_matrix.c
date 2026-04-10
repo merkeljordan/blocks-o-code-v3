@@ -18,7 +18,7 @@ static const char *TAG = "LED_MATRIX";
 typedef struct { uint8_t r, g, b; } matrix_rgb_t;
 
 static led_strip_handle_t led_strip = NULL;
-static uint8_t matrix_brightness = 50;
+static uint8_t matrix_brightness = 10;
 static matrix_rgb_t matrix_pixels[LED_MATRIX_SIZE];
 
 #ifdef LED_MATRIX_HAS_STATUS_STRIP
