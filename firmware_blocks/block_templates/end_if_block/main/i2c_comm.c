@@ -40,6 +40,20 @@ static void populate_identity_registers(void) {
     registers[REG_UID3] = (uint8_t)((s_device_uid >> 24) & 0xFFu);
     registers[REG_ASSIGNED_ADDR] = s_runtime_address;
 }
+static uint8_t s_runtime_address = 0u;
+static uint32_t s_device_uid = 0u;
+
+static void populate_identity_registers(void) {
+    if (s_device_uid == 0u) {
+        s_device_uid = block_compute_device_uid(MY_BLOCK_TYPE);
+    }
+
+    registers[REG_UID0] = (uint8_t)(s_device_uid & 0xFFu);
+    registers[REG_UID1] = (uint8_t)((s_device_uid >> 8) & 0xFFu);
+    registers[REG_UID2] = (uint8_t)((s_device_uid >> 16) & 0xFFu);
+    registers[REG_UID3] = (uint8_t)((s_device_uid >> 24) & 0xFFu);
+    registers[REG_ASSIGNED_ADDR] = s_runtime_address;
+}
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {

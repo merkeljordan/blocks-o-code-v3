@@ -521,6 +521,16 @@ esp_err_t i2c_reset(uint8_t address) {
     return i2c_send_cmd(address, CMD_RESET);
 }
 
+esp_err_t i2c_set_child_address(uint8_t current_address, uint8_t new_address) {
+    if (!block_is_valid_child_address(current_address) ||
+        !block_is_valid_child_address(new_address)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    uint8_t data[2] = {CMD_SET_I2C_ADDRESS, new_address};
+    return i2c_send_payload(current_address, data, sizeof(data), pdMS_TO_TICKS(100));
+}
+
 // ============================================================================
 // OLED TEXT
 // ============================================================================

@@ -9,6 +9,22 @@
 #include "led_matrix.h"
 #include "led_strip.h"
 
+// Fallbacks keep status_strip link-safe in templates where audio linkage differs.
+__attribute__((weak)) esp_err_t speaker_play_tone(uint32_t hz, uint32_t ms)
+{
+    (void)hz;
+    (void)ms;
+    return ESP_OK;
+}
+
+__attribute__((weak)) void speaker_beep_ok(void)
+{
+}
+
+__attribute__((weak)) void speaker_beep_error(void)
+{
+}
+
 typedef struct {
     uint8_t r;
     uint8_t g;

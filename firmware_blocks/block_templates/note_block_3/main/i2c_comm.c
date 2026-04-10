@@ -205,6 +205,15 @@ void i2c_task(void *arg)
             continue;
         }
 
+        if (len >= 2 && ((i2c_command_t)rx_buf[0]) == CMD_SET_I2C_ADDRESS) {
+            esp_err_t err = rebind_i2c_slave_address(rx_buf[1]);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
+                         rx_buf[1], esp_err_to_name(err));
+            }
+            continue;
+        }
+
         // Treat single-byte buffers that contain only a register index
         // specially and reply with the value of that register.
         refresh_dynamic_registers();

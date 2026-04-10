@@ -39,6 +39,9 @@ static const char *TAG = "LOOP_BLOCK";
 
 #define STATUS_STRIP_GPIO      GPIO_NUM_13
 #define STATUS_STRIP_LED_COUNT 30
+#define BATTERY_UART_TASK_STACK 2048
+#define BATTERY_UART_TASK_PRIO  2
+#define BATTERY_UART_PERIOD_MS  2000
 
 static const status_strip_config_t kStatusStripConfig = {
     .gpio_num = STATUS_STRIP_GPIO,

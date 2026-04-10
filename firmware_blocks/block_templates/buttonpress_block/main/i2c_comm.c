@@ -34,6 +34,20 @@ static void populate_identity_registers(void) {
     registers[REG_UID3] = (uint8_t)((s_device_uid >> 24) & 0xFFu);
     registers[REG_ASSIGNED_ADDR] = s_runtime_address;
 }
+static uint8_t s_runtime_address = 0u;
+static uint32_t s_device_uid = 0u;
+
+static void populate_identity_registers(void) {
+    if (s_device_uid == 0u) {
+        s_device_uid = block_compute_device_uid(MY_BLOCK_TYPE);
+    }
+
+    registers[REG_UID0] = (uint8_t)(s_device_uid & 0xFFu);
+    registers[REG_UID1] = (uint8_t)((s_device_uid >> 8) & 0xFFu);
+    registers[REG_UID2] = (uint8_t)((s_device_uid >> 16) & 0xFFu);
+    registers[REG_UID3] = (uint8_t)((s_device_uid >> 24) & 0xFFu);
+    registers[REG_ASSIGNED_ADDR] = s_runtime_address;
+}
 
 static void init_registers(void) {
     if (s_runtime_address == 0u) {
@@ -50,6 +64,42 @@ static void refresh_dynamic_registers(void)
 {
     registers[REG_STATUS] = button_block_get_status_flags();
     registers[REG_DATA_LEN] = button_block_get_pending_data_len();
+}
+
+static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {
+    if (!block_is_valid_child_address(new_address)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (new_address == s_runtime_address) {
+        return ESP_OK;
+    }
+
+    (void)i2c_driver_delete(I2C_NUM_0);
+
+    i2c_config_t conf = {
+        .mode = I2C_MODE_SLAVE,
+        .sda_io_num = I2C_SDA_PIN,
+        .scl_io_num = I2C_SCL_PIN,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .slave.addr_10bit_en = 0,
+        .slave.slave_addr = new_address,
+    };
+
+    esp_err_t err = i2c_param_config(I2C_NUM_0, &conf);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = i2c_driver_install(I2C_NUM_0, conf.mode, 128, 128, 0);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    s_runtime_address = new_address;
+    registers[REG_ASSIGNED_ADDR] = new_address;
+    ESP_LOGI(TAG, "Rebound child address to 0x%02X", new_address);
+    return ESP_OK;
 }
 
 static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {

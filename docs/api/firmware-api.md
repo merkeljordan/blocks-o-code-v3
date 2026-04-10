@@ -136,6 +136,33 @@ Behavior:
 - A two-phase sync pattern (`PREPARE` then short-window `GO`) may be added in a future protocol revision for tighter perceived simultaneity across target blocks.
 - Current/default behavior remains deterministic batched fan-out over standard I2C command dispatch.
 
+### Shared Runtime Broadcast Contract
+
+The Brain also emits `CMD_RUNTIME_BROADCAST` for synchronized cross-peripheral UX parity.
+
+Wire payload:
+- `byte0`: `brain_runtime_broadcast_state_t`
+- `byte1`: highlighted `pc` (or `BRAIN_RUNTIME_PC_NONE`)
+- `byte2`: current `block_type_t` step type (or `BLOCK_TYPE_UNKNOWN`)
+
+Defined states:
+- `BRAIN_RUNTIME_IDLE`
+- `BRAIN_RUNTIME_RUNNING`
+- `BRAIN_RUNTIME_STEP`
+- `BRAIN_RUNTIME_DONE`
+- `BRAIN_RUNTIME_ERROR`
+- `BRAIN_RUNTIME_STOP`
+
+Behavior:
+- Brain event handler is the single source of truth for when runtime broadcasts are emitted.
+- Child blocks treat `CMD_RUNTIME_BROADCAST` as shared UX state, not as an action-execution command.
+- `CMD_EXECUTE` still performs the actual block action.
+- Blocks without a relevant peripheral should no-op safely.
+
+**Optional future extension (not default):**
+- A two-phase sync pattern (`PREPARE` then short-window `GO`) may be added in a future protocol revision for tighter perceived simultaneity across target blocks.
+- Current/default behavior remains deterministic batched fan-out over standard I2C command dispatch.
+
 **DELAY** (`BLOCK_TYPE_DELAY`):
 - On a DELAY step, the executor sets `wait_until_ms = now + delay_ms`, enters `EXECUTOR_WAIT_DELAY`, and **keeps `pc` on the DELAY opcode** until the wait completes.
 - When the delay expires, the executor advances `pc` past the delay and resumes.

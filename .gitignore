@@ -9,6 +9,7 @@ sdkconfig.old
 # ESP-IDF Component Manager lock + managed deps (generated)
 dependencies.lock
 **/managed_components/
+**/managed_components/**
 
 # VSCode
 .vscode/

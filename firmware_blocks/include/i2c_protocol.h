@@ -208,6 +208,7 @@ typedef struct __attribute__((packed)) {
     uint8_t step_type;
 } brain_runtime_broadcast_payload_t;
 
+
 // ============================================================================
 // LED MATRIX PATTERNS
 // ============================================================================

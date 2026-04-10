@@ -1156,10 +1156,12 @@ static bool process_message_event(const char *message) {
         }
         ESP_LOGI(TAG, "Handled START: executor started");
         broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
+        broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
         return true;
     }
 
     if (strcasecmp(message, "STOP") == 0) {
+        broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
         broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
         brain_executor_stop();
         ESP_LOGI(TAG, "Handled STOP: executor stop requested");
@@ -1418,6 +1420,7 @@ void brain_event_handler_init(void) {
     s_executor_params.loop_count = 1;
     s_executor_params.delay_ms = 500;
     set_runtime_snapshot(BRAIN_RUNTIME_IDLE, BRAIN_RUNTIME_PC_NONE, BLOCK_TYPE_BRAIN);
+    set_runtime_snapshot(BRAIN_RUNTIME_IDLE, BRAIN_RUNTIME_PC_NONE, BLOCK_TYPE_BRAIN);
     ESP_LOGI(TAG, "brain_event_handler_init");
 
     if (s_event_queue) {
@@ -1640,6 +1643,7 @@ void brain_executor_stop(void) {
 static void brain_executor_tick_nolock(void) {
     if (s_executor_ctx.stop_requested) {
         broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
+        broadcast_runtime_state(BRAIN_RUNTIME_STOP, executor_broadcast_step_type());
         brain_executor_reset_context(EXECUTOR_STOPPED);
         ESP_LOGI(TAG, "Executor stopped");
         return;
@@ -1669,6 +1673,7 @@ static void brain_executor_tick_nolock(void) {
     }
 
     if (s_executor_ctx.pc >= s_executor_ctx.program_len) {
+        broadcast_runtime_state(BRAIN_RUNTIME_DONE, executor_broadcast_step_type());
         broadcast_runtime_state(BRAIN_RUNTIME_DONE, executor_broadcast_step_type());
         s_executor_ctx.state = EXECUTOR_DONE;
         ESP_LOGI(TAG, "Executor done");
@@ -1718,6 +1723,9 @@ static void brain_executor_tick_nolock(void) {
             return;
         }
         s_executor_ctx.pc++;
+        if (s_executor_ctx.pc < s_executor_ctx.program_len) {
+            broadcast_runtime_state(BRAIN_RUNTIME_RUNNING, executor_broadcast_step_type());
+        }
         return;
     }
 
