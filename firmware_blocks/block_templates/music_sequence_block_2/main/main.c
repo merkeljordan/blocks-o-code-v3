@@ -67,6 +67,17 @@ static uint8_t g_status_flags = STATUS_READY;
 static TaskHandle_t g_exec_task_handle = NULL;
 static TaskHandle_t g_i2c_task_handle = NULL;
 
+typedef enum {
+    PLAYBACK_CMD_SONG
+} playback_cmd_type_t;
+
+typedef struct {
+    playback_cmd_type_t type;
+    uint8_t id;
+} playback_request_t;
+
+static QueueHandle_t g_playback_queue = NULL;
+
 static void render_status_strip(uint8_t status_flags)
 {
     led_contract_rgb_t identity = led_contract_identity_color(BLOCK_TYPE_MUSIC_SEQ);
@@ -324,40 +335,25 @@ void command_handle(i2c_command_t cmd,
                 break;
             }
 
-            ESP_LOGI(TAG, "CMD_EXECUTE: playing song %u", (unsigned)g_selected_song);
-
-            set_status_flags(STATUS_BUSY);
-
-            tft_ui_set_playback_state(&(music_playback_state_t) {
-                .is_playing = true,
-                .active_song_index = g_selected_song,
-            });
-            tft_ui_set_status_message("Brain executing selected song...");
-
-            {
-                if (g_leds_ready) {
-                    music_leds_start_song_pattern(g_selected_song);
-                }
-                esp_err_t err = speaker_play_song(g_selected_song);
-
-                if (g_leds_ready) {
-                    music_leds_stop_song_pattern();
-                }
-                tft_ui_set_playback_state(&(music_playback_state_t) {
-                    .is_playing = false,
-                    .active_song_index = g_selected_song,
-                });
-
-                clear_busy_and_refresh_ready_state();
-                if (err != ESP_OK) {
-                    set_status_flags(STATUS_ERROR);
-                    tft_ui_set_status_message("Playback error.");
-                    ESP_LOGE(TAG,
-                             "CMD_EXECUTE: speaker_play_song failed err=%d",
-                             (int)err);
+            if (g_playback_queue != NULL) {
+                playback_request_t req = {
+                    .type = PLAYBACK_CMD_SONG,
+                    .id = g_selected_song
+                };
+                if (xQueueSend(g_playback_queue, &req, 0) == pdPASS) {
+                    ESP_LOGI(TAG, "CMD_EXECUTE accepted");
+                    set_status_flags(STATUS_BUSY);
+                    tft_ui_set_playback_state(&(music_playback_state_t) {
+                        .is_playing = true,
+                        .active_song_index = g_selected_song,
+                    });
+                    tft_ui_set_status_message("Brain executing selected song...");
                 } else {
-                    tft_ui_set_status_message("Playback complete. Ready.");
+                    set_status_flags(STATUS_ERROR);
+                    tft_ui_set_status_message("Queue full, try again.");
                 }
+            } else {
+                set_status_flags(STATUS_ERROR);
             }
             break;
 
@@ -419,6 +415,47 @@ static void execution_task(void *arg)
     }
 }
 
+
+static void playback_task(void *arg)
+{
+    playback_request_t req;
+
+    ESP_LOGI(TAG, "playback_task started");
+
+    while (1) {
+        if (xQueueReceive(g_playback_queue, &req, portMAX_DELAY) == pdTRUE) {
+            esp_err_t err = ESP_OK;
+
+            if (req.type == PLAYBACK_CMD_SONG) {
+                ESP_LOGI(TAG, "Playback task: playing song %u", (unsigned)req.id);
+                if (g_leds_ready) {
+                    music_leds_start_song_pattern(req.id);
+                }
+                err = speaker_play_song(req.id);
+                if (g_leds_ready) {
+                    music_leds_stop_song_pattern();
+                }
+
+                tft_ui_set_playback_state(&(music_playback_state_t) {
+                    .is_playing = false,
+                    .active_song_index = req.id,
+                });
+
+                clear_busy_and_refresh_ready_state();
+                if (err != ESP_OK) {
+                    set_status_flags(STATUS_ERROR);
+                    tft_ui_set_status_message("Playback error.");
+                    ESP_LOGE(TAG,
+                             "playback_task: speaker_play_song failed err=%d",
+                             (int)err);
+                } else {
+                    tft_ui_set_status_message("Playback complete. Ready.");
+                }
+            }
+        }
+    }
+}
+
 void app_main(void)
 {
     esp_err_t err;
@@ -463,6 +500,16 @@ void app_main(void)
         peripherals_error_feedback();
         return;
     }
+
+
+    g_playback_queue = xQueueCreate(2, sizeof(playback_request_t));
+    if (g_playback_queue == NULL) {
+        ESP_LOGE(TAG, "Failed to create playback queue");
+        set_status_flags(STATUS_ERROR);
+        return;
+    }
+
+    xTaskCreatePinnedToCore(playback_task, "music_play", 4096, NULL, 4, NULL, EXEC_CORE_ID);
 
     ok_exec = xTaskCreatePinnedToCore(execution_task, "music_exec",
                                       4096, NULL, 4, NULL, EXEC_CORE_ID);

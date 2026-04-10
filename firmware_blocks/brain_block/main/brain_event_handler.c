@@ -106,6 +106,9 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     while (now_ms() < start + timeout_ms) {
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
             error_count = 0;
+            if ((status & ~0x0F) != 0U) {
+                ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): invalid status byte 0x%02X ignored", addr, status);
+            }
             if ((status & STATUS_BUSY) != 0U) {
                 if (out_elapsed_ms != NULL) {
                     *out_elapsed_ms = (uint32_t)(now_ms() - start);
@@ -122,7 +125,7 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
                 return ESP_FAIL;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     if (out_elapsed_ms != NULL) {
@@ -148,6 +151,9 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
         // We only return ESP_OK if we explicitly read a status byte that has STATUS_BUSY cleared.
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
             error_count = 0;
+            if ((status & ~0x0F) != 0U) {
+                ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): invalid status byte 0x%02X ignored", addr, status);
+            }
             if ((status & STATUS_BUSY) == 0U) {
                 if (out_elapsed_ms != NULL) {
                     *out_elapsed_ms = (uint32_t)(now_ms() - start);
@@ -946,6 +952,7 @@ static uint8_t resolve_exec_child_addr_for_pc(uint8_t pc)
 // Action I2C only to the program slot at `pc` (snapshot from START). Runtime broadcast still fans out.
 static void dispatch_output_action(uint8_t pc, block_type_t step_type)
 {
+    ESP_LOGI(TAG, "dispatch_output_action: pc=%u type=%s", (unsigned)pc, block_type_to_string(step_type));
     if (pc >= s_executor_ctx.program_len || step_type == BLOCK_TYPE_UNKNOWN) {
         ESP_LOGW(TAG, "dispatch_output_action: bad pc=%u len=%u", (unsigned)pc,
                  (unsigned)s_executor_ctx.program_len);
@@ -989,8 +996,19 @@ static void dispatch_output_action(uint8_t pc, block_type_t step_type)
 
             uint32_t wait_ms = 0;
             uint8_t status = 0;
-            (void)wait_for_status_busy(addr, 200U, &wait_ms, &status);
-            (void)wait_for_status_idle(addr, 10000U, &wait_ms, &status);
+            esp_err_t busy_ret = wait_for_status_busy(addr, 200U, &wait_ms, &status);
+            if (busy_ret == ESP_OK) {
+                ESP_LOGI(TAG, "LED_FLASH latency dispatch->BUSY = %u ms (addr=0x%02X status=0x%02X)", (unsigned)wait_ms, addr, (unsigned)status);
+            } else {
+                ESP_LOGW(TAG, "LED_FLASH did not report BUSY within 200 ms (addr=0x%02X ret=%d status=0x%02X)", addr, (int)busy_ret, (unsigned)status);
+            }
+
+            esp_err_t idle_ret = wait_for_status_idle(addr, 10000U, &wait_ms, &status);
+            if (idle_ret == ESP_OK) {
+                ESP_LOGI(TAG, "LED_FLASH finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)wait_ms);
+            } else {
+                ESP_LOGW(TAG, "LED_FLASH idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X)", addr, (int)idle_ret, (unsigned)wait_ms, (unsigned)status);
+            }
             break;
         }
         case BLOCK_TYPE_NOTE: {
@@ -1003,8 +1021,19 @@ static void dispatch_output_action(uint8_t pc, block_type_t step_type)
 
             uint32_t wait_ms = 0;
             uint8_t status = 0;
-            (void)wait_for_status_busy(addr, 200U, &wait_ms, &status);
-            (void)wait_for_status_idle(addr, 10000U, &wait_ms, &status);
+            esp_err_t busy_ret = wait_for_status_busy(addr, 200U, &wait_ms, &status);
+            if (busy_ret == ESP_OK) {
+                ESP_LOGI(TAG, "NOTE latency dispatch->BUSY = %u ms (addr=0x%02X status=0x%02X)", (unsigned)wait_ms, addr, (unsigned)status);
+            } else {
+                ESP_LOGW(TAG, "NOTE did not report BUSY within 200 ms (addr=0x%02X ret=%d status=0x%02X)", addr, (int)busy_ret, (unsigned)status);
+            }
+
+            esp_err_t idle_ret = wait_for_status_idle(addr, 10000U, &wait_ms, &status);
+            if (idle_ret == ESP_OK) {
+                ESP_LOGI(TAG, "NOTE finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)wait_ms);
+            } else {
+                ESP_LOGW(TAG, "NOTE idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X)", addr, (int)idle_ret, (unsigned)wait_ms, (unsigned)status);
+            }
             break;
         }
         case BLOCK_TYPE_MUSIC_SEQ: {
@@ -1618,6 +1647,13 @@ static esp_err_t brain_executor_start_nolock(void) {
 
     s_executor_ctx.state = EXECUTOR_RUNNING;
     ESP_LOGI(TAG, "Executor started with %u blocks", s_executor_ctx.program_len);
+    for (int i = 0; i < s_executor_ctx.program_len && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        ESP_LOGI(TAG, "  program[%d]: type=%s addr=0x%02X present=%d",
+                 i,
+                 block_type_to_string(s_executor_ctx.program[i]),
+                 s_program_addr[i],
+                 (int)s_program_present[i]);
+    }
     return ESP_OK;
 }
 
@@ -1681,7 +1717,11 @@ static void brain_executor_tick_nolock(void) {
     }
 
     block_type_t current = s_executor_ctx.program[s_executor_ctx.pc];
-    ESP_LOGD(TAG, "EXEC pc=%u type=%u", s_executor_ctx.pc, current);
+    ESP_LOGI(TAG, "EXEC tick pc=%u type=%s addr=0x%02X present=%d",
+             s_executor_ctx.pc,
+             block_type_to_string(current),
+             s_program_addr[s_executor_ctx.pc],
+             (int)s_program_present[s_executor_ctx.pc]);
 
     if (current == BLOCK_TYPE_BUTTON) {
         if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS && s_program_present[s_executor_ctx.pc]) {

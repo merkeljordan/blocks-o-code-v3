@@ -182,17 +182,28 @@ void i2c_task(void *arg)
         refresh_dynamic_registers();
 
         // Single-byte message with value < 0x10 is a register read request.
-        if (len == 1 && rx_buf[0] < 0x10) {
-            uint8_t reg = rx_buf[0];
-            uint8_t value = s_registers[reg];
+        refresh_dynamic_registers();
 
-            (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
+        // Handle register read request(s). The I2C RX buffer might coalesce multiple fast polls.
+        // We only respond to polls matching valid registers. If a command byte arrives,
+        // it breaks the coalesced register read assumption.
+        bool is_reg_read = (len > 0);
+        for (int i = 0; i < len; i++) {
+            if (rx_buf[i] >= 0x10) {
+                is_reg_read = false;
+                break;
+            }
+        }
 
-#if I2C_VERBOSE_LOGS
-            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
-#endif
+        if (is_reg_read) {
+            for (int i = 0; i < len; i++) {
+                uint8_t reg = rx_buf[i];
+                uint8_t value = s_registers[reg];
+                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, 0);
+            }
             continue;
         }
+
 
         size_t tx_len = 0;
         i2c_command_t cmd = (i2c_command_t)rx_buf[0];

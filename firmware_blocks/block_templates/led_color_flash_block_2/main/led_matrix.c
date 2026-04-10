@@ -58,6 +58,7 @@ static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
 static rgb_t matrix_pixels[LED_MATRIX_SIZE];
 static bool status_mirror_enabled = false;
+static bool s_matrix_locked = false;
 
 static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
 static void fill_scaled(uint8_t r, uint8_t g, uint8_t b);
@@ -224,6 +225,7 @@ static void render_status_strip_mirror(void) {
 
  /* Write one pixel with software brightness applied. */
  static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b) {
+     if (s_matrix_locked) return;
      if (!led_strip || idx >= LED_MATRIX_SIZE) return;
      uint8_t sr = scale8(r, matrix_brightness);
      uint8_t sg = scale8(g, matrix_brightness);
@@ -253,6 +255,7 @@ static void render_status_strip_mirror(void) {
   
  /* Blank all pixels and push to strip. */
  static void clear_and_show(void) {
+     if (s_matrix_locked) return;
      clear_matrix_buffer();
      if (led_strip) led_strip_clear(led_strip);
      show();
@@ -549,6 +552,7 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
  }
  
  void matrix_clear(void) {
+     if (s_matrix_locked) return;
      clear_matrix_buffer();
      if (led_strip) led_strip_clear(led_strip);
  }
@@ -578,6 +582,10 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
      // Enabling mirror mode mid-effect should immediately show the current frame
      // on the status strip instead of waiting for the next animation tick.
      render_status_strip_mirror();
+ }
+ 
+ void led_matrix_set_lock(bool locked) {
+     s_matrix_locked = locked;
  }
  
  /** Return human-readable pattern name for TFT / log display. */

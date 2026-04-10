@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -9,6 +10,7 @@ extern "C" {
 
 esp_err_t led_matrix_init(void);
 void led_matrix_startup_animation(void);
+void led_matrix_set_lock(bool locked);
 
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b);
 void matrix_clear(void);

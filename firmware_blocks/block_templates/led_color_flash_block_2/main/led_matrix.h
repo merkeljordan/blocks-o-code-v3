@@ -61,6 +61,8 @@
   * Blocking -- returns after the effect finishes (~0.5-2 s). */
  void led_flash_play_execute(uint8_t color_id);
  
+ void led_matrix_set_lock(bool locked);
+ 
  #ifdef __cplusplus
  }
  #endif

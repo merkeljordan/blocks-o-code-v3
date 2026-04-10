@@ -100,7 +100,16 @@ static void render_status_strip(uint8_t status_flags)
 
 static void set_status_flags(uint8_t status_flags)
 {
+    uint8_t old_flags = g_status_flags;
     g_status_flags = status_flags;
+
+    if ((old_flags & STATUS_BUSY) == 0U && (status_flags & STATUS_BUSY) != 0U) {
+        ESP_LOGI(TAG, "Status set to BUSY");
+    } else if ((old_flags & STATUS_BUSY) != 0U && (status_flags & STATUS_BUSY) == 0U) {
+        ESP_LOGI(TAG, "Playback finished. Status cleared to %s",
+                 (status_flags & STATUS_DATA_READY) ? "DATA_READY" : "READY");
+    }
+
     bool busy = (status_flags & STATUS_BUSY) != 0U;
     led_matrix_set_status_mirror(busy);
     if (!busy) {
@@ -293,6 +302,7 @@ void command_handle(i2c_command_t cmd,
             if (tx != NULL && tx_len != NULL) {
                 tx[0] = music_block_get_status_flags();
                 *tx_len = 1;
+                ESP_LOGI(TAG, "REG_STATUS returned to Brain: 0x%02X", tx[0]);
             }
             break;
 
@@ -319,6 +329,7 @@ void command_handle(i2c_command_t cmd,
                     .id = g_selected_song
                 };
                 if (xQueueSend(g_playback_queue, &req, 0) == pdPASS) {
+                    ESP_LOGI(TAG, "CMD_EXECUTE accepted");
                     set_status_flags(STATUS_BUSY);
                     tft_ui_set_playback_state(&(music_playback_state_t) {
                         .is_playing = true,

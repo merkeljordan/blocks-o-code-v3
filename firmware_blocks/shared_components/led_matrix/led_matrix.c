@@ -146,7 +146,6 @@ void matrix_show(void)
 void matrix_set_brightness(uint8_t brightness)
 {
     matrix_brightness = brightness;
-    ESP_LOGI(TAG, "Brightness set to %d", matrix_brightness);
 }
 
 uint8_t matrix_get_brightness(void)

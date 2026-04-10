@@ -88,7 +88,7 @@ static QueueHandle_t s_playback_queue = NULL;
 
 // Forward declarations for helpers and status flags used by note_playback_task().
 static void peripherals_show_running(void);
-static void play_note(uint8_t note_id);
+static void play_note(uint8_t note_id, bool restore_idle);
 static uint8_t s_status_flags = STATUS_READY;
 
 static void render_status_strip(uint8_t status_flags)
@@ -115,7 +115,16 @@ static void show_boot_ready_matrix(void)
 
 static void set_status_flags(uint8_t status_flags)
 {
+    uint8_t old_flags = s_status_flags;
     s_status_flags = status_flags;
+
+    if ((old_flags & STATUS_BUSY) == 0U && (status_flags & STATUS_BUSY) != 0U) {
+        ESP_LOGI(TAG, "Status set to BUSY");
+    } else if ((old_flags & STATUS_BUSY) != 0U && (status_flags & STATUS_BUSY) == 0U) {
+        ESP_LOGI(TAG, "Playback finished. Status cleared to %s",
+                 (status_flags & STATUS_DATA_READY) ? "DATA_READY" : "READY");
+    }
+
     bool busy = (status_flags & STATUS_BUSY) != 0U;
     led_matrix_set_status_mirror(busy);
     if (!busy) {
@@ -207,7 +216,7 @@ static size_t config_get_payload(uint8_t *out, size_t max_len)
 
 uint8_t note_block_get_status_flags(void)
 {
-    return s_status_flags;
+    return s_status_flags & (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY);
 }
 
 // ============================================================================
@@ -288,7 +297,7 @@ static void play_note(uint8_t note_id, bool restore_idle)
 
 void note_block_preview_note(uint8_t note_id)
 {
-    play_note(note_id);
+    play_note(note_id, true);
 }
 
 bool note_block_submit_selection(uint8_t note_id)
@@ -390,8 +399,9 @@ void command_handle(i2c_command_t cmd,
 
     case CMD_GET_STATUS:
         if (tx && tx_len && rx_len == 0) {
-            tx[0] = s_status_flags;
+            tx[0] = note_block_get_status_flags();
             *tx_len = 1;
+            ESP_LOGI(TAG, "REG_STATUS returned to Brain: 0x%02X", tx[0]);
         }
         break;
 
@@ -473,6 +483,7 @@ void command_handle(i2c_command_t cmd,
         if (s_playback_queue != NULL) {
             playback_cmd_t cmd_exec = { .type = PLAYBACK_SEQUENCE };
             if (xQueueSendToBack(s_playback_queue, &cmd_exec, 0) == pdPASS) {
+                ESP_LOGI(TAG, "CMD_EXECUTE accepted");
                 set_status_flags(STATUS_BUSY);
             } else {
                 set_status_flags(STATUS_ERROR);

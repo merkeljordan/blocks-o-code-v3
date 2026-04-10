@@ -6,7 +6,8 @@
  *
  * These calibration values are specific to the loop block PCB and account for
  * resistor tolerances, ADC gain variations, and PCB-specific voltage divider
- * characteristics. Update these values after physical battery voltage measurements.
+ * characteristics. Update these values after physical battery voltage
+ * measurements.
  *
  * Calibration process:
  * 1. Measure actual battery voltage with a multimeter (when possible)
@@ -19,12 +20,13 @@
 
 /**
  * Multiplicative correction for ADC/resistor divider tolerances.
- * Formula: corrected_voltage_mv = (raw_adc_mv * BATTERY_CAL_SCALE) + BATTERY_CAL_OFFSET_MV
+ * Formula: corrected_voltage_mv = (raw_adc_mv * BATTERY_CAL_SCALE) +
+ * BATTERY_CAL_OFFSET_MV
  *
  * Default: 0.995f (typical ~0.5% tolerance on resistor divider)
  * Adjust if measurements show systematic over/underestimation.
  */
-#define BATTERY_CAL_SCALE 0.995f
+#define BATTERY_CAL_SCALE 1.003f
 
 /**
  * Additive correction for fixed voltage offset (e.g., diode drop, op-amp bias).

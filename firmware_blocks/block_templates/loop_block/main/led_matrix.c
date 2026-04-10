@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "esp_log.h"
 #include "esp_err.h"
+#include <stdbool.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "led_strip.h"
@@ -15,6 +16,11 @@ static const char *TAG = "LED_MATRIX";
 // Module-private state
 static led_strip_handle_t led_strip = NULL;
 static uint8_t matrix_brightness = 50;  // 0-255 (~20% starting)
+static bool s_matrix_locked = false;
+
+void led_matrix_set_lock(bool locked) {
+    s_matrix_locked = locked;
+}
 
 // ============================================================================
 // LED MATRIX INITIALIZATION
@@ -62,6 +68,8 @@ void led_matrix_startup_animation(void) {
 // MATRIX FILL
 // ============================================================================
 void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
+    if (s_matrix_locked) return;
+
     ESP_LOGI(TAG, "Filling matrix RGB(%d, %d, %d) @ brightness %d",
              r, g, b, matrix_brightness);
 
@@ -79,6 +87,7 @@ void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
 // MATRIX CLEAR
 // ============================================================================
 void matrix_clear(void) {
+    if (s_matrix_locked) return;
     ESP_LOGI(TAG, "Clearing matrix");
     led_strip_clear(led_strip);
 }
