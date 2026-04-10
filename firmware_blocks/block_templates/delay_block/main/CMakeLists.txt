@@ -24,4 +24,7 @@ idf_component_register(
         startup_guard
 )
 
-target_compile_definitions(${COMPONENT_LIB} PRIVATE CONTROL_FLOW_TFT_UI_ENABLED=1)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE 
+    CONTROL_FLOW_TFT_UI_ENABLED=1
+    LED_MATRIX_HAS_STATUS_STRIP
+)

@@ -101,43 +101,6 @@ static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {
     return ESP_OK;
 }
 
-static esp_err_t rebind_i2c_slave_address(uint8_t new_address) {
-    if (!block_is_valid_child_address(new_address)) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (new_address == s_runtime_address) {
-        return ESP_OK;
-    }
-
-    (void)i2c_driver_delete(I2C_NUM_0);
-
-    i2c_config_t conf = {
-        .mode = I2C_MODE_SLAVE,
-        .sda_io_num = I2C_SDA_PIN,
-        .scl_io_num = I2C_SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .slave.addr_10bit_en = 0,
-        .slave.slave_addr = new_address,
-    };
-
-    esp_err_t err = i2c_param_config(I2C_NUM_0, &conf);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    err = i2c_driver_install(I2C_NUM_0, conf.mode, 128, 128, 0);
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    s_runtime_address = new_address;
-    registers[REG_ASSIGNED_ADDR] = new_address;
-    ESP_LOGI(TAG, "Rebound child address to 0x%02X", new_address);
-    return ESP_OK;
-}
-
-
 // ============================================================================
 // I²C SLAVE INITIALIZATION
 // ============================================================================
