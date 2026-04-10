@@ -159,7 +159,7 @@ static void note_playback_task(void *arg)
             portENTER_CRITICAL(&s_pending_event_spinlock);
             has_pending_event = s_pending_event_valid;
             portEXIT_CRITICAL(&s_pending_event_spinlock);
-            set_status_flags(has_pending_event ? STATUS_DATA_READY : STATUS_READY);
+            set_status_flags(has_pending_event ? (STATUS_IDLE | STATUS_DATA_READY) : STATUS_IDLE);
         }
     }
 }
@@ -207,7 +207,7 @@ static size_t config_get_payload(uint8_t *out, size_t max_len)
 
 uint8_t note_block_get_status_flags(void)
 {
-    return s_status_flags;
+    return s_status_flags & (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
 }
 
 // ============================================================================
@@ -462,10 +462,13 @@ void command_handle(i2c_command_t cmd,
             peripherals_error_feedback();
             set_status_flags(STATUS_ERROR);
             break;
+        } else {
+            set_status_flags(STATUS_BUSY);
         }
         if (s_playback_queue != NULL) {
             playback_cmd_t cmd_exec = { .type = PLAYBACK_SEQUENCE };
             if (xQueueSendToBack(s_playback_queue, &cmd_exec, 0) == pdPASS) {
+                ESP_LOGI(TAG, "CMD_EXECUTE accepted");
                 set_status_flags(STATUS_BUSY);
             } else {
                 set_status_flags(STATUS_ERROR);

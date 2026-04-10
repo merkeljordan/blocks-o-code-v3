@@ -106,7 +106,7 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     while (now_ms() < start + timeout_ms) {
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
             error_count = 0;
-            if ((status & ~0x0F) != 0U) {
+            if ((status & ~0x1F) != 0U) {
                 ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): invalid status byte 0x%02X ignored", addr, status);
             }
             if ((status & STATUS_BUSY) != 0U) {
@@ -151,16 +151,28 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
         // We only return ESP_OK if we explicitly read a status byte that has STATUS_BUSY cleared.
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
             error_count = 0;
-            if ((status & ~0x0F) != 0U) {
+            if ((status & ~0x1F) != 0U) {
                 ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): invalid status byte 0x%02X ignored", addr, status);
             }
-            if ((status & STATUS_BUSY) == 0U) {
+            if ((status & STATUS_IDLE) != 0U) {
                 if (out_elapsed_ms != NULL) {
                     *out_elapsed_ms = (uint32_t)(now_ms() - start);
                 }
                 if (out_status != NULL) {
                     *out_status = status;
                 }
+                return ESP_OK;
+            }
+            // Legacy fallback: if child does not support STATUS_IDLE, accept
+            // any status that has BUSY cleared.
+            if ((status & STATUS_BUSY) == 0U && (status & STATUS_READY) != 0U) {
+                if (out_elapsed_ms != NULL) {
+                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                }
+                if (out_status != NULL) {
+                    *out_status = status;
+                }
+                ESP_LOGI(TAG, "wait_for_status_idle(0x%02X): no IDLE flag but READY+!BUSY (legacy child)", addr);
                 return ESP_OK;
             }
         } else {

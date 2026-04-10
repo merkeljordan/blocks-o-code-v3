@@ -167,7 +167,7 @@ static void note_playback_task(void *arg) {
       portENTER_CRITICAL(&s_pending_event_spinlock);
       has_pending_event = s_pending_event_valid;
       portEXIT_CRITICAL(&s_pending_event_spinlock);
-      set_status_flags(has_pending_event ? STATUS_DATA_READY : STATUS_READY);
+      set_status_flags(has_pending_event ? (STATUS_IDLE | STATUS_DATA_READY) : STATUS_IDLE);
     }
   }
 }
@@ -209,7 +209,7 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
 
 uint8_t note_block_get_status_flags(void) {
   return s_status_flags &
-         (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY);
+         (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
 }
 
 // ============================================================================

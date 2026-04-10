@@ -189,6 +189,7 @@ static void sync_selection_status_flag(void)
 static void clear_busy_and_refresh_ready_state(void)
 {
     g_status_flags &= (uint8_t)~STATUS_BUSY;
+    g_status_flags |= STATUS_IDLE;
     led_matrix_set_status_mirror(false);
     sync_selection_status_flag();
 }
@@ -198,7 +199,8 @@ uint8_t music_block_get_status_flags(void)
     uint8_t flags = g_status_flags & (STATUS_READY |
                                       STATUS_BUSY |
                                       STATUS_ERROR |
-                                      STATUS_DATA_READY);
+                                      STATUS_DATA_READY |
+                                      STATUS_IDLE);
 
     if ((flags & (STATUS_BUSY | STATUS_ERROR)) == 0U) {
         flags |= STATUS_READY;

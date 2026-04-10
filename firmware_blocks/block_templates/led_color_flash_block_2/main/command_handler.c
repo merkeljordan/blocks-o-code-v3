@@ -128,7 +128,7 @@ static void command_action_task(void *arg) {
             default:
                 break;
         }
-        set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
+        set_current_status(s_pending_event_valid ? (STATUS_IDLE | STATUS_DATA_READY) : STATUS_IDLE);
     }
 }
 
@@ -159,7 +159,7 @@ esp_err_t command_handler_init(void) {
 
 // Exposed for REG_STATUS register reads.
 uint8_t command_handler_get_status(void) {
-    return current_status;
+    return current_status & (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
 }
 
 bool command_handler_enqueue_preview(uint8_t digit) {
@@ -324,13 +324,15 @@ void handle_command(uint8_t *buffer, int len) {
 
         case CMD_EXECUTE:
             ESP_LOGI(TAG, "  → EXECUTE color_id=%d (%s)", color_id, led_pattern_name(color_id));
+            set_current_status(STATUS_BUSY);
             if (s_action_queue) {
-                // Queueing does not mean the block is BUSY yet. BUSY is asserted by
-                // the worker task when it actually starts running the effect.
                 led_action_t action = {.type = ACTION_EXECUTE, .value = color_id};
                 if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
                     ESP_LOGW(TAG, "Action queue full, dropping EXECUTE");
+                    set_current_status(STATUS_ERROR);
                 }
+            } else {
+                set_current_status(STATUS_ERROR);
             }
             break;
 

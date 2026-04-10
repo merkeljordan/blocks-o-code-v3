@@ -39,7 +39,7 @@ static void run_execute_feedback(void)
     matrix_fill(255, 0, 255);
     matrix_show();
     vTaskDelay(pdMS_TO_TICKS(120));
-    current_status = STATUS_READY;
+    current_status = STATUS_IDLE;
     show_status_matrix(current_status);
 }
 
@@ -103,7 +103,7 @@ void handle_command(uint8_t *buffer, int len) {
 
 uint8_t command_handler_get_status_flags(void)
 {
-    return current_status;
+    return current_status & (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
 }
 
 void led_status_task(void *arg) {
