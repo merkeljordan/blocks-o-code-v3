@@ -19,6 +19,9 @@ extern void command_handle(i2c_command_t cmd,
 extern uint8_t music_block_get_status_flags(void);
 
 static const char *TAG = "MUSIC_SEQUENCE_BLOCK";
+#define I2C_VERBOSE_LOGS 0
+#define I2C_SLAVE_RX_BUF_SIZE 256
+#define I2C_SLAVE_TX_BUF_SIZE 256
 
 // Fixed child-bus address/type for the music sequence block.
 #define MY_ADDRESS      BLOCK_BOOT_I2C_ADDR_MUSIC_SEQUENCE_BLOCK_2
@@ -59,9 +62,91 @@ static void refresh_dynamic_registers(void)
     s_registers[REG_STATUS] = music_block_get_status_flags();
 }
 
+static int is_command_byte(uint8_t b)
+{
+    switch ((i2c_command_t)b) {
+        case CMD_PING:
+        case CMD_GET_TYPE:
+        case CMD_SET_LED:
+        case CMD_GET_STATUS:
+        case CMD_GET_DATA:
+        case CMD_PLAY_NOTE:
+        case CMD_EXECUTE:
+        case CMD_RESET:
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_SET_I2C_ADDRESS:
+        case CMD_MATRIX_FILL:
+        case CMD_MATRIX_SET_PIXEL:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SET_ROW:
+        case CMD_MATRIX_SET_COLUMN:
+        case CMD_MATRIX_DRAW_PATTERN:
+        case CMD_MATRIX_BRIGHTNESS:
+        case CMD_MATRIX_SHOW:
+        case CMD_RUNTIME_BROADCAST:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
 static bool is_register_index_byte(uint8_t v)
 {
     return (v < 0x10U);
+}
+
+static size_t command_frame_len(i2c_command_t cmd)
+{
+    switch (cmd) {
+        case CMD_PING:
+        case CMD_GET_TYPE:
+        case CMD_GET_STATUS:
+        case CMD_GET_DATA:
+        case CMD_EXECUTE:
+        case CMD_RESET:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SHOW:
+            return 1U;
+        case CMD_PLAY_NOTE:
+        case CMD_SET_LED:  // Palette color-id payload in Brain workflows.
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_SET_I2C_ADDRESS:
+        case CMD_MATRIX_BRIGHTNESS:
+            return 2U;
+        case CMD_MATRIX_FILL:
+        case CMD_RUNTIME_BROADCAST:
+            return 4U;
+        default:
+            return 0U;
+    }
+}
+
+#if I2C_VERBOSE_LOGS
+static void log_rx_bytes(const uint8_t *buf, size_t len)
+{
+    char line[3 * 128 + 1];
+    size_t out = 0U;
+    for (size_t i = 0; i < len && i < 128U; i++) {
+        if (out + 4U >= sizeof(line)) {
+            break;
+        }
+        int n = snprintf(&line[out], sizeof(line) - out, "%02X%s", buf[i], (i + 1U < len) ? " " : "");
+        if (n <= 0) {
+            break;
+        }
+        out += (size_t)n;
+    }
+    line[(out < sizeof(line)) ? out : (sizeof(line) - 1U)] = '\0';
+    ESP_LOGI(TAG, "RX raw len=%u bytes=[%s]", (unsigned)len, line);
+}
+#endif
+
+static void reset_i2c_fifos(void)
+{
+    (void)i2c_reset_rx_fifo(I2C_PORT_NUM);
+    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
 }
 
 static esp_err_t rebind_i2c_slave_address(uint8_t new_address)
@@ -90,16 +175,22 @@ static esp_err_t rebind_i2c_slave_address(uint8_t new_address)
         return err;
     }
 
-    err = i2c_driver_install(I2C_PORT_NUM, conf.mode, 128, 128, 0);
+    err = i2c_driver_install(I2C_PORT_NUM,
+                             conf.mode,
+                             I2C_SLAVE_RX_BUF_SIZE,
+                             I2C_SLAVE_TX_BUF_SIZE,
+                             0);
     if (err != ESP_OK) {
         return err;
     }
 
     s_runtime_address = new_address;
     s_registers[REG_ASSIGNED_ADDR] = new_address;
+    reset_i2c_fifos();
     ESP_LOGI(TAG, "Rebound child address to 0x%02X", new_address);
     return ESP_OK;
 }
+
 
 esp_err_t i2c_slave_init(void)
 {
@@ -124,11 +215,17 @@ esp_err_t i2c_slave_init(void)
         return err;
     }
 
-    err = i2c_driver_install(I2C_PORT_NUM, conf.mode, 128, 128, 0);
+    err = i2c_driver_install(I2C_PORT_NUM,
+                             conf.mode,
+                             I2C_SLAVE_RX_BUF_SIZE,
+                             I2C_SLAVE_TX_BUF_SIZE,
+                             0);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(err));
         return err;
     }
+
+    reset_i2c_fifos();
 
     ESP_LOGI(TAG, "I2C slave initialized");
     return ESP_OK;
@@ -138,8 +235,12 @@ void i2c_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    reset_i2c_fifos();
 
     uint8_t rx_buf[128];
+    uint8_t rx_carry[16];
+    size_t rx_carry_len = 0U;
+    uint8_t work_buf[sizeof(rx_buf) + sizeof(rx_carry)];
     uint8_t tx_buf[64];
 
     while (1) {
@@ -148,59 +249,135 @@ void i2c_task(void *arg)
             continue;
         }
 
-        ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, rx_buf[0]);
-
-        if (len >= 2 && ((i2c_command_t)rx_buf[0]) == CMD_SET_I2C_ADDRESS) {
-            esp_err_t err = rebind_i2c_slave_address(rx_buf[1]);
-            if (err != ESP_OK) {
-                ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
-                         rx_buf[1], esp_err_to_name(err));
-            }
-            continue;
+        size_t read_len = (size_t)len;
+        if (rx_carry_len + read_len > sizeof(work_buf)) {
+            ESP_LOGW(TAG,
+                     "RX carry overflow (carry=%u read=%u cap=%u); dropping carry",
+                     (unsigned)rx_carry_len,
+                     (unsigned)read_len,
+                     (unsigned)sizeof(work_buf));
+            rx_carry_len = 0U;
         }
+        if (rx_carry_len > 0U) {
+            memcpy(work_buf, rx_carry, rx_carry_len);
+        }
+        memcpy(work_buf + rx_carry_len, rx_buf, read_len);
+        size_t total_len = rx_carry_len + read_len;
+        rx_carry_len = 0U;
 
-        // Keep STATUS register synced with runtime state managed in main.c.
         refresh_dynamic_registers();
+#if I2C_VERBOSE_LOGS
+        log_rx_bytes(work_buf, total_len);
+#endif
 
-        // Brain-side register index writes can arrive coalesced in the slave RX buffer
-        // (e.g. [0x00, 0x00, 0x01]). To avoid leaving stale bytes queued in the slave
-        // TX buffer, reply with exactly one byte for the latest register request only.
-        if (is_register_index_byte(rx_buf[0])) {
-            bool all_register_indexes = true;
-            for (int i = 1; i < len; i++) {
-                if (!is_register_index_byte(rx_buf[i])) {
-                    all_register_indexes = false;
-                    break;
-                }
-            }
+        size_t offset = 0U;
+        while (offset < total_len) {
+            uint8_t head = work_buf[offset];
 
-            if (all_register_indexes) {
-                uint8_t reg = rx_buf[len - 1];
-                uint8_t value = s_registers[reg];
-
-                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, pdMS_TO_TICKS(100));
-
-                if (len == 1) {
-                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, value);
-                } else {
-                    ESP_LOGW(TAG,
-                             "Coalesced %d register index byte(s); replied only to last reg 0x%02X -> 0x%02X",
-                             len, reg, value);
-                }
+            if (is_register_index_byte(head)) {
+                refresh_dynamic_registers();
+                uint8_t value = s_registers[head];
+#if I2C_VERBOSE_LOGS
+                ESP_LOGI(TAG,
+                         "RX frame off=%u type=reg_read reg=0x%02X frame_len=1",
+                         (unsigned)offset,
+                         (unsigned)head);
+#endif
+                (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, 0);
+                offset += 1U;
                 continue;
             }
-        }
 
-        size_t tx_len = 0;
-        i2c_command_t cmd = (i2c_command_t)rx_buf[0];
-        const uint8_t *payload = (len > 1) ? &rx_buf[1] : NULL;
-        size_t payload_len = (len > 1) ? (size_t)(len - 1) : 0U;
+            i2c_command_t cmd = (i2c_command_t)head;
+            if (!is_command_byte(head)) {
+                ESP_LOGW(TAG,
+                         "RX frame off=%u unknown command byte 0x%02X; dropping %u trailing bytes",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)(total_len - offset));
+                break;
+            }
 
-        command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
+            size_t frame_len = command_frame_len(cmd);
+            if (frame_len == 0U) {
+                ESP_LOGW(TAG,
+                         "RX frame off=%u unsupported command 0x%02X; dropping %u trailing bytes",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)(total_len - offset));
+                break;
+            }
+            if (offset + frame_len > total_len) {
+                size_t remain = total_len - offset;
+                if (remain <= sizeof(rx_carry)) {
+                    memcpy(rx_carry, &work_buf[offset], remain);
+                    rx_carry_len = remain;
+                } else {
+                    ESP_LOGW(TAG,
+                             "RX frame off=%u truncated command 0x%02X remain=%u exceeds carry=%u; dropping",
+                             (unsigned)offset,
+                             (unsigned)head,
+                             (unsigned)remain,
+                             (unsigned)sizeof(rx_carry));
+                    rx_carry_len = 0U;
+                }
+                ESP_LOGW(TAG,
+                         "RX frame off=%u truncated command 0x%02X expected=%u available=%u; carrying=%u",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)frame_len,
+                         (unsigned)(total_len - offset),
+                         (unsigned)rx_carry_len);
+                break;
+            }
 
-        if (tx_len > 0U) {
-            (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
-            ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+            const uint8_t *payload = (frame_len > 1U) ? &work_buf[offset + 1U] : NULL;
+            size_t payload_len = (frame_len > 1U) ? (frame_len - 1U) : 0U;
+#if I2C_VERBOSE_LOGS
+            ESP_LOGI(TAG,
+                     "RX frame off=%u type=cmd cmd=0x%02X frame_len=%u payload_len=%u",
+                     (unsigned)offset,
+                     (unsigned)head,
+                     (unsigned)frame_len,
+                     (unsigned)payload_len);
+#endif
+
+            if (cmd == CMD_SET_I2C_ADDRESS) {
+                esp_err_t err = rebind_i2c_slave_address(payload[0]);
+                if (err != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
+                             payload[0], esp_err_to_name(err));
+                }
+                offset += frame_len;
+                continue;
+            }
+
+            refresh_dynamic_registers();
+            uint8_t status_before = s_registers[REG_STATUS];
+
+            size_t tx_len = 0U;
+            command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
+
+            refresh_dynamic_registers();
+            uint8_t status_after = s_registers[REG_STATUS];
+            if (status_before != status_after) {
+#if I2C_VERBOSE_LOGS
+                ESP_LOGI(TAG,
+                         "Status transition cmd=0x%02X old=0x%02X new=0x%02X",
+                         (unsigned)head,
+                         (unsigned)status_before,
+                         (unsigned)status_after);
+#endif
+            }
+
+            if (tx_len > 0U) {
+                (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
+#if I2C_VERBOSE_LOGS
+                ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+#endif
+            }
+
+            offset += frame_len;
         }
     }
 }

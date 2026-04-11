@@ -74,22 +74,50 @@ static bool is_status_strip_command(i2c_command_t cmd)
             cmd == CMD_MATRIX_SHOW);
 }
 
+static uint8_t normalize_status(uint8_t status)
+{
+    uint8_t flags = status & (STATUS_READY | STATUS_BUSY | STATUS_ERROR |
+                              STATUS_DATA_READY | STATUS_IDLE);
+
+    if ((flags & (STATUS_BUSY | STATUS_ERROR)) == 0U) {
+        flags |= STATUS_READY;
+    } else {
+        flags &= (uint8_t)~STATUS_READY;
+    }
+
+    return flags;
+}
+
+static uint8_t compose_nonbusy_status(bool preserve_idle, bool has_pending_event)
+{
+    uint8_t flags = 0U;
+
+    if (preserve_idle) {
+        flags |= STATUS_IDLE;
+    }
+    if (has_pending_event) {
+        flags |= STATUS_DATA_READY;
+    }
+
+    return normalize_status(flags);
+}
+
 static void set_current_status(uint8_t status)
 {
-    current_status = status;
+    current_status = normalize_status(status);
 
     // BUSY means the local worker is actively rendering a preview/execute effect.
     // In that mode, the dedicated status strip should mirror matrix frames instead
     // of showing a solid idle/status color.
-    if ((status & STATUS_BUSY) != 0U) {
+    if ((current_status & STATUS_BUSY) != 0U) {
         led_matrix_set_status_mirror(true);
         return;
     }
 
     // Any non-busy state gives the strip back to the simple status-color renderer.
     led_matrix_set_status_mirror(false);
-    show_status_matrix(status);
-    refresh_status_strip(status);
+    show_status_matrix(current_status);
+    refresh_status_strip(current_status);
 }
 
 static void command_action_task(void *arg) {
@@ -101,12 +129,16 @@ static void command_action_task(void *arg) {
             continue;
         }
 
+        ESP_LOGI(TAG, "Worker dequeued action=%u value=%u",
+                 (unsigned)action.type, (unsigned)action.value);
         set_current_status(STATUS_BUSY);
         switch (action.type) {
             case ACTION_PREVIEW:
+                ESP_LOGI(TAG, "Worker starting preview color=%u", (unsigned)action.value);
                 led_flash_play_preview(action.value);
                 break;
             case ACTION_EXECUTE:
+                ESP_LOGI(TAG, "Worker starting execute color=%u", (unsigned)action.value);
                 led_flash_play_execute(action.value);
                 break;
             case ACTION_PLAY_NOTE: {
@@ -129,7 +161,10 @@ static void command_action_task(void *arg) {
             default:
                 break;
         }
-        set_current_status(s_pending_event_valid ? (STATUS_IDLE | STATUS_DATA_READY) : STATUS_IDLE);
+        set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
+        ESP_LOGI(TAG, "Worker finished action=%u final_status=0x%02X pending_event=%d",
+                 (unsigned)action.type, (unsigned)command_handler_get_status(),
+                 (int)s_pending_event_valid);
     }
 }
 
@@ -160,7 +195,7 @@ esp_err_t command_handler_init(void) {
 
 // Exposed for REG_STATUS register reads.
 uint8_t command_handler_get_status(void) {
-    return current_status & (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
+    return normalize_status(current_status);
 }
 
 bool command_handler_enqueue_preview(uint8_t digit) {
@@ -193,7 +228,7 @@ bool command_handler_submit_selection(uint8_t digit) {
     s_pending_event_id = LED_FLASH_EVENT_SELECTION_SUBMIT;
     s_pending_event_value = digit;
     s_pending_event_valid = true;
-    set_current_status(STATUS_DATA_READY);
+    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, true));
     return true;
 }
 
@@ -206,7 +241,7 @@ size_t get_data_payload(uint8_t *out, size_t max_len) {
     out[0] = s_pending_event_id;
     out[1] = s_pending_event_value;
     s_pending_event_valid = false;
-    set_current_status(STATUS_READY);
+    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, false));
     return 2;
 }
 
@@ -251,7 +286,10 @@ void handle_command(uint8_t *buffer, int len) {
     switch (cmd) {
         case CMD_PING:
             ESP_LOGI(TAG, "  → PING");
-            set_current_status(STATUS_READY);
+            if ((current_status & STATUS_BUSY) == 0U) {
+                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
+                                                          s_pending_event_valid));
+            }
             break;
 
         case CMD_GET_TYPE:
@@ -269,23 +307,31 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_COLOR ID=%d (%s)", color_id, led_pattern_name(color_id));
                 // SET_LED is a configuration update, not a block-originated event.
                 // Only assert DATA_READY when a submit event is actually pending.
-                set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
+                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
+                                                          s_pending_event_valid));
             } else if (len >= 4) {
                 led_r = buffer[1];
                 led_g = buffer[2];
                 led_b = buffer[3];
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
-                set_current_status(s_pending_event_valid ? STATUS_DATA_READY : STATUS_READY);
+                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
+                                                          s_pending_event_valid));
             }
             break;
 
         case CMD_PLAY_NOTE:
             if (len >= 2 && s_action_queue) {
                 led_action_t action = {.type = ACTION_PLAY_NOTE, .value = buffer[1]};
-                if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
+                if (xQueueSend(s_action_queue, &action, 0) == pdTRUE) {
+                    ESP_LOGI(TAG, "Queued PLAY_NOTE note=%u", (unsigned)buffer[1]);
+                    set_current_status(STATUS_BUSY);
+                } else {
                     ESP_LOGW(TAG, "Action queue full, dropping PLAY_NOTE");
+                    set_current_status(STATUS_ERROR);
                 }
+            } else if (len >= 2) {
+                set_current_status(STATUS_ERROR);
             }
             break;
 
@@ -333,10 +379,12 @@ void handle_command(uint8_t *buffer, int len) {
 
         case CMD_EXECUTE:
             ESP_LOGI(TAG, "  → EXECUTE color_id=%d (%s)", color_id, led_pattern_name(color_id));
-            set_current_status(STATUS_BUSY);
             if (s_action_queue) {
                 led_action_t action = {.type = ACTION_EXECUTE, .value = color_id};
-                if (xQueueSend(s_action_queue, &action, 0) != pdTRUE) {
+                if (xQueueSend(s_action_queue, &action, 0) == pdTRUE) {
+                    ESP_LOGI(TAG, "Queued EXECUTE color=%u", (unsigned)color_id);
+                    set_current_status(STATUS_BUSY);
+                } else {
                     ESP_LOGW(TAG, "Action queue full, dropping EXECUTE");
                     set_current_status(STATUS_ERROR);
                 }

@@ -347,8 +347,10 @@ esp_err_t speaker_play_note_tone(uint32_t hz, uint32_t ms)
         return ESP_OK;
     }
 
+    // If DAC output has been initialized, keep using the DAC path to avoid
+    // re-binding GPIO25 between DAC and LEDC backends during runtime.
     if (s_dac != NULL) {
-        s_dac->setSampleSource(&s_silence);
+        return speaker_play_tone(hz, ms);
     }
 
     return pwm_play_tone(hz, ms, s_volume_percent);

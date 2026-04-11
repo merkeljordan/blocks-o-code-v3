@@ -90,6 +90,7 @@ static QueueHandle_t s_playback_queue = NULL;
 // note_playback_task().
 static void peripherals_show_running(void);
 static void play_note(uint8_t note_id, bool restore_idle);
+uint8_t note_block_get_status_flags(void);
 static uint8_t s_status_flags = STATUS_READY;
 
 static void render_status_strip(uint8_t status_flags) {
@@ -112,22 +113,50 @@ static void show_boot_ready_matrix(void) {
   matrix_show();
 }
 
-static void set_status_flags(uint8_t status_flags) {
-  uint8_t old_flags = s_status_flags;
-  s_status_flags = status_flags;
+static uint8_t normalize_status_flags(uint8_t status_flags) {
+  uint8_t flags = status_flags &
+                  (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY |
+                   STATUS_IDLE);
 
-  if ((old_flags & STATUS_BUSY) == 0U && (status_flags & STATUS_BUSY) != 0U) {
-    ESP_LOGI(TAG, "Status set to BUSY");
-  } else if ((old_flags & STATUS_BUSY) != 0U &&
-             (status_flags & STATUS_BUSY) == 0U) {
-    ESP_LOGI(TAG, "Playback finished. Status cleared to %s",
-             (status_flags & STATUS_DATA_READY) ? "DATA_READY" : "READY");
+  if ((flags & (STATUS_BUSY | STATUS_ERROR)) == 0U) {
+    flags |= STATUS_READY;
+  } else {
+    flags &= (uint8_t)~STATUS_READY;
   }
 
-  bool busy = (status_flags & STATUS_BUSY) != 0U;
+  return flags;
+}
+
+static uint8_t nonbusy_status_flags(bool preserve_idle, bool has_pending_event) {
+  uint8_t flags = 0U;
+
+  if (preserve_idle) {
+    flags |= STATUS_IDLE;
+  }
+  if (has_pending_event) {
+    flags |= STATUS_DATA_READY;
+  }
+
+  return normalize_status_flags(flags);
+}
+
+static void set_status_flags(uint8_t status_flags) {
+  uint8_t old_flags = s_status_flags;
+  s_status_flags = normalize_status_flags(status_flags);
+
+  if ((old_flags & STATUS_BUSY) == 0U && (s_status_flags & STATUS_BUSY) != 0U) {
+    ESP_LOGI(TAG, "Status set to BUSY");
+  } else if ((old_flags & STATUS_BUSY) != 0U &&
+             (s_status_flags & STATUS_BUSY) == 0U) {
+    ESP_LOGI(TAG, "Playback finished. Final status=0x%02X%s%s",
+             s_status_flags, (s_status_flags & STATUS_IDLE) ? " IDLE" : "",
+             (s_status_flags & STATUS_DATA_READY) ? " DATA_READY" : "");
+  }
+
+  bool busy = (s_status_flags & STATUS_BUSY) != 0U;
   led_matrix_set_status_mirror(busy);
   if (!busy) {
-    render_status_strip(status_flags);
+    render_status_strip(s_status_flags);
   }
 }
 
@@ -147,19 +176,33 @@ static void note_playback_task(void *arg) {
   for (;;) {
     if (xQueueReceive(s_playback_queue, &cmd, portMAX_DELAY) == pdTRUE) {
       bool has_pending_event = false;
+      bool preserve_idle = true;
+      const char *playback_name =
+          (cmd.type == PLAYBACK_SINGLE) ? "single" : "sequence";
+
+      ESP_LOGI(TAG, "Playback worker dequeued %s command", playback_name);
       peripherals_show_running();
 
       if (cmd.type == PLAYBACK_SINGLE) {
+        ESP_LOGI(TAG, "Playback worker starting single note=%u",
+                 (unsigned)cmd.note_id);
         play_note(cmd.note_id, true);
       } else {
         // PLAYBACK_SEQUENCE: use current s_config.
         if (s_config.is_custom_sequence && s_config.seq_len > 0) {
+          ESP_LOGI(TAG, "Playback worker starting sequence len=%u",
+                   (unsigned)s_config.seq_len);
           for (uint8_t i = 0; i < s_config.seq_len; i++) {
             // Restore idle color only after the LAST note has finished.
             bool is_last = (i == s_config.seq_len - 1);
+            ESP_LOGI(TAG, "Playback worker note %u/%u id=%u%s",
+                     (unsigned)(i + 1U), (unsigned)s_config.seq_len,
+                     (unsigned)s_config.seq[i], is_last ? " last" : "");
             play_note(s_config.seq[i], is_last);
           }
         } else {
+          ESP_LOGI(TAG, "Playback worker fallback single note=%u",
+                   (unsigned)s_config.note_id);
           play_note(s_config.note_id, true);
         }
       }
@@ -167,7 +210,11 @@ static void note_playback_task(void *arg) {
       portENTER_CRITICAL(&s_pending_event_spinlock);
       has_pending_event = s_pending_event_valid;
       portEXIT_CRITICAL(&s_pending_event_spinlock);
-      set_status_flags(has_pending_event ? (STATUS_IDLE | STATUS_DATA_READY) : STATUS_IDLE);
+      set_status_flags(nonbusy_status_flags(preserve_idle, has_pending_event));
+      ESP_LOGI(TAG,
+               "Playback worker finished %s command pending_event=%d final=0x%02X",
+               playback_name, (int)has_pending_event,
+               (unsigned)note_block_get_status_flags());
     }
   }
 }
@@ -208,8 +255,7 @@ static size_t config_get_payload(uint8_t *out, size_t max_len) {
 // ============================================================================
 
 uint8_t note_block_get_status_flags(void) {
-  return s_status_flags &
-         (STATUS_READY | STATUS_BUSY | STATUS_ERROR | STATUS_DATA_READY | STATUS_IDLE);
+  return normalize_status_flags(s_status_flags);
 }
 
 // ============================================================================
@@ -297,7 +343,8 @@ bool note_block_submit_selection(uint8_t note_id) {
   s_pending_event_valid = true;
   portEXIT_CRITICAL(&s_pending_event_spinlock);
   if (!was_busy) {
-    set_status_flags(STATUS_DATA_READY);
+    bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
+    set_status_flags(nonbusy_status_flags(preserve_idle, true));
   }
   return true;
 }
@@ -332,7 +379,8 @@ bool note_block_submit_sequence(const uint8_t *notes, uint8_t count) {
   s_pending_event_valid = true;
   portEXIT_CRITICAL(&s_pending_event_spinlock);
   if (!was_busy) {
-    set_status_flags(STATUS_DATA_READY);
+    bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
+    set_status_flags(nonbusy_status_flags(preserve_idle, true));
   }
   return true;
 }
@@ -355,9 +403,13 @@ void command_handle(i2c_command_t cmd, const uint8_t *rx, size_t rx_len,
 
   switch (cmd) {
   case CMD_PING:
-    // Do not clear STATUS_DATA_READY while an event is pending.
-    if (!(s_pending_event_valid && (s_status_flags == STATUS_DATA_READY))) {
-      set_status_flags(STATUS_READY);
+    if ((s_status_flags & STATUS_BUSY) == 0U) {
+      bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
+      bool has_pending_event = false;
+      portENTER_CRITICAL(&s_pending_event_spinlock);
+      has_pending_event = s_pending_event_valid;
+      portEXIT_CRITICAL(&s_pending_event_spinlock);
+      set_status_flags(nonbusy_status_flags(preserve_idle, has_pending_event));
     }
     break;
 
@@ -436,7 +488,8 @@ void command_handle(i2c_command_t cmd, const uint8_t *rx, size_t rx_len,
       }
       portEXIT_CRITICAL(&s_pending_event_spinlock);
       if (consumed_event) {
-        set_status_flags(STATUS_READY);
+        bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
+        set_status_flags(nonbusy_status_flags(preserve_idle, false));
       }
     }
     break;
@@ -447,8 +500,6 @@ void command_handle(i2c_command_t cmd, const uint8_t *rx, size_t rx_len,
       peripherals_error_feedback();
       set_status_flags(STATUS_ERROR);
       break;
-    } else {
-      set_status_flags(STATUS_BUSY);
     }
     if (s_playback_queue != NULL) {
       playback_cmd_t cmd_exec = {.type = PLAYBACK_SEQUENCE};

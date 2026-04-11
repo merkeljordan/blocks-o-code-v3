@@ -47,7 +47,7 @@ extern bool note_block_submit_sequence(const uint8_t *notes, uint8_t count);
 #if !defined(NOTE_UI_SIMULATOR)
 /* TFT + touch wiring and runtime config. */
 #define TFT_SPI_HOST               SPI3_HOST
-#define TFT_PIXEL_CLOCK_HZ         (40 * 1000000)
+#define TFT_PIXEL_CLOCK_HZ         (20 * 1000 * 1000)
 #define TFT_CMD_BITS               8
 #define TFT_PARAM_BITS             8
 #define TFT_H_RES                  240
@@ -849,7 +849,7 @@ void tft_ui_start(void)
         .x_max = TFT_H_RES,
         .y_max = TFT_V_RES,
         .rst_gpio_num = -1,
-        .int_gpio_num = PIN_NUM_TOUCH_IRQ,
+        .int_gpio_num = GPIO_NUM_NC,
         .flags = {
             .swap_xy = 0,
             .mirror_x = 0,

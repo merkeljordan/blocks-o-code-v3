@@ -526,6 +526,8 @@ void app_main(void) {
     ESP_LOGI(TAG, "=== BRAIN BLOCK ===");
     esp_log_level_set("XPT2046", ESP_LOG_DEBUG);
     esp_log_level_set("xpt2046", ESP_LOG_DEBUG);
+    // Keep scan task active but suppress repetitive scan INFO spam during runtime.
+    esp_log_level_set("BLOCK_CONFIG", ESP_LOG_WARN);
 
     startup_power_guard();
 

@@ -480,7 +480,7 @@ static void recompute_event_map_from_config(void) {
 }
 
 esp_err_t block_config_manager_scan(void) {
-    ESP_LOGI(TAG, "=== BLOCK CONFIGURATION SCAN ===");
+    ESP_LOGD(TAG, "=== BLOCK CONFIGURATION SCAN ===");
     clear_scan_errors();
 
     block_config_state_t committed_state;
@@ -591,7 +591,7 @@ esp_err_t block_config_manager_scan(void) {
                 if (who != 0xFFu && who != (uint8_t)BLOCK_TYPE_BRAIN &&
                     who != (uint8_t)BLOCK_TYPE_UNKNOWN) {
                     config_entry->block_type = (block_type_t)who;
-                    ESP_LOGI(TAG,
+                    ESP_LOGD(TAG,
                              "Resolved type at 0x%02X via REG_WHOAMI -> %s",
                              entry->address,
                              block_type_to_json_string(config_entry->block_type));
@@ -706,14 +706,14 @@ esp_err_t block_config_manager_scan(void) {
 
     recompute_event_map_from_config();
 
-    ESP_LOGI(TAG,
+    ESP_LOGD(TAG,
              "Raw detected=%u, committed=%u, pending=%u, append_only=%s, removal_only=%s",
              scanned_count,
              s_config_state.block_count,
              s_pending_stable_count,
              append_only_change ? "yes" : "no",
              removal_only_change ? "yes" : "no");
-    ESP_LOGI(TAG,
+    ESP_LOGD(TAG,
              "Scan complete: %u I2C child block(s) (brain not scanned), %d error(s), "
              "stack export=%d (brain+children), changed: %s",
              (unsigned)s_config_state.block_count,
@@ -723,7 +723,7 @@ esp_err_t block_config_manager_scan(void) {
     for (uint8_t i = 0; i < s_last_scan_error_count; i++) {
         const block_config_scan_error_t *err = &s_last_scan_errors[i];
         if (err->i2c_address >= 0 && err->block_index >= 0) {
-            ESP_LOGI(TAG, "Error detail %u/%u: [%s] addr=0x%02X index=%d %s",
+            ESP_LOGD(TAG, "Error detail %u/%u: [%s] addr=0x%02X index=%d %s",
                      (unsigned)(i + 1),
                      (unsigned)s_last_scan_error_count,
                      err->type,
@@ -731,14 +731,14 @@ esp_err_t block_config_manager_scan(void) {
                      err->block_index,
                      err->message);
         } else if (err->i2c_address >= 0) {
-            ESP_LOGI(TAG, "Error detail %u/%u: [%s] addr=0x%02X %s",
+            ESP_LOGD(TAG, "Error detail %u/%u: [%s] addr=0x%02X %s",
                      (unsigned)(i + 1),
                      (unsigned)s_last_scan_error_count,
                      err->type,
                      err->i2c_address,
                      err->message);
         } else {
-            ESP_LOGI(TAG, "Error detail %u/%u: [%s] %s",
+            ESP_LOGD(TAG, "Error detail %u/%u: [%s] %s",
                      (unsigned)(i + 1),
                      (unsigned)s_last_scan_error_count,
                      err->type,
