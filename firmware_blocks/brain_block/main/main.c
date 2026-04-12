@@ -106,6 +106,7 @@ static void block_event_poll_task(void *arg) {
         }
 
         const device_registry_t *registry = device_registry_get();
+        uint8_t active_poll_addr = brain_executor_get_active_poll_addr();
         for (int i = 0; i < registry->count; i++) {
             const device_entry_t *entry = &registry->devices[i];
             if (!entry->present) {
@@ -116,6 +117,13 @@ static void block_event_poll_task(void *arg) {
                 entry->type != BLOCK_TYPE_BUTTON &&
                 entry->type != BLOCK_TYPE_DELAY &&
                 entry->type != BLOCK_TYPE_LOOP) {
+                continue;
+            }
+
+            // Skip the address the executor is actively polling to prevent TX FIFO poisoning.
+            // Button blocks are exempt: EXECUTOR_WAIT_INPUT uses a different code path and
+            // active_poll_addr is 0 during that state.
+            if (active_poll_addr != 0 && entry->address == active_poll_addr) {
                 continue;
             }
 

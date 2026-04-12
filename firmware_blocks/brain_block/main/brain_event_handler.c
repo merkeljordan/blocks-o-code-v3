@@ -1079,9 +1079,35 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (int)exec_ret);
             vTaskDelay(pdMS_TO_TICKS(15));
 
+            // Release s_dispatch_mutex for the duration of BUSY+IDLE polling so that
+            // brain_evt can process block events and STOP commands without timing out.
+            // Set EXECUTOR_WAIT_OUTPUT first so brain_executor_prefers_i2c_yield() returns
+            // true and background I2C tasks continue to back off.
+            s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
+            s_executor_active_poll_addr = addr;
+            if (s_dispatch_mutex != NULL) { xSemaphoreGiveRecursive(s_dispatch_mutex); }
+
             uint32_t wait_ms = 0;
             uint8_t status = 0;
             esp_err_t busy_ret = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &wait_ms, &status);
+
+            // Guard against stale TX FIFO IDLE reads right after BUSY is observed.
+            // Require a minimum BUSY dwell before we begin idle confirmation.
+            if (busy_ret == ESP_OK && wait_ms < LED_FLASH_MIN_BUSY_DWELL_MS) {
+                vTaskDelay(pdMS_TO_TICKS(LED_FLASH_MIN_BUSY_DWELL_MS - wait_ms));
+            }
+
+            esp_err_t idle_ret = (busy_ret == ESP_OK)
+                ? wait_for_status_idle(addr, 10000U, &wait_ms, &status)
+                : ESP_ERR_TIMEOUT;
+
+            // Re-acquire mutex before touching any shared executor state.
+            if (s_dispatch_mutex != NULL) { xSemaphoreTakeRecursive(s_dispatch_mutex, portMAX_DELAY); }
+            s_executor_active_poll_addr = 0;
+            s_executor_ctx.state = EXECUTOR_RUNNING;
+
+            if (s_executor_ctx.stop_requested) { break; }
+
             if (busy_ret == ESP_OK) {
                 ESP_LOGI(TAG, "LED_FLASH busy observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
@@ -1092,14 +1118,6 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                 break;
             }
 
-            // Guard against stale TX FIFO IDLE reads right after BUSY is observed.
-            // Require a minimum BUSY dwell before we begin idle confirmation.
-            if (wait_ms < LED_FLASH_MIN_BUSY_DWELL_MS) {
-                uint32_t remain_ms = LED_FLASH_MIN_BUSY_DWELL_MS - wait_ms;
-                vTaskDelay(pdMS_TO_TICKS(remain_ms));
-            }
-
-            esp_err_t idle_ret = wait_for_status_idle(addr, 10000U, &wait_ms, &status);
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "LED_FLASH idle observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
@@ -1121,9 +1139,23 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (int)exec_ret);
             vTaskDelay(pdMS_TO_TICKS(15));
 
+            s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
+            s_executor_active_poll_addr = addr;
+            if (s_dispatch_mutex != NULL) { xSemaphoreGiveRecursive(s_dispatch_mutex); }
+
             uint32_t wait_ms = 0;
             uint8_t status = 0;
             esp_err_t busy_ret = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &wait_ms, &status);
+            esp_err_t idle_ret = (busy_ret == ESP_OK)
+                ? wait_for_status_idle(addr, 10000U, &wait_ms, &status)
+                : ESP_ERR_TIMEOUT;
+
+            if (s_dispatch_mutex != NULL) { xSemaphoreTakeRecursive(s_dispatch_mutex, portMAX_DELAY); }
+            s_executor_active_poll_addr = 0;
+            s_executor_ctx.state = EXECUTOR_RUNNING;
+
+            if (s_executor_ctx.stop_requested) { break; }
+
             if (busy_ret == ESP_OK) {
                 ESP_LOGI(TAG, "NOTE busy observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
@@ -1134,7 +1166,6 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                 break;
             }
 
-            esp_err_t idle_ret = wait_for_status_idle(addr, 10000U, &wait_ms, &status);
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "NOTE idle observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
@@ -1154,12 +1185,26 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (int)exec_ret);
             vTaskDelay(pdMS_TO_TICKS(15));
 
+            s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
+            s_executor_active_poll_addr = addr;
+            if (s_dispatch_mutex != NULL) { xSemaphoreGiveRecursive(s_dispatch_mutex); }
+
             uint32_t elapsed_ms = 0;
             uint8_t status = 0;
             esp_err_t busy_ret = wait_for_status_busy(addr,
                                                       MUSIC_EXEC_BUSY_TIMEOUT_MS,
                                                       &elapsed_ms,
                                                       &status);
+            esp_err_t idle_ret = (busy_ret == ESP_OK)
+                ? wait_for_status_idle(addr, 60000U, &elapsed_ms, &status)
+                : ESP_ERR_TIMEOUT;
+
+            if (s_dispatch_mutex != NULL) { xSemaphoreTakeRecursive(s_dispatch_mutex, portMAX_DELAY); }
+            s_executor_active_poll_addr = 0;
+            s_executor_ctx.state = EXECUTOR_RUNNING;
+
+            if (s_executor_ctx.stop_requested) { break; }
+
             if (busy_ret == ESP_OK) {
                 ESP_LOGI(TAG,
                          "MUSIC_SEQ latency dispatch->BUSY = %u ms (addr=0x%02X status=0x%02X)",
@@ -1174,7 +1219,6 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                 break;
             }
 
-            esp_err_t idle_ret = wait_for_status_idle(addr, 60000U, &elapsed_ms, &status);
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
                 dispatch_result = ESP_OK;
@@ -1317,6 +1361,9 @@ typedef struct {
 
 static QueueHandle_t s_event_queue = NULL;
 static SemaphoreHandle_t s_dispatch_mutex = NULL;
+// Address currently being polled by dispatch_output_action wait loops (0 = none).
+// Written under s_dispatch_mutex before releasing it; read lock-free by block_event_poll_task.
+static volatile uint8_t s_executor_active_poll_addr = 0;
 
 static bool parse_u8_token(const char *s, uint8_t *out) {
     if (!s || !out) {
@@ -1734,10 +1781,16 @@ bool brain_executor_prefers_i2c_yield(void)
         case EXECUTOR_RUNNING:
         case EXECUTOR_WAIT_DELAY:
         case EXECUTOR_WAIT_INPUT:
+        case EXECUTOR_WAIT_OUTPUT:
             return true;
         default:
             return false;
     }
+}
+
+uint8_t brain_executor_get_active_poll_addr(void)
+{
+    return s_executor_active_poll_addr;
 }
 
 void brain_executor_set_button_state(bool is_pressed) {

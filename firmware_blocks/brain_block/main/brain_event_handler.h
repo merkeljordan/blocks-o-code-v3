@@ -24,6 +24,8 @@ typedef enum {
     EXECUTOR_WAIT_INPUT,
     /** DELAY: pc stays on the delay opcode until wait_until_ms. */
     EXECUTOR_WAIT_DELAY,
+    /** Actively polling a child block for BUSY/IDLE completion; s_dispatch_mutex is NOT held. */
+    EXECUTOR_WAIT_OUTPUT,
     EXECUTOR_STOPPED,
     EXECUTOR_DONE,
     EXECUTOR_ERROR
@@ -86,6 +88,10 @@ void broadcast_runtime_state(brain_runtime_broadcast_state_t state, block_type_t
 
 /** True while the executor is actively running a program (including DELAY / BUTTON wait). Background I²C (config scan, event poll) should use longer intervals to reduce bus contention with dispatch. */
 bool brain_executor_prefers_i2c_yield(void);
+
+/** Returns the child I2C address currently being polled by the executor wait loops (0 = none).
+ *  block_event_poll_task skips this address to prevent TX FIFO poisoning. */
+uint8_t brain_executor_get_active_poll_addr(void);
 
 // App/host text command entry point (e.g., "START", "STOP", "SET_LED 0x08 7").
 // START/STOP are handled immediately; return true only if the executor accepted them.
