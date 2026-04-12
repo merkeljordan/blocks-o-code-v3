@@ -849,7 +849,7 @@ void tft_ui_start(void)
         .x_max = TFT_H_RES,
         .y_max = TFT_V_RES,
         .rst_gpio_num = -1,
-        .int_gpio_num = GPIO_NUM_NC,
+        .int_gpio_num = PIN_NUM_TOUCH_IRQ,
         .flags = {
             .swap_xy = 0,
             .mirror_x = 0,

@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -29,8 +30,12 @@ static QueueHandle_t s_action_queue = NULL;
 static bool s_pending_event_valid = false;
 static uint8_t s_pending_event_id = 0;
 static uint8_t s_pending_event_value = 0;
+static int64_t s_busy_since_us = 0;
+static volatile bool s_effect_active = false;
+static volatile bool s_execute_inflight = false;
 
 #define LED_FLASH_EVENT_SELECTION_SUBMIT 0x01
+#define LED_FLASH_MIN_BUSY_HOLD_MS 35
 
 typedef enum {
     ACTION_PREVIEW = 0,
@@ -104,20 +109,54 @@ static uint8_t compose_nonbusy_status(bool preserve_idle, bool has_pending_event
 
 static void set_current_status(uint8_t status)
 {
-    current_status = normalize_status(status);
+    uint8_t old_status = current_status;
+    uint8_t new_status = normalize_status(status);
+
+    if ((old_status & STATUS_BUSY) == 0U && (new_status & STATUS_BUSY) != 0U) {
+        s_busy_since_us = esp_timer_get_time();
+        ESP_LOGI(TAG, "Status set to BUSY");
+    } else if ((old_status & STATUS_BUSY) != 0U && (new_status & STATUS_BUSY) == 0U) {
+        uint32_t elapsed_ms = 0U;
+        uint32_t extra_hold_ms = 0U;
+        if (s_busy_since_us > 0) {
+            int64_t elapsed_us = esp_timer_get_time() - s_busy_since_us;
+            if (elapsed_us < 0) {
+                elapsed_us = 0;
+            }
+            elapsed_ms = (uint32_t)(elapsed_us / 1000LL);
+            const int64_t min_hold_us = (int64_t)LED_FLASH_MIN_BUSY_HOLD_MS * 1000LL;
+            if (elapsed_us < min_hold_us) {
+                const int64_t remain_us = min_hold_us - elapsed_us;
+                extra_hold_ms = (uint32_t)((remain_us + 999LL) / 1000LL);
+                TickType_t delay_ticks = pdMS_TO_TICKS(extra_hold_ms);
+                if (delay_ticks > 0) {
+                    vTaskDelay(delay_ticks);
+                }
+                elapsed_ms += extra_hold_ms;
+            }
+        }
+        s_busy_since_us = 0;
+        ESP_LOGI(TAG, "Playback finished. elapsed=%lu ms extra_hold=%lu ms final=0x%02X",
+                 (unsigned long)elapsed_ms, (unsigned long)extra_hold_ms, (unsigned)new_status);
+    }
+    if ((old_status & STATUS_IDLE) == 0U && (new_status & STATUS_IDLE) != 0U) {
+        ESP_LOGI(TAG, "Status set to IDLE");
+    }
+
+    current_status = new_status;
 
     // BUSY means the local worker is actively rendering a preview/execute effect.
     // In that mode, the dedicated status strip should mirror matrix frames instead
     // of showing a solid idle/status color.
-    if ((current_status & STATUS_BUSY) != 0U) {
+    if ((new_status & STATUS_BUSY) != 0U) {
         led_matrix_set_status_mirror(true);
         return;
     }
 
     // Any non-busy state gives the strip back to the simple status-color renderer.
     led_matrix_set_status_mirror(false);
-    show_status_matrix(current_status);
-    refresh_status_strip(current_status);
+    show_status_matrix(new_status);
+    refresh_status_strip(new_status);
 }
 
 static void command_action_task(void *arg) {
@@ -131,7 +170,19 @@ static void command_action_task(void *arg) {
 
         ESP_LOGI(TAG, "Worker dequeued action=%u value=%u",
                  (unsigned)action.type, (unsigned)action.value);
-        set_current_status(STATUS_BUSY);
+        s_effect_active = true;
+        led_matrix_set_status_mirror(true);
+        led_matrix_set_lock(false);
+        if (action.type == ACTION_PREVIEW && s_execute_inflight) {
+            ESP_LOGI(TAG, "Skipping preview while execute inflight");
+            led_matrix_set_status_mirror(false);
+            s_effect_active = false;
+            continue;
+        }
+        bool track_busy = (action.type != ACTION_PREVIEW);
+        if (track_busy) {
+            set_current_status(STATUS_BUSY);
+        }
         switch (action.type) {
             case ACTION_PREVIEW:
                 ESP_LOGI(TAG, "Worker starting preview color=%u", (unsigned)action.value);
@@ -161,10 +212,25 @@ static void command_action_task(void *arg) {
             default:
                 break;
         }
-        set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
-        ESP_LOGI(TAG, "Worker finished action=%u final_status=0x%02X pending_event=%d",
-                 (unsigned)action.type, (unsigned)command_handler_get_status(),
-                 (int)s_pending_event_valid);
+        if (track_busy) {
+            set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
+            ESP_LOGI(TAG, "Worker finished action=%u final_status=0x%02X pending_event=%d",
+                     (unsigned)action.type, (unsigned)command_handler_get_status(),
+                     (int)s_pending_event_valid);
+            if (action.type == ACTION_EXECUTE) {
+                s_execute_inflight = false;
+            }
+        } else {
+            if (!s_execute_inflight) {
+                set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
+                ESP_LOGI(TAG, "Worker finished preview action=%u pending_event=%d",
+                         (unsigned)action.type, (int)s_pending_event_valid);
+            } else {
+                ESP_LOGI(TAG, "Preview completed while execute inflight; preserving BUSY");
+            }
+        }
+        led_matrix_set_status_mirror(false);
+        s_effect_active = false;
     }
 }
 
@@ -211,7 +277,12 @@ bool command_handler_enqueue_execute_digit(uint8_t digit) {
         return false;
     }
     led_action_t action = {.type = ACTION_EXECUTE, .value = digit};
-    return xQueueSend(s_action_queue, &action, 0) == pdTRUE;
+    s_execute_inflight = true;
+    if (xQueueSend(s_action_queue, &action, 0) == pdTRUE) {
+        return true;
+    }
+    s_execute_inflight = false;
+    return false;
 }
 
 bool command_handler_submit_selection(uint8_t digit) {
@@ -241,7 +312,9 @@ size_t get_data_payload(uint8_t *out, size_t max_len) {
     out[0] = s_pending_event_id;
     out[1] = s_pending_event_value;
     s_pending_event_valid = false;
-    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, false));
+    if ((current_status & STATUS_BUSY) == 0U) {
+        set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, false));
+    }
     return 2;
 }
 
@@ -255,12 +328,18 @@ void handle_command(uint8_t *buffer, int len) {
 
     uint8_t cmd = buffer[0];
 
-    ESP_LOGI(TAG, "Command: %s (0x%02X), Length: %d bytes",
-             command_to_string(cmd), cmd, len);
+    if ((i2c_command_t)cmd == CMD_RUNTIME_BROADCAST) {
+        ESP_LOGD(TAG, "Command: %s (0x%02X), Length: %d bytes",
+                 command_to_string(cmd), cmd, len);
+    } else {
+        ESP_LOGI(TAG, "Command: %s (0x%02X), Length: %d bytes",
+                 command_to_string(cmd), cmd, len);
+    }
 
     // While the local matrix effect owns the strip mirror, ignore Brain-driven
     // strip paint commands so the mirrored animation is not overwritten mid-run.
-    if ((current_status & STATUS_BUSY) != 0U && is_status_strip_command((i2c_command_t)cmd)) {
+    if (((current_status & STATUS_BUSY) != 0U || s_effect_active) &&
+        is_status_strip_command((i2c_command_t)cmd)) {
         ESP_LOGD(TAG, "Ignoring external status strip command 0x%02X while local effect is active", cmd);
         return;
     }
@@ -272,6 +351,11 @@ void handle_command(uint8_t *buffer, int len) {
                                            (i2c_command_t)cmd,
                                            (len > 1) ? &buffer[1] : NULL,
                                            (len > 1) ? (size_t)(len - 1) : 0U)) {
+        return;
+    }
+    if ((i2c_command_t)cmd == CMD_RUNTIME_BROADCAST &&
+        ((current_status & STATUS_BUSY) != 0U || s_effect_active)) {
+        ESP_LOGD(TAG, "Ignoring runtime broadcast while BUSY");
         return;
     }
     if (status_strip_handle_runtime_broadcast(TAG,
@@ -307,16 +391,20 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_COLOR ID=%d (%s)", color_id, led_pattern_name(color_id));
                 // SET_LED is a configuration update, not a block-originated event.
                 // Only assert DATA_READY when a submit event is actually pending.
-                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
-                                                          s_pending_event_valid));
+                if ((current_status & STATUS_BUSY) == 0U) {
+                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
+                                                              s_pending_event_valid));
+                }
             } else if (len >= 4) {
                 led_r = buffer[1];
                 led_g = buffer[2];
                 led_b = buffer[3];
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
-                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
-                                                          s_pending_event_valid));
+                if ((current_status & STATUS_BUSY) == 0U) {
+                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
+                                                              s_pending_event_valid));
+                }
             }
             break;
 
@@ -340,14 +428,14 @@ void handle_command(uint8_t *buffer, int len) {
                 uint8_t r = buffer[1];
                 uint8_t g = buffer[2];
                 uint8_t b = buffer[3];
-                ESP_LOGI(TAG, "  → FILL RGB(%d, %d, %d)", r, g, b);
+                ESP_LOGD(TAG, "  → FILL RGB(%d, %d, %d)", r, g, b);
                 matrix_fill(r, g, b);
                 matrix_show();
             }
             break;
 
         case CMD_MATRIX_CLEAR:
-            ESP_LOGI(TAG, "  → CLEAR");
+            ESP_LOGD(TAG, "  → CLEAR");
             matrix_clear();
             matrix_show();
             break;
@@ -355,13 +443,13 @@ void handle_command(uint8_t *buffer, int len) {
         case CMD_MATRIX_BRIGHTNESS:
             if (len >= 2) {
                 uint8_t brightness = buffer[1];
-                ESP_LOGI(TAG, "  → BRIGHTNESS %d", brightness);
+                ESP_LOGD(TAG, "  → BRIGHTNESS %d", brightness);
                 matrix_set_brightness(brightness);
             }
             break;
 
         case CMD_MATRIX_SHOW:
-            ESP_LOGI(TAG, "  → SHOW");
+            ESP_LOGD(TAG, "  → SHOW");
             matrix_show();
             break;
 
@@ -371,6 +459,8 @@ void handle_command(uint8_t *buffer, int len) {
             led_g = 0;
             led_b = 0;
             color_id = 0;
+            s_execute_inflight = false;
+            s_effect_active = false;
             (void)status_strip_reset(&kStatusStripConfig);
             matrix_clear();
             matrix_show();
@@ -379,16 +469,11 @@ void handle_command(uint8_t *buffer, int len) {
 
         case CMD_EXECUTE:
             ESP_LOGI(TAG, "  → EXECUTE color_id=%d (%s)", color_id, led_pattern_name(color_id));
-            if (s_action_queue) {
-                led_action_t action = {.type = ACTION_EXECUTE, .value = color_id};
-                if (xQueueSend(s_action_queue, &action, 0) == pdTRUE) {
-                    ESP_LOGI(TAG, "Queued EXECUTE color=%u", (unsigned)color_id);
-                    set_current_status(STATUS_BUSY);
-                } else {
-                    ESP_LOGW(TAG, "Action queue full, dropping EXECUTE");
-                    set_current_status(STATUS_ERROR);
-                }
+            if (command_handler_enqueue_execute_digit(color_id)) {
+                ESP_LOGI(TAG, "Queued EXECUTE color=%u", (unsigned)color_id);
+                set_current_status(STATUS_BUSY);
             } else {
+                ESP_LOGW(TAG, "Action queue full/unavailable, dropping EXECUTE");
                 set_current_status(STATUS_ERROR);
             }
             break;
@@ -406,12 +491,10 @@ void led_status_task(void *arg) {
     ESP_LOGI(TAG, "LED status task started");
 
     while (1) {
-        // Human-readable periodic log to aid bring-up/demo debugging.
-        ESP_LOGI(TAG, "Status: %s | LED: RGB(%d,%d,%d) | Brightness: %d%%",
-                 (current_status & STATUS_READY) ? "READY" : "BUSY",
-                 led_r, led_g, led_b,
-                 (matrix_get_brightness() * 100) / 255);
-
         vTaskDelay(pdMS_TO_TICKS(10000));  // Every 10 seconds
     }
 }
+
+
+
+

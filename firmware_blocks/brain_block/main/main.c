@@ -93,6 +93,18 @@ static void block_event_poll_task(void *arg) {
     uint8_t data_len = 0;
 
     while (1) {
+        const brain_executor_context_t *exec_ctx = brain_executor_get_context();
+        bool waiting_for_button =
+            (exec_ctx != NULL && exec_ctx->state == EXECUTOR_WAIT_INPUT);
+
+        // During active execution, avoid competing REG_STATUS/GET_DATA reads that can
+        // perturb slave TX FIFO sequencing for the executor's wait loops.
+        // Exception: when waiting for BUTTON input we must keep polling events.
+        if (brain_executor_prefers_i2c_yield() && !waiting_for_button) {
+            vTaskDelay(pdMS_TO_TICKS(BLOCK_EVENT_POLL_INTERVAL_MS_ACTIVE));
+            continue;
+        }
+
         const device_registry_t *registry = device_registry_get();
         for (int i = 0; i < registry->count; i++) {
             const device_entry_t *entry = &registry->devices[i];
@@ -127,12 +139,12 @@ static void block_event_poll_task(void *arg) {
                 data_len = 0;
                 vTaskDelay(pdMS_TO_TICKS(2));
             }
-            // For NOTE blocks we rely on REG_DATA_LEN being accurate.
+            // For NOTE/BUTTON blocks we rely on REG_DATA_LEN being accurate.
             // If it's invalid (0/too small/too big), avoid falling back to a fixed
             // read length, otherwise we'd read random bytes (slave returns no payload)
             // and Brain would parse garbage as an event_id.
             if (data_len < 2 || data_len > sizeof(payload)) {
-                if (entry->type == BLOCK_TYPE_NOTE) {
+                if (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_BUTTON) {
                     continue;
                 }
                 data_len = 2;
@@ -156,8 +168,7 @@ static void block_event_poll_task(void *arg) {
 
         // Idle: poll often so submits reach the Brain before START. Active run: back off I²C so
         // executor dispatch (NOTE waits, LED, etc.) and the config scan task see less contention.
-        uint32_t poll_ms = brain_executor_prefers_i2c_yield() ? BLOCK_EVENT_POLL_INTERVAL_MS_ACTIVE
-                                                              : BLOCK_EVENT_POLL_INTERVAL_MS_IDLE;
+        uint32_t poll_ms = BLOCK_EVENT_POLL_INTERVAL_MS_IDLE;
         vTaskDelay(pdMS_TO_TICKS(poll_ms));
     }
 }
@@ -173,6 +184,13 @@ static void block_scan_task(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     while (1) {
+        // Scans issue I2C traffic to many addresses; pause while executor is active
+        // to keep step-level BUSY/IDLE reads deterministic.
+        if (brain_executor_prefers_i2c_yield()) {
+            vTaskDelay(pdMS_TO_TICKS(BACKGROUND_BLOCK_SCAN_INTERVAL_MS));
+            continue;
+        }
+
         esp_err_t err = block_config_manager_scan();
         if (err != ESP_OK) {
             ESP_LOGW(TAG, "block_config_manager_scan failed: %s", esp_err_to_name(err));
@@ -379,10 +397,13 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
         return;
     }
 
-    // Periodically re-broadcast terminal states (DONE, ERROR, STOP) to keep child
-    // block visuals in sync if they missed the initial broadcast or were reset by pings.
-    static uint32_t s_last_broadcast_ms = 0;
+    // Terminal-state UX for children:
+    // 1) broadcast terminal state once on entry so users can see completion/error.
+    // 2) shortly after, restore children to runtime IDLE so each block returns to
+    //    its standalone identity/default visuals.
     static brain_executor_state_t s_last_state = EXECUTOR_IDLE;
+    static bool s_terminal_restore_sent = false;
+    static uint32_t s_terminal_enter_ms = 0;
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
 
     bool is_terminal = (ctx->state == EXECUTOR_DONE ||
@@ -394,13 +415,14 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
                                                           s_last_state == EXECUTOR_ERROR)));
     s_last_state = ctx->state;
 
-    if (is_terminal && (state_just_became_terminal || (now - s_last_broadcast_ms >= 500))) {
-        s_last_broadcast_ms = now;
+    if (is_terminal && state_just_became_terminal) {
+        s_terminal_enter_ms = now;
+        s_terminal_restore_sent = false;
         brain_runtime_broadcast_state_t broadcast_state = BRAIN_RUNTIME_DONE;
         if (ctx->state == EXECUTOR_STOPPED) broadcast_state = BRAIN_RUNTIME_STOP;
         if (ctx->state == EXECUTOR_ERROR) broadcast_state = BRAIN_RUNTIME_ERROR;
 
-        ESP_LOGD(TAG, "Periodic terminal state broadcast: %d", (int)broadcast_state);
+        ESP_LOGD(TAG, "Terminal state broadcast: %d", (int)broadcast_state);
         // Step through all present blocks to broadcast terminal state.
         // Child blocks show their full-matrix status color when pc is BRAIN_RUNTIME_PC_NONE.
         if (cfg != NULL) {
@@ -410,6 +432,25 @@ static void brain_led_refresh_child_blocks(const block_config_state_t *cfg,
                 }
             }
         }
+    }
+
+    if (is_terminal && !s_terminal_restore_sent && (now - s_terminal_enter_ms >= 500U)) {
+        s_terminal_restore_sent = true;
+        ESP_LOGD(TAG, "Terminal restore broadcast: IDLE");
+        if (cfg != NULL) {
+            for (int i = 0; i < cfg->block_count; i++) {
+                if (cfg->blocks[i].present) {
+                    (void)i2c_runtime_broadcast(cfg->blocks[i].i2c_address,
+                                                BRAIN_RUNTIME_IDLE,
+                                                BRAIN_RUNTIME_PC_NONE,
+                                                BLOCK_TYPE_UNKNOWN);
+                }
+            }
+        }
+    }
+
+    if (!is_terminal) {
+        s_terminal_restore_sent = false;
     }
 }
 

@@ -37,6 +37,7 @@
  #include "esp_log.h"
  #include "esp_random.h"
  #include "freertos/FreeRTOS.h"
+ #include "freertos/semphr.h"
  #include "freertos/task.h"
  #include "led_strip.h"
   
@@ -59,12 +60,26 @@ static uint8_t matrix_brightness = 50;  /* 0-255; ~20 % at boot */
 static rgb_t matrix_pixels[LED_MATRIX_SIZE];
 static bool status_mirror_enabled = false;
 static bool s_matrix_locked = false;
+static SemaphoreHandle_t s_led_io_mutex = NULL;
 
 static void set_pixel_scaled(uint16_t idx, uint8_t r, uint8_t g, uint8_t b);
 static void fill_scaled(uint8_t r, uint8_t g, uint8_t b);
 static void show(void);
 static void clear_and_show(void);
 static void wheel_color(uint8_t pos, uint8_t *r, uint8_t *g, uint8_t *b);
+
+static bool led_io_lock(TickType_t timeout_ticks) {
+    if (s_led_io_mutex == NULL) {
+        return true;
+    }
+    return xSemaphoreTake(s_led_io_mutex, timeout_ticks) == pdTRUE;
+}
+
+static void led_io_unlock(void) {
+    if (s_led_io_mutex != NULL) {
+        xSemaphoreGive(s_led_io_mutex);
+    }
+}
  
  /* ── Per-pattern colour palette ────────────────────────────────────────
   *
@@ -246,18 +261,29 @@ static void render_status_strip_mirror(void) {
  
  /* Push pixel buffer to the physical strip. */
  static void show(void) {
-     if (led_strip) led_strip_refresh(led_strip);
+     if (!led_strip) {
+         return;
+     }
+     if (!led_io_lock(pdMS_TO_TICKS(20))) {
+         ESP_LOGW(TAG, "show(): LED I/O busy, skipping refresh");
+         return;
+     }
+     (void)led_strip_refresh(led_strip);
+     led_io_unlock();
      // Whenever the matrix publishes a new frame, BUSY mode also pushes that
      // frame onto the status strip via render_status_strip_mirror().
      render_status_strip_mirror();
- }
+  }
   
  /* Blank all pixels and push to strip. */
  static void clear_and_show(void) {
      clear_matrix_buffer();
-     if (led_strip) led_strip_clear(led_strip);
+     if (led_strip && led_io_lock(pdMS_TO_TICKS(20))) {
+         (void)led_strip_clear(led_strip);
+         led_io_unlock();
+     }
      show();
- }
+  }
  
  /* Map a 0-255 position on a colour wheel to an RGB triple.
   * The wheel cycles: red -> green -> blue -> red.
@@ -319,7 +345,7 @@ static void fx_color_wipe(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
 static void fx_theater_chase(uint8_t r, uint8_t g, uint8_t b, uint8_t cycles) {
     for (uint8_t cycle = 0; cycle < cycles; cycle++) {
          for (uint8_t phase = 0; phase < 3; phase++) {
-             if (led_strip) led_strip_clear(led_strip);
+             matrix_clear();
              for (uint16_t i = phase; i < LED_MATRIX_SIZE; i += 3) {
                  set_pixel_scaled(i, r, g, b);
              }
@@ -337,7 +363,7 @@ static void fx_larson_scanner(uint8_t r, uint8_t g, uint8_t b, uint8_t bounces) 
     for (uint8_t bounce = 0; bounce < bounces; bounce++) {
          /* Sweep left → right */
          for (int pos = 0; pos < LED_MATRIX_SIZE; pos++) {
-             if (led_strip) led_strip_clear(led_strip);
+             matrix_clear();
              set_pixel_scaled((uint16_t)pos, r, g, b);
              if (pos > 0)
                  set_pixel_scaled((uint16_t)(pos - 1), r / 4, g / 4, b / 4);
@@ -352,7 +378,7 @@ static void fx_larson_scanner(uint8_t r, uint8_t g, uint8_t b, uint8_t bounces) 
          }
          /* Sweep right → left */
          for (int pos = LED_MATRIX_SIZE - 2; pos > 0; pos--) {
-             if (led_strip) led_strip_clear(led_strip);
+             matrix_clear();
              set_pixel_scaled((uint16_t)pos, r, g, b);
              if (pos > 0)
                  set_pixel_scaled((uint16_t)(pos - 1), r / 4, g / 4, b / 4);
@@ -481,7 +507,7 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
 
     for (uint8_t pass = 0; pass < passes; pass++) {
          for (int head = -TAIL_LEN; head < LED_MATRIX_SIZE + TAIL_LEN; head++) {
-             if (led_strip) led_strip_clear(led_strip);
+             matrix_clear();
              for (uint8_t t = 0; t < TAIL_LEN; t++) {
                  int pos = head - t;
                  if (pos >= 0 && pos < LED_MATRIX_SIZE) {
@@ -530,7 +556,18 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
          return err;
      }
  
-     led_strip_clear(led_strip);
+     if (s_led_io_mutex == NULL) {
+         s_led_io_mutex = xSemaphoreCreateMutex();
+         if (s_led_io_mutex == NULL) {
+             ESP_LOGE(TAG, "Failed to create LED I/O mutex");
+             return ESP_ERR_NO_MEM;
+         }
+     }
+ 
+     if (led_io_lock(pdMS_TO_TICKS(50))) {
+         (void)led_strip_clear(led_strip);
+         led_io_unlock();
+     }
      clear_matrix_buffer();
      ESP_LOGI(TAG, "LED Matrix initialized successfully");
      return ESP_OK;
@@ -556,17 +593,19 @@ static void fx_comet(uint8_t r, uint8_t g, uint8_t b, uint8_t passes) {
  
  void matrix_clear(void) {
      clear_matrix_buffer();
-     if (led_strip) led_strip_clear(led_strip);
- }
+     if (led_strip && led_io_lock(pdMS_TO_TICKS(20))) {
+         (void)led_strip_clear(led_strip);
+         led_io_unlock();
+     }
+  }
  
  void matrix_show(void) {
      show();
  }
  
- void matrix_set_brightness(uint8_t brightness) {
-     matrix_brightness = brightness;
-     ESP_LOGI(TAG, "Brightness set to %d", matrix_brightness);
- }
+void matrix_set_brightness(uint8_t brightness) {
+    matrix_brightness = brightness;
+}
  
  uint8_t matrix_get_brightness(void) {
      return matrix_brightness;
@@ -647,3 +686,4 @@ void led_flash_play_preview(uint8_t color_id) {
     }
  }
  
+

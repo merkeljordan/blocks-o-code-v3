@@ -18,6 +18,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "sdkconfig.h"
 #include "driver/gpio.h"
 
@@ -73,9 +74,12 @@ static bool g_config_valid = false;
 static bool g_speaker_ready = false;
 static bool g_leds_ready = false;
 static uint8_t g_status_flags = STATUS_READY;
+static int64_t g_busy_since_us = 0;
 static TaskHandle_t g_exec_task_handle = NULL;
 static TaskHandle_t g_i2c_task_handle = NULL;
 static QueueHandle_t g_playback_queue = NULL;
+
+#define MUSIC_BLOCK_MIN_BUSY_HOLD_MS 35
 
 typedef enum {
     PLAYBACK_CMD_SONG
@@ -104,8 +108,10 @@ static void set_status_flags(uint8_t status_flags)
     g_status_flags = status_flags;
 
     if ((old_flags & STATUS_BUSY) == 0U && (status_flags & STATUS_BUSY) != 0U) {
+        g_busy_since_us = esp_timer_get_time();
         ESP_LOGI(TAG, "Status set to BUSY");
     } else if ((old_flags & STATUS_BUSY) != 0U && (status_flags & STATUS_BUSY) == 0U) {
+        g_busy_since_us = 0;
         ESP_LOGI(TAG, "Playback finished. Status cleared to %s",
                  (status_flags & STATUS_DATA_READY) ? "DATA_READY" : "READY");
     }
@@ -114,6 +120,24 @@ static void set_status_flags(uint8_t status_flags)
     led_matrix_set_status_mirror(busy);
     if (!busy) {
         render_status_strip(g_status_flags);
+    }
+}
+
+static void ensure_min_busy_visibility(void)
+{
+    int64_t busy_since = g_busy_since_us;
+    if (busy_since <= 0) {
+        return;
+    }
+
+    const int64_t min_hold_us = (int64_t)MUSIC_BLOCK_MIN_BUSY_HOLD_MS * 1000LL;
+    int64_t elapsed_us = esp_timer_get_time() - busy_since;
+    if (elapsed_us < min_hold_us) {
+        int64_t remaining_us = min_hold_us - elapsed_us;
+        TickType_t delay_ticks = pdMS_TO_TICKS((uint32_t)((remaining_us + 999LL) / 1000LL));
+        if (delay_ticks > 0) {
+            vTaskDelay(delay_ticks);
+        }
     }
 }
 
@@ -188,6 +212,7 @@ static void sync_selection_status_flag(void)
 
 static void clear_busy_and_refresh_ready_state(void)
 {
+    ensure_min_busy_visibility();
     g_status_flags &= (uint8_t)~STATUS_BUSY;
     g_status_flags |= STATUS_IDLE;
     led_matrix_set_status_mirror(false);

@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -85,6 +87,26 @@ typedef struct {
 } playback_cmd_t;
 
 static QueueHandle_t s_playback_queue = NULL;
+static int64_t s_busy_since_us = 0;
+
+#define NOTE_BLOCK_MIN_BUSY_HOLD_MS 35
+
+static void ensure_min_busy_visibility(void) {
+  int64_t busy_since = s_busy_since_us;
+  if (busy_since <= 0) {
+    return;
+  }
+
+  const int64_t min_hold_us = (int64_t)NOTE_BLOCK_MIN_BUSY_HOLD_MS * 1000LL;
+  int64_t elapsed_us = esp_timer_get_time() - busy_since;
+  if (elapsed_us < min_hold_us) {
+    int64_t remaining_us = min_hold_us - elapsed_us;
+    TickType_t delay_ticks = pdMS_TO_TICKS((uint32_t)((remaining_us + 999LL) / 1000LL));
+    if (delay_ticks > 0) {
+      vTaskDelay(delay_ticks);
+    }
+  }
+}
 
 // Forward declarations for helpers and status flags used by
 // note_playback_task().
@@ -145,9 +167,11 @@ static void set_status_flags(uint8_t status_flags) {
   s_status_flags = normalize_status_flags(status_flags);
 
   if ((old_flags & STATUS_BUSY) == 0U && (s_status_flags & STATUS_BUSY) != 0U) {
+    s_busy_since_us = esp_timer_get_time();
     ESP_LOGI(TAG, "Status set to BUSY");
   } else if ((old_flags & STATUS_BUSY) != 0U &&
              (s_status_flags & STATUS_BUSY) == 0U) {
+    s_busy_since_us = 0;
     ESP_LOGI(TAG, "Playback finished. Final status=0x%02X%s%s",
              s_status_flags, (s_status_flags & STATUS_IDLE) ? " IDLE" : "",
              (s_status_flags & STATUS_DATA_READY) ? " DATA_READY" : "");
@@ -210,6 +234,7 @@ static void note_playback_task(void *arg) {
       portENTER_CRITICAL(&s_pending_event_spinlock);
       has_pending_event = s_pending_event_valid;
       portEXIT_CRITICAL(&s_pending_event_spinlock);
+      ensure_min_busy_visibility();
       set_status_flags(nonbusy_status_flags(preserve_idle, has_pending_event));
       ESP_LOGI(TAG,
                "Playback worker finished %s command pending_event=%d final=0x%02X",

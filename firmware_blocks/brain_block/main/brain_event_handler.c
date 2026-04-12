@@ -24,6 +24,7 @@
 #define BRAIN_EVENT_QUEUE_PAYLOAD_MAX 32U
 
 static const char *TAG = "brain_evt";
+#define LED_WAIT_VERBOSE_POLLS 0
 static brain_validation_state_t s_validation_state;
 static brain_executor_context_t s_executor_ctx;
 static brain_executor_params_t s_executor_params;
@@ -88,10 +89,15 @@ static uint32_t s_validation_block_attempts_since_last_log;
 
 #define MUSIC_EXEC_BUSY_TIMEOUT_MS   500U
 #define BRAIN_EXECUTOR_LOOP_COUNT_MAX 64U
+#define LED_FLASH_MIN_BUSY_DWELL_MS 300U
 
 static bool loop_count_addr_to_slot(uint8_t addr, size_t *out_slot);
 static bool program_slot_effectively_present(uint8_t pc);
 static void dispatch_note_like_main_branch(uint8_t pc);
+static bool process_block_event(uint8_t block_addr,
+                                uint8_t event_id,
+                                const uint8_t *payload,
+                                size_t payload_len);
 
 uint64_t now_ms(void) {
     return (uint64_t)(esp_timer_get_time() / 1000);
@@ -102,24 +108,43 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     uint32_t start = (uint32_t)now_ms();
     uint8_t status = 0;
     uint32_t error_count = 0;
+    uint32_t poll_idx = 0;
+    const uint32_t BUSY_CONFIRM_COUNT = 2;
+    uint32_t consecutive_busy = 0;
 
     while (now_ms() < start + timeout_ms) {
+        poll_idx++;
+        uint32_t elapsed = (uint32_t)(now_ms() - start);
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
+#if LED_WAIT_VERBOSE_POLLS
+            ESP_LOGI(TAG, "LED_WAIT busy poll=%lu addr=0x%02X elapsed=%lu ms status=0x%02X",
+                     (unsigned long)poll_idx, addr, (unsigned long)elapsed, status);
+#endif
             error_count = 0;
             if ((status & ~0x1F) != 0U) {
                 ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): invalid status byte 0x%02X ignored", addr, status);
-            }
-            if ((status & STATUS_BUSY) != 0U) {
-                if (out_elapsed_ms != NULL) {
-                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                consecutive_busy = 0;
+            } else if ((status & STATUS_BUSY) != 0U) {
+                consecutive_busy++;
+                if (consecutive_busy >= BUSY_CONFIRM_COUNT) {
+                    if (out_elapsed_ms != NULL) {
+                        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                    }
+                    if (out_status != NULL) {
+                        *out_status = status;
+                    }
+                    return ESP_OK;
                 }
-                if (out_status != NULL) {
-                    *out_status = status;
-                }
-                return ESP_OK;
+            } else {
+                consecutive_busy = 0;
             }
         } else {
+#if LED_WAIT_VERBOSE_POLLS
+            ESP_LOGI(TAG, "LED_WAIT busy poll=%lu addr=0x%02X elapsed=%lu ms i2c_err",
+                     (unsigned long)poll_idx, addr, (unsigned long)elapsed);
+#endif
             error_count++;
+            consecutive_busy = 0;
             if (error_count > 10) {
                 ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): persistent I2C errors", addr);
                 return ESP_FAIL;
@@ -145,39 +170,67 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
     uint32_t start = (uint32_t)now_ms();
     uint8_t status = 0;
     uint32_t error_count = 0;
+    uint32_t poll_idx = 0;
+    // Require multiple consecutive IDLE reads to filter stale I2C TX FIFO values.
+    // Other Brain tasks (event poll, scan) interleave reads to the same child,
+    // injecting stale pre-BUSY values into the slave TX FIFO.
+    const uint32_t IDLE_CONFIRM_COUNT = 3;
+    uint32_t consecutive_idle = 0;
 
     while (now_ms() < start + timeout_ms) {
-        // If we can't read the status (e.g. slave is blocking bus), we treat it as BUSY.
-        // We only return ESP_OK if we explicitly read a status byte that has STATUS_BUSY cleared.
+        poll_idx++;
+        uint32_t elapsed = (uint32_t)(now_ms() - start);
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
+#if LED_WAIT_VERBOSE_POLLS
+            ESP_LOGI(TAG, "LED_WAIT idle poll=%lu addr=0x%02X elapsed=%lu ms status=0x%02X idle_run=%lu",
+                     (unsigned long)poll_idx, addr, (unsigned long)elapsed, status,
+                     (unsigned long)consecutive_idle);
+#endif
             error_count = 0;
             if ((status & ~0x1F) != 0U) {
                 ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): invalid status byte 0x%02X ignored", addr, status);
-            }
-            if ((status & STATUS_IDLE) != 0U) {
-                if (out_elapsed_ms != NULL) {
-                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                consecutive_idle = 0;
+            } else if ((status & STATUS_IDLE) != 0U) {
+                consecutive_idle++;
+                if (consecutive_idle >= IDLE_CONFIRM_COUNT) {
+                    if (out_elapsed_ms != NULL) {
+                        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                    }
+                    if (out_status != NULL) {
+                        *out_status = status;
+                    }
+                    ESP_LOGI(TAG, "wait_for_status_idle(0x%02X): confirmed after %lu consecutive IDLE reads",
+                             addr, (unsigned long)consecutive_idle);
+                    return ESP_OK;
                 }
-                if (out_status != NULL) {
-                    *out_status = status;
+            } else if ((status & STATUS_BUSY) == 0U && (status & STATUS_READY) != 0U) {
+                consecutive_idle++;
+                if (consecutive_idle >= IDLE_CONFIRM_COUNT) {
+                    if (out_elapsed_ms != NULL) {
+                        *out_elapsed_ms = (uint32_t)(now_ms() - start);
+                    }
+                    if (out_status != NULL) {
+                        *out_status = status;
+                    }
+                    ESP_LOGD(TAG, "wait_for_status_idle(0x%02X): no IDLE flag but READY+!BUSY confirmed after %lu reads",
+                             addr, (unsigned long)consecutive_idle);
+                    return ESP_OK;
                 }
-                return ESP_OK;
-            }
-            // Legacy fallback: if child does not support STATUS_IDLE, accept
-            // any status that has BUSY cleared and READY set.
-            if ((status & STATUS_BUSY) == 0U && (status & STATUS_READY) != 0U) {
-                if (out_elapsed_ms != NULL) {
-                    *out_elapsed_ms = (uint32_t)(now_ms() - start);
+            } else {
+                if (consecutive_idle > 0) {
+                    ESP_LOGD(TAG, "wait_for_status_idle(0x%02X): IDLE streak broken at %lu by status=0x%02X (stale FIFO filtered)",
+                             addr, (unsigned long)consecutive_idle, status);
                 }
-                if (out_status != NULL) {
-                    *out_status = status;
-                }
-                ESP_LOGD(TAG, "wait_for_status_idle(0x%02X): no IDLE flag but READY+!BUSY (legacy child or early exit)", addr);
-                return ESP_OK;
+                consecutive_idle = 0;
             }
         } else {
+#if LED_WAIT_VERBOSE_POLLS
+            ESP_LOGI(TAG, "LED_WAIT idle poll=%lu addr=0x%02X elapsed=%lu ms i2c_err",
+                     (unsigned long)poll_idx, addr, (unsigned long)elapsed);
+#endif
             error_count++;
-            if (error_count > 50) { // More lenient for idle polling
+            consecutive_idle = 0;
+            if (error_count > 50) {
                 ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): persistent I2C errors (status=0x%02X)", addr, status);
                 return ESP_FAIL;
             }
@@ -186,9 +239,8 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
             ESP_LOGW(TAG, "wait_for_status_idle(0x%02X): stop requested, aborting wait", addr);
             return ESP_ERR_TIMEOUT;
         }
-        // Yield more during long playback so other tasks continue.
         vTaskDelay(pdMS_TO_TICKS(10));
-        
+
         static uint64_t last_log = 0;
         if ((now_ms() - start) > 2000 && (now_ms() - last_log) > 1000) {
             ESP_LOGI(TAG, "wait_for_status_idle(0x%02X): still waiting, elapsed=%llu ms, last_status=0x%02X",
@@ -991,22 +1043,39 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 
     switch (step_type) {
         case BLOCK_TYPE_LED_FLASH: {
-            uint8_t color_id = s_executor_params.color_id;
+            uint8_t color_id = 0U;
+            bool has_color = false;
+            const char *color_source = "child-local";
             if (pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS && s_led_color_valid_by_pc[pc]) {
                 color_id = s_led_color_by_pc[pc];
+                has_color = true;
+                color_source = "pc-cache";
+            } else {
+                size_t slot = 0U;
+                if (loop_count_addr_to_slot(addr, &slot) && s_led_color_stash_valid_by_addr[slot]) {
+                    color_id = s_led_color_stash_by_addr[slot];
+                    has_color = true;
+                    color_source = "addr-stash";
+                }
             }
-            ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X color=%u",
-                     (unsigned)pc, addr, (unsigned)color_id);
-            esp_err_t set_ret = i2c_set_led_color_id(addr, color_id);
-            if (set_ret != ESP_OK) {
-                ESP_LOGW(TAG, "LED_FLASH set color failed addr=0x%02X (ret=%d)", addr, (int)set_ret);
+            if (has_color) {
+                ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X color=%u (%s)",
+                         (unsigned)pc, addr, (unsigned)color_id, color_source);
+                esp_err_t set_ret = i2c_set_led_color_id(addr, color_id);
+                if (set_ret != ESP_OK) {
+                    ESP_LOGW(TAG, "LED_FLASH set color failed addr=0x%02X (ret=%d)", addr, (int)set_ret);
+                }
+            } else {
+                ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X color=child-local (no cached submit)",
+                         (unsigned)pc, addr);
             }
             esp_err_t exec_ret = i2c_execute(addr);
             ESP_LOGD(TAG,
-                     "SEQUENTIAL LED step pc=%u addr=0x%02X color=%u exec_ret=%d",
+                     "SEQUENTIAL LED step pc=%u addr=0x%02X color=%u cached=%d exec_ret=%d",
                      (unsigned)pc,
                      addr,
                      (unsigned)color_id,
+                     (int)has_color,
                      (int)exec_ret);
             vTaskDelay(pdMS_TO_TICKS(15));
 
@@ -1021,6 +1090,13 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                          (unsigned)pc, addr, (unsigned)status);
                 // Abort if block didn't even start to avoid confusing the timeline.
                 break;
+            }
+
+            // Guard against stale TX FIFO IDLE reads right after BUSY is observed.
+            // Require a minimum BUSY dwell before we begin idle confirmation.
+            if (wait_ms < LED_FLASH_MIN_BUSY_DWELL_MS) {
+                uint32_t remain_ms = LED_FLASH_MIN_BUSY_DWELL_MS - wait_ms;
+                vTaskDelay(pdMS_TO_TICKS(remain_ms));
             }
 
             esp_err_t idle_ret = wait_for_status_idle(addr, 10000U, &wait_ms, &status);
@@ -1113,6 +1189,67 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             break;
     }
     return dispatch_result;
+}
+
+static void sync_collect_pending_block_events_before_start(void)
+{
+    uint8_t status = 0U;
+    uint8_t data_len = 0U;
+    uint8_t payload[32] = {0};
+    uint32_t processed = 0U;
+    block_config_state_t snap;
+
+    if (block_config_manager_get_state_snapshot(&snap) != ESP_OK || snap.block_count == 0) {
+        return;
+    }
+
+    for (int i = 0; i < snap.block_count && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        const block_config_entry_t *entry = &snap.blocks[i];
+        if (!entry->present) {
+            continue;
+        }
+        if (entry->block_type != BLOCK_TYPE_LED_FLASH &&
+            entry->block_type != BLOCK_TYPE_NOTE &&
+            entry->block_type != BLOCK_TYPE_BUTTON &&
+            entry->block_type != BLOCK_TYPE_DELAY &&
+            entry->block_type != BLOCK_TYPE_LOOP) {
+            continue;
+        }
+
+        if (i2c_read_reg(entry->i2c_address, REG_STATUS, &status, 1) != ESP_OK) {
+            continue;
+        }
+        if ((status & STATUS_DATA_READY) == 0U) {
+            continue;
+        }
+
+        data_len = 0U;
+        if (i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &data_len, 1) != ESP_OK ||
+            data_len < 2U || data_len > sizeof(payload)) {
+            data_len = (entry->block_type == BLOCK_TYPE_NOTE) ? 0U : 2U;
+        }
+        if (data_len < 2U) {
+            continue;
+        }
+
+        if (i2c_get_data(entry->i2c_address, payload, data_len) != ESP_OK) {
+            continue;
+        }
+
+        {
+            size_t event_payload_len = (size_t)(data_len - 1U);
+            (void)process_block_event(entry->i2c_address,
+                                      payload[0],
+                                      (event_payload_len > 0U) ? &payload[1] : NULL,
+                                      event_payload_len);
+        }
+        processed++;
+    }
+
+    if (processed > 0U) {
+        ESP_LOGI(TAG, "START sync event pull consumed %lu pending child event(s)",
+                 (unsigned long)processed);
+    }
 }
 
 static bool load_program_from_config(void) {
@@ -1297,11 +1434,14 @@ static bool process_block_event(uint8_t block_addr,
             if (get_program_index_for_block_addr(block_addr, &pc_idx)) {
                 s_led_color_by_pc[pc_idx] = selection;
                 s_led_color_valid_by_pc[pc_idx] = true;
+                ESP_LOGI(TAG, "LED submit cached: addr=0x%02X pc=%u color=%u",
+                         block_addr, (unsigned)pc_idx, (unsigned)selection);
+            } else {
+                ESP_LOGI(TAG, "LED submit stashed by addr only: addr=0x%02X color=%u",
+                         block_addr, (unsigned)selection);
             }
             s_executor_params.color_id = selection;
-            esp_err_t set_ret = i2c_set_led_color_id(block_addr, selection);
-            esp_err_t exec_ret = i2c_execute(block_addr);
-            return (set_ret == ESP_OK) && (exec_ret == ESP_OK);
+            return true;
         }
 
         const bool note_by_type = (type == BLOCK_TYPE_NOTE);
@@ -1445,6 +1585,16 @@ static bool process_block_event(uint8_t block_addr,
             }
         }
         ESP_LOGI(TAG, "BUTTON_PRESS: addr=0x%02X pressed=%u", block_addr, (unsigned)pressed);
+        return true;
+    }
+
+    // Some LED flash firmware variants may still emit internal telemetry/event
+    // frames on GET_DATA. They are not executor-driving events; treat as handled
+    // to avoid warning spam while preserving strict handling for known event IDs.
+    if (block_infer_type_from_child_i2c_address(block_addr) == BLOCK_TYPE_LED_FLASH &&
+        (event_id == 0x11 || event_id == 0x19)) {
+        ESP_LOGD(TAG, "Ignoring LED_FLASH telemetry frame: addr=0x%02X id=0x%02X len=%u",
+                 block_addr, event_id, (unsigned)payload_len);
         return true;
     }
 
@@ -1645,6 +1795,10 @@ static esp_err_t brain_executor_start_nolock(void) {
                  (unsigned)((cfg != NULL) ? cfg->error_count : 0));
         return ESP_ERR_INVALID_STATE;
     }
+
+    // Capture latest child submits (especially LED selection) before binding
+    // per-pc params so immediate START uses current values instead of defaults.
+    sync_collect_pending_block_events_before_start();
 
     memset(s_loop_count_by_pc, 0, sizeof(s_loop_count_by_pc));
     memset(s_loop_count_valid_by_pc, 0, sizeof(s_loop_count_valid_by_pc));
