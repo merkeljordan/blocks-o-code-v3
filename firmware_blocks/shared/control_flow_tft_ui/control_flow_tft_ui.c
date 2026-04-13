@@ -71,6 +71,8 @@ static volatile bool s_pending_idle;
 static volatile bool s_pending_value_refresh;
 
 #define CFUI_LOG(fmt, ...) printf("[control_flow_tft_ui] " fmt "\n", ##__VA_ARGS__)
+#include "esp_log.h"
+#define LOG_TAG "CTRL_FLOW_TFT_UI"
 
 static void set_button_palette(lv_obj_t *button, uint32_t color);
 static void start_running_state(void);
@@ -454,6 +456,7 @@ static void apply_idle_state(void)
 
     if (s_anim_timer != NULL) {
         lv_timer_pause(s_anim_timer);
+        ESP_LOGI(LOG_TAG, "Animation timer paused");
     }
 
     apply_idle_palette();
@@ -579,9 +582,11 @@ static void start_running_state(void)
 
     if (s_anim_timer == NULL) {
         s_anim_timer = lv_timer_create(running_timer_cb, CONTROL_FLOW_ANIM_PERIOD_MS, NULL);
+        ESP_LOGI(LOG_TAG, "Animation timer created");
     } else {
         lv_timer_set_period(s_anim_timer, CONTROL_FLOW_ANIM_PERIOD_MS);
         lv_timer_resume(s_anim_timer);
+        ESP_LOGI(LOG_TAG, "Animation timer resumed");
     }
     lv_timer_reset(s_anim_timer);
     lv_timer_ready(s_anim_timer);
@@ -732,12 +737,15 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     if (s_anim_timer != NULL) {
         lv_timer_del(s_anim_timer);
         s_anim_timer = NULL;
+        ESP_LOGI(LOG_TAG, "Old animation timer deleted");
     }
     if (s_state_timer != NULL) {
         lv_timer_del(s_state_timer);
         s_state_timer = NULL;
+        ESP_LOGI(LOG_TAG, "Old state timer deleted");
     }
 
+    ESP_LOGI(LOG_TAG, "Initializing screen and components...");
     s_screen = lv_obj_create(NULL);
     lv_obj_remove_style_all(s_screen);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
@@ -870,6 +878,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_state_timer = lv_timer_create(state_timer_cb, 16, NULL);
     apply_idle_state();
     lv_screen_load(s_screen);
+    ESP_LOGI(LOG_TAG, "TFT UI started successfully");
 }
 
 void control_flow_tft_ui_trigger_execute(void)

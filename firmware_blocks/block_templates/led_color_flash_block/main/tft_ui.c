@@ -80,7 +80,7 @@
 #define TFT_TASK_PRIORITY          5
 #define TFT_BACKLIGHT_ON_LEVEL     1
 #define BATTERY_REFRESH_MS         3000U
-#define TFT_BOOT_START_DELAY_MS    800
+#define TFT_BOOT_START_DELAY_MS    1200
 
 #define PIN_NUM_BK_LIGHT           32
 #define PIN_NUM_SCLK               18

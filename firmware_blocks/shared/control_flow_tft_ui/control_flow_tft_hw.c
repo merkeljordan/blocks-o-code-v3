@@ -168,9 +168,11 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
         };
         err = gpio_config(&bk_cfg);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to config backlight GPIO %d: %s", PIN_NUM_BK_LIGHT, esp_err_to_name(err));
             return err;
         }
     }
+    ESP_LOGI(TAG, "Backlight GPIO configured");
     gpio_set_level(PIN_NUM_BK_LIGHT, !TFT_BACKLIGHT_ON_LEVEL);
 
     {
@@ -184,9 +186,11 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
         };
         err = spi_bus_initialize(TFT_SPI_HOST, &buscfg, SPI_DMA_CH_AUTO);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to initialize SPI bus %d: %s", TFT_SPI_HOST, esp_err_to_name(err));
             return err;
         }
     }
+    ESP_LOGI(TAG, "SPI bus %d initialized", TFT_SPI_HOST);
 
     {
         esp_lcd_panel_io_handle_t io_handle = NULL;
@@ -201,8 +205,10 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
         };
         err = esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)TFT_SPI_HOST, &io_cfg, &io_handle);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to create panel IO: %s", esp_err_to_name(err));
             return err;
         }
+        ESP_LOGI(TAG, "LCD Panel IO created");
 
         {
             esp_lcd_panel_dev_config_t panel_cfg = {
@@ -212,46 +218,63 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
             };
             err = esp_lcd_new_panel_ili9341(io_handle, &panel_cfg, &s_panel_handle);
             if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to create ILI9341 panel: %s", esp_err_to_name(err));
                 return err;
             }
         }
+        ESP_LOGI(TAG, "LCD ILI9341 panel handle created");
 
         err = esp_lcd_panel_reset(s_panel_handle);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "LCD panel reset failed: %s", esp_err_to_name(err));
             return err;
         }
+        ESP_LOGI(TAG, "LCD panel reset done");
+
         err = esp_lcd_panel_init(s_panel_handle);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "LCD panel init failed: %s", esp_err_to_name(err));
             return err;
         }
+        ESP_LOGI(TAG, "LCD panel initialized");
         err = esp_lcd_panel_mirror(s_panel_handle,
                                    CONTROL_FLOW_TFT_PANEL_MIRROR_X,
                                    CONTROL_FLOW_TFT_PANEL_MIRROR_Y);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to set panel mirror: %s", esp_err_to_name(err));
             return err;
         }
+        ESP_LOGI(TAG, "LCD panel mirror set: X=%d, Y=%d", CONTROL_FLOW_TFT_PANEL_MIRROR_X, CONTROL_FLOW_TFT_PANEL_MIRROR_Y);
         err = esp_lcd_panel_disp_on_off(s_panel_handle, true);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to turn display on: %s", esp_err_to_name(err));
             return err;
         }
+        ESP_LOGI(TAG, "LCD display turned ON");
 
         // Turn on backlight as soon as the LCD is ready, before touch/LVGL.
         gpio_set_level(PIN_NUM_BK_LIGHT, TFT_BACKLIGHT_ON_LEVEL);
+        ESP_LOGI(TAG, "Backlight turned ON");
 
         lv_init();
+        ESP_LOGI(TAG, "LVGL init done");
 
         s_display = lv_display_create(TFT_H_RES, TFT_V_RES);
         if (s_display == NULL) {
+            ESP_LOGE(TAG, "Failed to create LVGL display");
             return ESP_ERR_NO_MEM;
         }
+        ESP_LOGI(TAG, "LVGL display created (%dx%d)", TFT_H_RES, TFT_V_RES);
 
         {
             const size_t draw_buf_sz = TFT_H_RES * TFT_DRAW_BUF_LINES * sizeof(lv_color16_t);
             void *buf1 = spi_bus_dma_memory_alloc(TFT_SPI_HOST, draw_buf_sz, 0);
             void *buf2 = spi_bus_dma_memory_alloc(TFT_SPI_HOST, draw_buf_sz, 0);
             if (buf1 == NULL || buf2 == NULL) {
+                ESP_LOGE(TAG, "Failed to allocate display buffers");
                 return ESP_ERR_NO_MEM;
             }
+            ESP_LOGI(TAG, "Display buffers allocated: %u bytes", (unsigned)draw_buf_sz);
             lv_display_set_buffers(s_display, buf1, buf2, draw_buf_sz, LV_DISPLAY_RENDER_MODE_PARTIAL);
         }
 
@@ -265,9 +288,11 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
             };
             err = esp_lcd_panel_io_register_event_callbacks(io_handle, &io_callbacks, s_display);
             if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to register IO callbacks: %s", esp_err_to_name(err));
                 return err;
             }
         }
+        ESP_LOGI(TAG, "LCD IO event callbacks registered");
 
         {
             esp_lcd_panel_io_handle_t tp_io_handle = NULL;
@@ -275,8 +300,10 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
                 ESP_LCD_TOUCH_IO_SPI_XPT2046_CONFIG(PIN_NUM_TOUCH_CS);
             err = esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)TFT_SPI_HOST, &tp_io_cfg, &tp_io_handle);
             if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to create touch IO: %s", esp_err_to_name(err));
                 return err;
             }
+            ESP_LOGI(TAG, "Touch Panel IO created");
 
             {
                 esp_lcd_touch_config_t tp_cfg = {
@@ -292,9 +319,11 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
                 };
                 err = esp_lcd_touch_new_spi_xpt2046(tp_io_handle, &tp_cfg, &s_touch_handle);
                 if (err != ESP_OK) {
+                    ESP_LOGE(TAG, "Failed to create touch panel handle: %s", esp_err_to_name(err));
                     return err;
                 }
             }
+            ESP_LOGI(TAG, "Touch panel (XPT2046) created");
         }
     }
 
@@ -324,13 +353,16 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
         };
         err = esp_timer_create(&tick_args, &s_lvgl_tick_timer);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to create LVGL tick timer: %s", esp_err_to_name(err));
             return err;
         }
         err = esp_timer_start_periodic(s_lvgl_tick_timer, TFT_TICK_PERIOD_MS * 1000);
         if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to start LVGL tick timer: %s", esp_err_to_name(err));
             return err;
         }
     }
+    ESP_LOGI(TAG, "LVGL tick timer started (%d ms)", TFT_TICK_PERIOD_MS);
 
     if (xTaskCreatePinnedToCore(lvgl_task,
                                 "control_flow_ui",
