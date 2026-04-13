@@ -132,10 +132,18 @@ static void block_event_poll_task(void *arg) {
             }
 
             if (entry->type == BLOCK_TYPE_BUTTON) {
-                static uint8_t s_last_btn_status = 0xFF;
-                if (status != s_last_btn_status) {
-                    ESP_LOGI(TAG, "BTN_POLL: addr=0x%02X status=0x%02X", entry->address, status);
-                    s_last_btn_status = status;
+                static uint8_t s_last_btn_status[CHILD_I2C_ADDR_MAX + 1];
+                static bool s_initialized = false;
+                if (!s_initialized) {
+                    memset(s_last_btn_status, 0xFF, sizeof(s_last_btn_status));
+                    s_initialized = true;
+                }
+                
+                if (status != s_last_btn_status[entry->address]) {
+                    ESP_LOGI(TAG, "BTN_POLL: addr=0x%02X status=0x%02X (was 0x%02X)%s", 
+                             entry->address, status, s_last_btn_status[entry->address],
+                             (status & STATUS_DATA_READY) ? " [DATA_READY]" : "");
+                    s_last_btn_status[entry->address] = status;
                 }
             }
 

@@ -52,10 +52,10 @@ typedef struct {
 static block_config_t g_config;
 static bool g_config_valid = false;
 
-static uint8_t g_status_flags = STATUS_READY;
+static volatile uint8_t g_status_flags = STATUS_READY;
 
 static struct {
-    bool has_event;
+    volatile bool has_event;
     uint8_t event_id;
     uint8_t payload[BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN];
     size_t payload_len;
@@ -202,7 +202,7 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
         case CMD_PING:
-            set_status_flags(STATUS_READY);
+            // PING is passive; do not modify status flags.
             peripherals_ok_feedback();
             break;
 

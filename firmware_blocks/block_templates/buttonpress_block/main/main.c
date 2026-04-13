@@ -38,7 +38,7 @@ static const status_strip_config_t kStatusStripConfig = {
     .led_count = STATUS_STRIP_LED_COUNT,
 };
 
-static uint8_t g_status_flags = STATUS_READY;
+static volatile uint8_t g_status_flags = STATUS_READY;
 
 static void render_status_strip(uint8_t status_flags)
 {
@@ -73,7 +73,7 @@ static void set_status_flags(uint8_t status_flags)
 }
 
 static struct {
-    bool has_event;
+    volatile bool has_event;
     uint8_t event_id;
     uint8_t payload[8];
     size_t payload_len;
@@ -136,10 +136,7 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
         case CMD_PING:
-            // Keep status sticky on ping; it should not clear DATA_READY/BUSY state.
-            if (g_pending_event.has_event) {
-                set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
-            }
+            // PING is passive; do not modify status flags.
             break;
 
         case CMD_GET_STATUS:
@@ -162,7 +159,7 @@ void command_handle(i2c_command_t cmd,
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
                 g_pending_event.payload_len = 0;
-                set_status_flags(STATUS_READY);
+                set_status_flags(g_status_flags & (uint8_t)~STATUS_DATA_READY);
                 ESP_LOGI("BTN_EVT", "Event consumed via CMD_GET_DATA; status=0x%02X", (unsigned)g_status_flags);
             } else {
                 ESP_LOGI("BTN_TX", "CMD_GET_DATA with no pending event; status=0x%02X", (unsigned)g_status_flags);
