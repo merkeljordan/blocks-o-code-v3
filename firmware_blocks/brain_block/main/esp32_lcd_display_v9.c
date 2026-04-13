@@ -429,11 +429,6 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         if (!s_touch_prev_pressed) {
             s_touch_debug.pressed_count++;
             s_touch_prev_pressed = true;
-            ESP_LOGI(TAG, "TOUCH DOWN  raw=(%u,%u) norm=(%u,%u) Z=%u preset=%u",
-                     (unsigned)point_data[0].x, (unsigned)point_data[0].y,
-                     (unsigned)norm_x, (unsigned)norm_y,
-                     (unsigned)point_data[0].strength,
-                     (unsigned)s_touch_debug.transform_preset_index);
         }
     } else {
         s_touch_debug.raw_x = 0;
@@ -443,9 +438,6 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
         if (s_touch_prev_pressed) {
             s_touch_debug.released_count++;
             s_touch_prev_pressed = false;
-            ESP_LOGI(TAG, "TOUCH UP    last_norm=(%u,%u) total_presses=%lu",
-                     (unsigned)s_touch_debug.x, (unsigned)s_touch_debug.y,
-                     (unsigned long)s_touch_debug.pressed_count);
         }
     }
 }

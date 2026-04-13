@@ -140,47 +140,186 @@ esp_err_t i2c_slave_init(void) {
 }
 
 // ============================================================================
-// I²C RECEIVE TASK - Handles commands and register reads
+// FRAME PARSER - Handles coalesced I²C FIFO reads
+// ============================================================================
+
+static int is_command_byte(uint8_t b)
+{
+    switch ((i2c_command_t)b) {
+        case CMD_PING:
+        case CMD_GET_TYPE:
+        case CMD_SET_LED:
+        case CMD_GET_STATUS:
+        case CMD_GET_DATA:
+        case CMD_PLAY_NOTE:
+        case CMD_EXECUTE:
+        case CMD_RESET:
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_SET_I2C_ADDRESS:
+        case CMD_MATRIX_FILL:
+        case CMD_MATRIX_SET_PIXEL:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SET_ROW:
+        case CMD_MATRIX_SET_COLUMN:
+        case CMD_MATRIX_DRAW_PATTERN:
+        case CMD_MATRIX_BRIGHTNESS:
+        case CMD_MATRIX_SHOW:
+        case CMD_RUNTIME_BROADCAST:
+            return 1;
+        default:
+            return 0;
+    }
+}
+
+static bool is_register_index_byte(uint8_t v)
+{
+    return (v < 0x10U);
+}
+
+static size_t command_frame_len(i2c_command_t cmd)
+{
+    switch (cmd) {
+        case CMD_PING:
+        case CMD_GET_TYPE:
+        case CMD_GET_STATUS:
+        case CMD_GET_DATA:
+        case CMD_EXECUTE:
+        case CMD_RESET:
+        case CMD_MATRIX_CLEAR:
+        case CMD_MATRIX_SHOW:
+            return 1U;
+        case CMD_PLAY_NOTE:
+        case CMD_SET_LED:
+        case CMD_SET_DELAY:
+        case CMD_SET_LOOP:
+        case CMD_SET_I2C_ADDRESS:
+        case CMD_MATRIX_BRIGHTNESS:
+            return 2U;
+        case CMD_MATRIX_FILL:
+        case CMD_RUNTIME_BROADCAST:
+            return 4U;
+        default:
+            return 0U;
+    }
+}
+
+static void reset_i2c_fifos(void)
+{
+    (void)i2c_reset_rx_fifo(I2C_NUM_0);
+    (void)i2c_reset_tx_fifo(I2C_NUM_0);
+}
+
+// ============================================================================
+// I²C RECEIVE TASK - Frame-based parser (handles FIFO coalescence)
 // ============================================================================
 void i2c_task(void *arg) {
     (void)arg;
-    uint8_t buffer[128];
+    ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    reset_i2c_fifos();
+
+    uint8_t rx_buf[128];
+    uint8_t rx_carry[16];
+    size_t rx_carry_len = 0U;
+    uint8_t work_buf[sizeof(rx_buf) + sizeof(rx_carry)];
     uint8_t tx_buf[16];
 
     while (1) {
-        int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(100));
+        int len = i2c_slave_read_buffer(I2C_NUM_0, rx_buf, sizeof(rx_buf), pdMS_TO_TICKS(100));
+        if (len <= 0) {
+            continue;
+        }
 
-        if (len > 0) {
-            ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
+        size_t read_len = (size_t)len;
+        if (rx_carry_len + read_len > sizeof(work_buf)) {
+            ESP_LOGW(TAG,
+                     "RX carry overflow (carry=%u read=%u cap=%u); dropping carry",
+                     (unsigned)rx_carry_len,
+                     (unsigned)read_len,
+                     (unsigned)sizeof(work_buf));
+            rx_carry_len = 0U;
+        }
+        if (rx_carry_len > 0U) {
+            memcpy(work_buf, rx_carry, rx_carry_len);
+        }
+        memcpy(work_buf + rx_carry_len, rx_buf, read_len);
+        size_t total_len = rx_carry_len + read_len;
+        rx_carry_len = 0U;
 
-            if (len >= 2 && ((i2c_command_t)buffer[0]) == CMD_SET_I2C_ADDRESS) {
-                esp_err_t err = rebind_i2c_slave_address(buffer[1]);
+        refresh_dynamic_registers();
+
+        size_t offset = 0U;
+        while (offset < total_len) {
+            uint8_t head = work_buf[offset];
+
+            if (is_register_index_byte(head)) {
+                refresh_dynamic_registers();
+                uint8_t value = registers[head];
+                (void)i2c_reset_tx_fifo(I2C_NUM_0);
+                (void)i2c_slave_write_buffer(I2C_NUM_0, &value, 1, 0);
+                offset += 1U;
+                continue;
+            }
+
+            i2c_command_t cmd = (i2c_command_t)head;
+            if (!is_command_byte(head)) {
+                ESP_LOGW(TAG,
+                         "RX frame off=%u unknown byte 0x%02X; dropping %u trailing bytes",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)(total_len - offset));
+                break;
+            }
+
+            size_t frame_len = command_frame_len(cmd);
+            if (frame_len == 0U) {
+                ESP_LOGW(TAG,
+                         "RX frame off=%u unsupported cmd 0x%02X; dropping %u trailing bytes",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)(total_len - offset));
+                break;
+            }
+            if (offset + frame_len > total_len) {
+                size_t remain = total_len - offset;
+                if (remain <= sizeof(rx_carry)) {
+                    memcpy(rx_carry, &work_buf[offset], remain);
+                    rx_carry_len = remain;
+                }
+                ESP_LOGW(TAG,
+                         "RX frame off=%u truncated cmd 0x%02X expected=%u available=%u; carrying=%u",
+                         (unsigned)offset,
+                         (unsigned)head,
+                         (unsigned)frame_len,
+                         (unsigned)(total_len - offset),
+                         (unsigned)rx_carry_len);
+                break;
+            }
+
+            const uint8_t *payload = (frame_len > 1U) ? &work_buf[offset + 1U] : NULL;
+            size_t payload_len = (frame_len > 1U) ? (frame_len - 1U) : 0U;
+
+            if (cmd == CMD_SET_I2C_ADDRESS) {
+                esp_err_t err = rebind_i2c_slave_address(payload[0]);
                 if (err != ESP_OK) {
                     ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
-                             buffer[1], esp_err_to_name(err));
+                             payload[0], esp_err_to_name(err));
                 }
+                offset += frame_len;
                 continue;
             }
 
             refresh_dynamic_registers();
-            if (len == 1 && buffer[0] < 0x10) {
-                uint8_t reg = buffer[0];
-                uint8_t response = registers[reg];
-                (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-                ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
-                continue;
-            }
 
-            size_t tx_len = 0;
-            i2c_command_t cmd = (i2c_command_t)buffer[0];
-            const uint8_t *payload = (len > 1) ? &buffer[1] : NULL;
-            size_t payload_len = (len > 1) ? (size_t)(len - 1) : 0U;
-
+            size_t tx_len = 0U;
             command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
+
             if (tx_len > 0U) {
+                (void)i2c_reset_tx_fifo(I2C_NUM_0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
-                ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
             }
+
+            offset += frame_len;
         }
     }
 }

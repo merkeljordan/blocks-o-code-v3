@@ -283,6 +283,7 @@ void i2c_task(void *arg)
                          (unsigned)offset,
                          (unsigned)head);
 #endif
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
                 (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, 0);
                 offset += 1U;
                 continue;
@@ -371,6 +372,7 @@ void i2c_task(void *arg)
             }
 
             if (tx_len > 0U) {
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
                 (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, tx_len, pdMS_TO_TICKS(100));
 #if I2C_VERBOSE_LOGS
                 ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);

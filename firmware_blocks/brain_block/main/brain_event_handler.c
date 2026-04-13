@@ -1013,6 +1013,11 @@ static uint8_t resolve_exec_child_addr_for_pc(uint8_t pc)
     return e->i2c_address;
 }
 
+static SemaphoreHandle_t s_dispatch_mutex = NULL;
+// Address currently being polled by dispatch_output_action wait loops (0 = none).
+// Written under s_dispatch_mutex before releasing it; read lock-free by block_event_poll_task.
+static volatile uint8_t s_executor_active_poll_addr = 0;
+
 // Action I2C only to the program slot at `pc` (snapshot from START). Runtime broadcast still fans out.
 static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 {
@@ -1360,10 +1365,6 @@ typedef struct {
 } brain_event_t;
 
 static QueueHandle_t s_event_queue = NULL;
-static SemaphoreHandle_t s_dispatch_mutex = NULL;
-// Address currently being polled by dispatch_output_action wait loops (0 = none).
-// Written under s_dispatch_mutex before releasing it; read lock-free by block_event_poll_task.
-static volatile uint8_t s_executor_active_poll_addr = 0;
 
 static bool parse_u8_token(const char *s, uint8_t *out) {
     if (!s || !out) {
@@ -1631,7 +1632,12 @@ static bool process_block_event(uint8_t block_addr,
                 s_last_button_press_valid = true;
             }
         }
-        ESP_LOGI(TAG, "BUTTON_PRESS: addr=0x%02X pressed=%u", block_addr, (unsigned)pressed);
+        ESP_LOGI(TAG, "BUTTON_PRESS: addr=0x%02X pressed=%u state=%d btn_set=%d expect_addr=0x%02X",
+                 block_addr, (unsigned)pressed,
+                 (int)s_executor_ctx.state,
+                 (int)s_executor_ctx.button_pressed,
+                 (s_executor_ctx.pc < s_executor_ctx.program_len && s_program_present[s_executor_ctx.pc])
+                     ? s_program_addr[s_executor_ctx.pc] : 0x00);
         return true;
     }
 

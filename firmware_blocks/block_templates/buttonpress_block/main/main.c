@@ -86,6 +86,12 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
     set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
+    ESP_LOGI("BTN_EVT",
+             "Published event: pressed=%u status=0x%02X has_event=%u data_len=%u",
+             (unsigned)g_pending_event.payload[0],
+             (unsigned)g_status_flags,
+             (unsigned)g_pending_event.has_event,
+             (unsigned)button_block_get_pending_data_len());
 }
 
 uint8_t button_block_get_status_flags(void)
@@ -130,7 +136,10 @@ void command_handle(i2c_command_t cmd,
 
     switch (cmd) {
         case CMD_PING:
-            set_status_flags(g_pending_event.has_event ? STATUS_DATA_READY : STATUS_READY);
+            // Keep status sticky on ping; it should not clear DATA_READY/BUSY state.
+            if (g_pending_event.has_event) {
+                set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
+            }
             break;
 
         case CMD_GET_STATUS:
@@ -147,11 +156,16 @@ void command_handle(i2c_command_t cmd,
                     memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
                 }
                 *tx_len = 1 + g_pending_event.payload_len;
+                ESP_LOGI("BTN_TX", "CMD_GET_DATA reply: len=%u event_id=0x%02X choice=0x%02X",
+                         (unsigned)*tx_len, tx[0], (g_pending_event.payload_len >= 1) ? tx[1] : 0xFF);
 
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
                 g_pending_event.payload_len = 0;
                 set_status_flags(STATUS_READY);
+                ESP_LOGI("BTN_EVT", "Event consumed via CMD_GET_DATA; status=0x%02X", (unsigned)g_status_flags);
+            } else {
+                ESP_LOGI("BTN_TX", "CMD_GET_DATA with no pending event; status=0x%02X", (unsigned)g_status_flags);
             }
             break;
 

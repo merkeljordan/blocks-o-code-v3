@@ -131,6 +131,14 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
+            if (entry->type == BLOCK_TYPE_BUTTON) {
+                static uint8_t s_last_btn_status = 0xFF;
+                if (status != s_last_btn_status) {
+                    ESP_LOGI(TAG, "BTN_POLL: addr=0x%02X status=0x%02X", entry->address, status);
+                    s_last_btn_status = status;
+                }
+            }
+
             if ((status & STATUS_DATA_READY) == 0) {
                 continue;
             }
@@ -159,6 +167,11 @@ static void block_event_poll_task(void *arg) {
             }
 
             if (i2c_get_data(entry->address, payload, data_len) == ESP_OK) {
+                if (entry->type == BLOCK_TYPE_BUTTON) {
+                    ESP_LOGI("BTN_RX", "addr=0x%02X len=%u event_id=0x%02X choice=0x%02X",
+                             entry->address, (unsigned)data_len, payload[0],
+                             (data_len >= 2) ? payload[1] : 0xFF);
+                }
                 // payload[0] = event_id, remaining bytes are event payload.
                 size_t event_payload_len = (data_len >= 1) ? (size_t)(data_len - 1) : 0U;
                 bool queued = brain_event_handle_block_event(entry->address,
