@@ -8,7 +8,7 @@
 
 void startup_power_guard(void)
 {
-    static const gpio_num_t k_quiet_pins[] = { GPIO_NUM_13, GPIO_NUM_15, GPIO_NUM_18 };
+    static const gpio_num_t k_quiet_pins[] = { GPIO_NUM_13, GPIO_NUM_15 };
     gpio_config_t io_cfg = {
         .pin_bit_mask = 0,
         .mode = GPIO_MODE_OUTPUT,

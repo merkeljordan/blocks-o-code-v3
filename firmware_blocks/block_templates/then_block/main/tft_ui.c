@@ -9,7 +9,7 @@
 #include "control_flow_tft_hw.h"
 
 static const char *TAG = "THEN_TFT_UI";
-#define TFT_BOOT_START_DELAY_MS 800
+#define TFT_BOOT_START_DELAY_MS 100
 #endif
 
 void tft_ui_start(void)

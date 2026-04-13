@@ -235,6 +235,9 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
             return err;
         }
 
+        // Turn on backlight as soon as the LCD is ready, before touch/LVGL.
+        gpio_set_level(PIN_NUM_BK_LIGHT, TFT_BACKLIGHT_ON_LEVEL);
+
         lv_init();
 
         s_display = lv_display_create(TFT_H_RES, TFT_V_RES);
@@ -294,8 +297,6 @@ esp_err_t control_flow_tft_hw_start(const control_flow_ui_config_t *cfg)
             }
         }
     }
-
-    gpio_set_level(PIN_NUM_BK_LIGHT, TFT_BACKLIGHT_ON_LEVEL);
 
     {
         lv_indev_t *indev = lv_indev_create();

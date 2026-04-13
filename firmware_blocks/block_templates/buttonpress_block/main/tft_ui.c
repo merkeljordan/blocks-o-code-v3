@@ -11,7 +11,7 @@
 #include "control_flow_tft_hw.h"
 
 static const char *TAG = "BUTTON_TFT_UI";
-#define TFT_BOOT_START_DELAY_MS 800
+#define TFT_BOOT_START_DELAY_MS 100
 #endif
 
 extern void button_block_execute_from_ui(void);

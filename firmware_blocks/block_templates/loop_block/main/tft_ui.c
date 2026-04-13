@@ -11,7 +11,7 @@
 #include "control_flow_tft_hw.h"
 
 static const char *TAG = "LOOP_TFT_UI";
-#define TFT_BOOT_START_DELAY_MS 800
+#define TFT_BOOT_START_DELAY_MS 100
 #endif
 
 extern void loop_block_set_loop_count_from_ui(uint8_t loop_count);
