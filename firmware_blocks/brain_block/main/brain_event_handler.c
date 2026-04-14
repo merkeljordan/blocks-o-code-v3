@@ -386,6 +386,7 @@ static void brain_executor_reset_context(brain_executor_state_t state) {
     s_last_button_press_valid = false;
     s_last_button_press_addr = 0;
     s_if_depth = 0;
+    s_executor_ctx.step_counter = 0;
 }
 
 static void clear_per_pc_params(void)
@@ -1992,6 +1993,23 @@ static void brain_executor_tick_nolock(void) {
         return;
     }
 
+    // Safety net: prevent a true runaway (e.g., malformed program or unexpected PC rewinds).
+    // This does not affect normal programs; it only triggers after an unusually large number
+    // of opcode evaluations in one START session.
+    s_executor_ctx.step_counter++;
+    if (s_executor_ctx.step_counter > 20000U) {
+        ESP_LOGE(TAG,
+                 "Executor runaway guard tripped: step_counter=%lu pc=%u type=%s — halting",
+                 (unsigned long)s_executor_ctx.step_counter,
+                 (unsigned)s_executor_ctx.pc,
+                 block_type_to_string((s_executor_ctx.pc < s_executor_ctx.program_len)
+                                          ? s_executor_ctx.program[s_executor_ctx.pc]
+                                          : BLOCK_TYPE_UNKNOWN));
+        s_executor_ctx.state = EXECUTOR_ERROR;
+        broadcast_runtime_state(BRAIN_RUNTIME_ERROR, executor_broadcast_step_type());
+        return;
+    }
+
     if (s_executor_ctx.pc >= s_executor_ctx.program_len) {
         broadcast_runtime_state(BRAIN_RUNTIME_DONE, executor_broadcast_step_type());
         s_executor_ctx.state = EXECUTOR_DONE;
@@ -2161,11 +2179,12 @@ static void brain_executor_tick_nolock(void) {
             frame->loop_end_pc = (uint8_t)end_loop_index;
             frame->remaining_iterations = loop_count;
             ESP_LOGI(TAG,
-                     "LOOP pc=%u body through pc=%d iterations=%u src=%s",
+                     "LOOP enter pc=%u end_pc=%d iterations=%u src=%s (addr=0x%02X)",
                      (unsigned)frame->loop_start_pc,
                      end_loop_index,
                      (unsigned)loop_count,
-                     lc_src != NULL ? lc_src : "?");
+                     lc_src != NULL ? lc_src : "?",
+                     resolve_exec_child_addr_for_pc(frame->loop_start_pc));
             s_executor_ctx.pc++;
             return;
         }
@@ -2186,8 +2205,19 @@ static void brain_executor_tick_nolock(void) {
                 }
                 if (frame->remaining_iterations > 1) {
                     frame->remaining_iterations--;
+                    ESP_LOGI(TAG,
+                             "END_LOOP pc=%u looping: remaining=%u -> jump to %u",
+                             (unsigned)s_executor_ctx.pc,
+                             (unsigned)(frame->remaining_iterations + 1U),
+                             (unsigned)(frame->loop_start_pc + 1U));
                     s_executor_ctx.pc = (uint8_t)(frame->loop_start_pc + 1);
                 } else {
+                    ESP_LOGI(TAG,
+                             "END_LOOP pc=%u done: remaining=1 -> exit to %u (pop depth %u->%u)",
+                             (unsigned)s_executor_ctx.pc,
+                             (unsigned)(s_executor_ctx.pc + 1U),
+                             (unsigned)s_executor_ctx.loop_depth,
+                             (unsigned)(s_executor_ctx.loop_depth - 1U));
                     s_executor_ctx.loop_depth--;
                     s_executor_ctx.pc++;
                 }

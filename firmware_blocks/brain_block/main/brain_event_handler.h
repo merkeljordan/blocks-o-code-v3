@@ -62,6 +62,8 @@ typedef struct {
     volatile bool stop_requested;
     /** Set from brain_evt task when a BUTTON_PRESS is accepted; read by executor tick. */
     volatile bool button_pressed;
+    /** Safety: increments once per EXECUTOR_RUNNING opcode evaluation (prevents true runaway loops). */
+    uint32_t step_counter;
 } brain_executor_context_t;
 
 typedef struct {
