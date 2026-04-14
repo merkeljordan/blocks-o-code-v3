@@ -96,6 +96,11 @@ static void block_event_poll_task(void *arg) {
         const brain_executor_context_t *exec_ctx = brain_executor_get_context();
         bool waiting_for_button =
             (exec_ctx != NULL && exec_ctx->state == EXECUTOR_WAIT_INPUT);
+        // After STOP, the latch is cleared and we must not keep reading the BUTTON block:
+        // the child may still alternate READY vs BUSY|DATA_READY (UI / pending event), which
+        // spams BTN_POLL and can repeatedly consume events that no longer drive the executor.
+        bool skip_button_poll_while_stopped =
+            (exec_ctx != NULL && exec_ctx->state == EXECUTOR_STOPPED);
 
         // During active execution, avoid competing REG_STATUS/GET_DATA reads that can
         // perturb slave TX FIFO sequencing for the executor's wait loops.
@@ -117,6 +122,10 @@ static void block_event_poll_task(void *arg) {
                 entry->type != BLOCK_TYPE_BUTTON &&
                 entry->type != BLOCK_TYPE_DELAY &&
                 entry->type != BLOCK_TYPE_LOOP) {
+                continue;
+            }
+
+            if (skip_button_poll_while_stopped && entry->type == BLOCK_TYPE_BUTTON) {
                 continue;
             }
 
