@@ -32,6 +32,8 @@ enum RuleViolationType {
   brainBlockMissing,
   brainBlockNotFirst,
   buttonPressMustFollowIf,
+  thenMustImmediatelyFollowButton,
+  duplicateI2cAddress,
   ifSequenceIncomplete,
   ifSequenceInvalidBlock,
   loopSequenceIncomplete,
@@ -111,6 +113,71 @@ class ConfigurationRules {
     return violations;
   }
 
+  /// Canonical tutorial shape: `Button Press` must be immediately followed by
+  /// `Then` (stricter than firmware, which allows other opcodes in between).
+  static List<RuleViolation> checkThenImmediatelyFollowsButtonRule(
+      BlockConfiguration config) {
+    final violations = <RuleViolation>[];
+    final blocks = config.blocks;
+
+    for (int i = 0; i < blocks.length; i++) {
+      if (blocks[i].blockType != BlockType.buttonPress) continue;
+
+      if (i + 1 >= blocks.length) {
+        violations.add(RuleViolation(
+          type: RuleViolationType.thenMustImmediatelyFollowButton,
+          message:
+              'Button Press at position $i must be immediately followed by a Then Block',
+          severity: Severity.error,
+          blockIndex: i,
+          expectedBlockType: BlockType.thenBlock,
+        ));
+        continue;
+      }
+
+      final next = blocks[i + 1].blockType;
+      if (next != BlockType.thenBlock) {
+        violations.add(RuleViolation(
+          type: RuleViolationType.thenMustImmediatelyFollowButton,
+          message:
+              'Button Press at position $i must be immediately followed by a Then Block (found ${next?.displayName ?? "unknown"} next)',
+          severity: Severity.error,
+          blockIndex: i,
+          expectedBlockType: BlockType.thenBlock,
+          actualBlockType: next,
+        ));
+      }
+    }
+
+    return violations;
+  }
+
+  /// Two blocks must not share the same I²C address.
+  static List<RuleViolation> checkDuplicateI2cRule(
+      BlockConfiguration config) {
+    final violations = <RuleViolation>[];
+    final byAddr = <int, List<int>>{};
+
+    for (int i = 0; i < config.blocks.length; i++) {
+      final addr = config.blocks[i].i2cAddress;
+      byAddr.putIfAbsent(addr, () => []).add(i);
+    }
+
+    for (final entry in byAddr.entries) {
+      if (entry.value.length < 2) continue;
+      final indices = List<int>.from(entry.value)..sort();
+      violations.add(RuleViolation(
+        type: RuleViolationType.duplicateI2cAddress,
+        message:
+            'Multiple blocks use I²C address 0x${entry.key.toRadixString(16).toUpperCase().padLeft(2, "0")} at positions ${indices.join(", ")}',
+        severity: Severity.error,
+        affectedBlockIndices: indices,
+      ));
+    }
+
+    return violations;
+  }
+
   /// Validate If/Loop nesting and structure using a stack-based approach
   static List<RuleViolation> checkNestingRule(BlockConfiguration config) {
     final violations = <RuleViolation>[];
@@ -126,7 +193,22 @@ class ConfigurationRules {
       } else if (type == BlockType.loopBlock) {
         stack.add(_NestingFrame(type: type!, startIndex: i));
       } else if (type == BlockType.thenBlock) {
-        if (stack.isEmpty || stack.last.type != BlockType.ifBlock) {
+        if (stack.isEmpty) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.unmatchedEnd,
+            message: 'Then Block at position $i is not preceded by an If Block',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type == BlockType.loopBlock) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.loopSequenceInvalidBlock,
+            message:
+                'Then Block at position $i cannot follow an open Loop Block at position ${stack.last.startIndex}; add an If Block (and Button Press) before Then',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type != BlockType.ifBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
             message: 'Then Block at position $i is not preceded by an If Block',
@@ -159,7 +241,22 @@ class ConfigurationRules {
           stack.last.hasThen = true;
         }
       } else if (type == BlockType.endIfBlock) {
-        if (stack.isEmpty || stack.last.type != BlockType.ifBlock) {
+        if (stack.isEmpty) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.unmatchedEnd,
+            message: 'End If Block at position $i has no matching If Block',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type == BlockType.loopBlock) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.sequenceInterleaved,
+            message:
+                'End If Block at position $i cannot close before the open Loop Block at position ${stack.last.startIndex}; use End Loop first',
+            severity: Severity.warning,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type != BlockType.ifBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
             message: 'End If Block at position $i has no matching If Block',
@@ -186,7 +283,22 @@ class ConfigurationRules {
           }
         }
       } else if (type == BlockType.endLoopBlock) {
-        if (stack.isEmpty || stack.last.type != BlockType.loopBlock) {
+        if (stack.isEmpty) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.unmatchedEnd,
+            message: 'End Loop Block at position $i has no matching Loop Block',
+            severity: Severity.error,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type == BlockType.ifBlock) {
+          violations.add(RuleViolation(
+            type: RuleViolationType.sequenceInterleaved,
+            message:
+                'End Loop Block at position $i cannot close before the open If Block at position ${stack.last.startIndex}; use End If first',
+            severity: Severity.warning,
+            blockIndex: i,
+          ));
+        } else if (stack.last.type != BlockType.loopBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
             message: 'End Loop Block at position $i has no matching Loop Block',
@@ -234,8 +346,12 @@ class ConfigurationRules {
     // Check Brain Block rule
     violations.addAll(checkBrainBlockRule(config));
 
+    violations.addAll(checkDuplicateI2cRule(config));
+
     // Button Press must sit immediately after If (global; pairs with nesting)
     violations.addAll(checkButtonPressPlacementRule(config));
+
+    violations.addAll(checkThenImmediatelyFollowsButtonRule(config));
 
     // Validate nesting (IF/LOOP) and structural integrity
     violations.addAll(checkNestingRule(config));
