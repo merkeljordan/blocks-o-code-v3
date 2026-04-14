@@ -256,6 +256,16 @@ uint8_t note_block_get_pending_event_len(void) {
   return len;
 }
 
+void note_block_clear_pending_event(void) {
+  portENTER_CRITICAL(&s_pending_event_spinlock);
+  s_pending_event_valid = false;
+  s_pending_event_len = 0;
+  portEXIT_CRITICAL(&s_pending_event_spinlock);
+
+  bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
+  set_status_flags(nonbusy_status_flags(preserve_idle, false));
+}
+
 static void config_reset(void) {
   portENTER_CRITICAL(&s_pending_event_spinlock);
   memset(&s_config, 0, sizeof(s_config));

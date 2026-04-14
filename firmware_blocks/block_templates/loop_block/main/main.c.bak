@@ -242,7 +242,6 @@ void command_handle(i2c_command_t cmd,
                     memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
                 }
                 *tx_len = 1 + g_pending_event.payload_len;
-                loop_block_clear_pending_event();
             }
             break;
 

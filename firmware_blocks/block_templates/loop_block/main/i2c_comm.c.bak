@@ -158,7 +158,7 @@ void i2c_task(void *arg)
 
         uint8_t head = buffer[0];
 
-        if (head >= 0x80 && head != CMD_GET_DATA) {
+        if (head != CMD_GET_DATA && head != REG_DATA_LEN) {
             extern void loop_block_clear_pending_event(void);
             loop_block_clear_pending_event();
         }

@@ -273,7 +273,7 @@ void i2c_task(void *arg)
 
             // If the incoming byte is ANYTHING other than a retry of the fetch process,
             // we definitively know the Brain is done trying to fetch this event.
-            if (head != CMD_GET_DATA && head != REG_DATA_LEN) {
+            if (head >= 0x80 && head != CMD_GET_DATA) {
                 extern void note_block_clear_pending_event(void);
                 note_block_clear_pending_event();
             }

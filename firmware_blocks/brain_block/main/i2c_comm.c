@@ -453,6 +453,7 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
      * yielding id=0x00 / stale bytes and consuming the real payload on a retry. */
     esp_err_t ret = ESP_FAIL;
     for (int retry = 0; retry < 3; retry++) {
+        ESP_LOGD(TAG, "[addr=0x%02X] CMD_GET_DATA attempt %d (expecting %zu bytes)", addr, retry + 1, len);
         ret = i2c_master_write_to_device(
             I2C_PORT_NUM,
             addr,
@@ -460,6 +461,7 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
             1,
             pdMS_TO_TICKS(80));
         if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "[addr=0x%02X] CMD_GET_DATA write cmd failed: %s (attempt %d)", addr, esp_err_to_name(ret), retry + 1);
             if (ret == ESP_ERR_TIMEOUT) {
                 (void)i2c_bus_recover_locked();
             }
@@ -476,8 +478,15 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
             len,
             pdMS_TO_TICKS(80));
         if (ret == ESP_OK) {
+            char hex_buf[64] = {0};
+            for (size_t i = 0; i < len && i < 20; i++) {
+                sprintf(&hex_buf[i * 3], "%02X ", out[i]);
+            }
+            ESP_LOGI(TAG, "[addr=0x%02X] CMD_GET_DATA success: read %zu bytes: [%s] (attempt %d)", addr, len, hex_buf, retry + 1);
             break;
         }
+        
+        ESP_LOGW(TAG, "[addr=0x%02X] CMD_GET_DATA read payload failed: %s (attempt %d)", addr, esp_err_to_name(ret), retry + 1);
         if (ret == ESP_ERR_TIMEOUT) {
             (void)i2c_bus_recover_locked();
         }
