@@ -39,7 +39,17 @@ static uint32_t read_device_uid(uint8_t addr)
         if (attempt > 0) {
             vTaskDelay(pdMS_TO_TICKS(DEV_REGISTRY_IDENTITY_READ_GAP_MS));
         }
-        if (i2c_read_reg(addr, REG_UID0, uid_bytes, sizeof(uid_bytes)) != ESP_OK) {
+        /* Read each UID byte individually: the slave loads one byte per
+         * register index into the TX ring buffer, so a single 4-byte read
+         * would only get the first byte correct and stall / timeout. */
+        bool ok = true;
+        for (int b = 0; b < 4; b++) {
+            if (i2c_read_reg(addr, (uint8_t)(REG_UID0 + b), &uid_bytes[b], 1) != ESP_OK) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok) {
             continue;
         }
 

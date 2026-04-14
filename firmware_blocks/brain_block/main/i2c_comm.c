@@ -232,28 +232,43 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
         return lock_ret;
     }
 
-    // One transaction (write reg address + repeated start + read) so slaves that
-    // latch the register on the write phase and reply on the read phase see a
-    // consistent sequence. Split write/read with STOP between often leaves
-    // REG_LOOP_COUNT and similar reads stuck at power-on defaults (loop count 1).
+    /* Split write + delay + read: the child processes register reads in a
+     * FreeRTOS task after the write byte hits the slave RX queue.  An atomic
+     * i2c_master_write_read_device executes the read phase before that task
+     * runs, returning stale data from the TX ring buffer instead of the
+     * requested register value.  The stale bytes then accumulate and
+     * contaminate later CMD_GET_DATA reads. */
     esp_err_t ret = ESP_FAIL;
     for (int retry = 0; retry < 3; retry++) {
-        ret = i2c_master_write_read_device(
+        ret = i2c_master_write_to_device(
             I2C_PORT_NUM,
             addr,
             &reg,
             1U,
+            pdMS_TO_TICKS(50));
+        if (ret != ESP_OK) {
+            if (ret == ESP_ERR_TIMEOUT) {
+                (void)i2c_bus_recover_locked();
+            }
+            vTaskDelay(pdMS_TO_TICKS(4));
+            continue;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(5));
+
+        ret = i2c_master_read_from_device(
+            I2C_PORT_NUM,
+            addr,
             out,
             len,
             pdMS_TO_TICKS(50));
-        
         if (ret == ESP_OK) {
             break;
         }
         if (ret == ESP_ERR_TIMEOUT) {
             (void)i2c_bus_recover_locked();
         }
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(4));
     }
 
     i2c_unlock();

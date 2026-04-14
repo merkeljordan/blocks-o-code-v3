@@ -300,7 +300,23 @@ void i2c_task(void *arg) {
             command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
 
             if (tx_len > 0U) {
-                (void)i2c_reset_tx_fifo(I2C_NUM_0);
+                /* Delete + re-install clears both hardware FIFOs and the
+                 * software TX ring buffer.  Without this, stale register-read
+                 * responses sit in front of the CMD_GET_DATA payload, so the
+                 * Brain reads the wrong event ID.  The Brain's split
+                 * write -> 18 ms delay -> read leaves ample time. */
+                (void)i2c_driver_delete(I2C_NUM_0);
+                i2c_config_t flush_conf = {
+                    .mode = I2C_MODE_SLAVE,
+                    .sda_io_num = I2C_SDA_PIN,
+                    .scl_io_num = I2C_SCL_PIN,
+                    .sda_pullup_en = GPIO_PULLUP_ENABLE,
+                    .scl_pullup_en = GPIO_PULLUP_ENABLE,
+                    .slave.addr_10bit_en = 0,
+                    .slave.slave_addr = s_runtime_address,
+                };
+                (void)i2c_param_config(I2C_NUM_0, &flush_conf);
+                (void)i2c_driver_install(I2C_NUM_0, flush_conf.mode, 128, 128, 0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
             }
 
