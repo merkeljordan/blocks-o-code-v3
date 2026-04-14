@@ -432,35 +432,26 @@ esp_err_t i2c_get_data(uint8_t addr, uint8_t *out, size_t len) {
 
     uint8_t cmd_byte = CMD_GET_DATA;
 
-    // Send CMD_GET_DATA
-    esp_err_t ret = i2c_master_write_to_device(
-        I2C_PORT_NUM,
-        addr,
-        &cmd_byte,
-        1,
-        pdMS_TO_TICKS(50)
-    );
-    if (ret != ESP_OK) {
+    /* One transaction: write CMD_GET_DATA + repeated start + read payload.
+     * Split write (STOP) + read (START) often leaves ESP-IDF slave TX with stale
+     * bytes (e.g. REG_STATUS value0x67 read as bogus "event_id"). */
+    esp_err_t ret = ESP_FAIL;
+    for (int retry = 0; retry < 3; retry++) {
+        ret = i2c_master_write_read_device(
+            I2C_PORT_NUM,
+            addr,
+            &cmd_byte,
+            1U,
+            out,
+            len,
+            pdMS_TO_TICKS(80));
+        if (ret == ESP_OK) {
+            break;
+        }
         if (ret == ESP_ERR_TIMEOUT) {
             (void)i2c_bus_recover_locked();
         }
-        i2c_unlock();
-        return ret;
-    }
-
-    // Small delay between write and read to let child prepare payload
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    // Read response payload
-    ret = i2c_master_read_from_device(
-        I2C_PORT_NUM,
-        addr,
-        out,
-        len,
-        pdMS_TO_TICKS(50)
-    );
-    if (ret == ESP_ERR_TIMEOUT) {
-        (void)i2c_bus_recover_locked();
+        vTaskDelay(pdMS_TO_TICKS(4));
     }
 
     i2c_unlock();

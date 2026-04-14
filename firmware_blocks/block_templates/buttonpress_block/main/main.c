@@ -164,8 +164,14 @@ void command_handle(i2c_command_t cmd,
                 g_pending_event.payload_len = 0;
                 set_status_flags(STATUS_READY);
                 ESP_LOGI("BTN_EVT", "Event consumed via CMD_GET_DATA; status=0x%02X", (unsigned)g_status_flags);
-            } else {
-                ESP_LOGI("BTN_TX", "CMD_GET_DATA with no pending event; status=0x%02X", (unsigned)g_status_flags);
+            } else if (tx && tx_len) {
+                /* Master always reads a fixed length; never leave TX FIFO undefined (stale REG_STATUS
+                 * etc. reads as a fake "event_id"). Non-0x04 id is dropped by the Brain. */
+                tx[0] = 0x00;
+                tx[1] = 0x00;
+                *tx_len = 2;
+                ESP_LOGI("BTN_TX", "CMD_GET_DATA no pending event; pad id=0x00 status=0x%02X",
+                         (unsigned)g_status_flags);
             }
             break;
 
