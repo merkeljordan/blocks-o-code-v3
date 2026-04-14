@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -19,6 +20,7 @@
 static inline void tft_ui_start(void) {}
 static inline void tft_ui_trigger_execute(void) {}
 static inline void tft_ui_set_idle(void) {}
+static inline void tft_ui_set_press_now_visible(bool visible) { (void)visible; }
 #endif
 
 #include "startup_guard.h"
@@ -172,6 +174,10 @@ void command_handle(i2c_command_t cmd,
                 *tx_len = 2;
                 ESP_LOGI("BTN_TX", "CMD_GET_DATA no pending event; pad id=0x00 status=0x%02X",
                          (unsigned)g_status_flags);
+                /* Resync: DATA_READY without a payload confuses the Brain poll loop. */
+                if ((g_status_flags & STATUS_DATA_READY) != 0) {
+                    set_status_flags(STATUS_READY);
+                }
             }
             break;
 
@@ -193,6 +199,7 @@ void command_handle(i2c_command_t cmd,
             /* `control_flow_tft_ui_trigger_execute()` enters the shared disco "running" state.
              * For BUTTON, we want the dual-action card (Execute/Skip) without disco. */
             tft_ui_set_idle();
+            tft_ui_set_press_now_visible(true);
             break;
 
         case CMD_MATRIX_FILL:

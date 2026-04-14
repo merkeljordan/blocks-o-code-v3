@@ -73,6 +73,8 @@ static bool s_running;
 static volatile bool s_pending_execute;
 static volatile bool s_pending_idle;
 static volatile bool s_pending_value_refresh;
+static volatile bool s_pending_press_now_visible;
+static volatile bool s_press_now_visible_requested;
 
 #define CFUI_LOG(fmt, ...) printf("[control_flow_tft_ui] " fmt "\n", ##__VA_ARGS__)
 #include "esp_log.h"
@@ -521,6 +523,9 @@ static void apply_idle_state(void)
             : "Skip";
         set_button_label(s_secondary_button, secondary_label);
     }
+    if (s_dual_action_prompt_label != NULL) {
+        lv_obj_add_flag(s_dual_action_prompt_label, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 static void state_timer_cb(lv_timer_t *timer)
@@ -535,6 +540,17 @@ static void state_timer_cb(lv_timer_t *timer)
         s_pending_idle = false;
         s_pending_execute = false;
         apply_idle_state();
+    }
+
+    if (s_pending_press_now_visible) {
+        s_pending_press_now_visible = false;
+        if (s_dual_action_prompt_label != NULL) {
+            if (s_press_now_visible_requested) {
+                lv_obj_clear_flag(s_dual_action_prompt_label, LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_add_flag(s_dual_action_prompt_label, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
     }
 
     if (s_pending_value_refresh) {
@@ -722,6 +738,8 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_pending_execute = false;
     s_pending_idle = false;
     s_pending_value_refresh = false;
+    s_pending_press_now_visible = false;
+    s_press_now_visible_requested = false;
     s_last_battery_refresh_ms = 0;
     s_screen = NULL;
     s_disco_layer = NULL;
@@ -912,6 +930,9 @@ void control_flow_tft_ui_set_idle(void)
 {
     s_pending_execute = false;
     s_pending_idle = true;
+    /* Drop any deferred press prompt so RESET/idle cannot race a prior CMD_EXECUTE "show". */
+    s_pending_press_now_visible = false;
+    s_press_now_visible_requested = false;
 }
 
 void control_flow_tft_ui_set_value(uint32_t value)
@@ -922,4 +943,10 @@ void control_flow_tft_ui_set_value(uint32_t value)
 
     s_current_value = clamp_value(value);
     s_pending_value_refresh = true;
+}
+
+void control_flow_tft_ui_set_press_now_visible(bool visible)
+{
+    s_press_now_visible_requested = visible;
+    s_pending_press_now_visible = true;
 }

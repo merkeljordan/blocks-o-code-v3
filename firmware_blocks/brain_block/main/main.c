@@ -171,23 +171,13 @@ static void block_event_poll_task(void *arg) {
                     continue;
                 }
                 uint8_t btn_frame[2] = {0};
-                bool got_press = false;
-                for (int attempt = 0; attempt < 4; attempt++) {
-                    if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) != ESP_OK) {
-                        vTaskDelay(pdMS_TO_TICKS(3));
-                        continue;
-                    }
-                    if (btn_frame[0] == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
-                        got_press = true;
-                        break;
-                    }
-                    /* Stale first byte (often duplicate of REG_STATUS); retry after brief delay */
-                    ESP_LOGW(TAG, "BTN_RX retry: addr=0x%02X id=0x%02X (want 0x%02X) choice=0x%02X try=%d",
-                             entry->address, btn_frame[0], BRAIN_BLOCK_EVENT_BUTTON_PRESS, btn_frame[1],
-                             attempt + 1);
-                    vTaskDelay(pdMS_TO_TICKS(4));
+                /* One GET_DATA only: each slave-side GET_DATA may consume the pending event;
+                 * retrying here after a bad read returns pad (0x00) and never recovers. */
+                if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) != ESP_OK) {
+                    ESP_LOGW(TAG, "CMD_GET_DATA (button) failed for 0x%02X while DATA_READY", entry->address);
+                    continue;
                 }
-                if (!got_press) {
+                if (btn_frame[0] != BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
                     ESP_LOGW(TAG, "BTN_RX drop: addr=0x%02X id=0x%02X (want 0x%02X) choice=0x%02X",
                              entry->address, btn_frame[0], BRAIN_BLOCK_EVENT_BUTTON_PRESS, btn_frame[1]);
                     continue;

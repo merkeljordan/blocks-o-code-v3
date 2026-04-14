@@ -20,12 +20,14 @@ extern void button_block_pass_from_ui(void);
 static bool on_execute_action(void)
 {
     button_block_execute_from_ui();
+    control_flow_tft_ui_set_press_now_visible(false);
     return true;
 }
 
 static bool on_skip_action(void)
 {
     button_block_pass_from_ui();
+    control_flow_tft_ui_set_press_now_visible(false);
     return true;
 }
 
@@ -69,4 +71,9 @@ void tft_ui_trigger_execute(void)
 void tft_ui_set_idle(void)
 {
     control_flow_tft_ui_set_idle();
+}
+
+void tft_ui_set_press_now_visible(bool visible)
+{
+    control_flow_tft_ui_set_press_now_visible(visible);
 }

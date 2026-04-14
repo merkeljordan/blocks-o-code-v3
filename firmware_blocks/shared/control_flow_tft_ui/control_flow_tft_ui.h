@@ -34,6 +34,8 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg);
 void control_flow_tft_ui_trigger_execute(void);
 void control_flow_tft_ui_set_idle(void);
 void control_flow_tft_ui_set_value(uint32_t value);
+/** Dual-action blocks only: show/hide the green "Press Now!" prompt (safe from any task). */
+void control_flow_tft_ui_set_press_now_visible(bool visible);
 
 #ifdef __cplusplus
 }
