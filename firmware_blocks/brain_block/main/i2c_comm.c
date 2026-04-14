@@ -254,7 +254,7 @@ esp_err_t i2c_read_reg(uint8_t addr, uint8_t reg, uint8_t *out, size_t len) {
             continue;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(18));
 
         ret = i2c_master_read_from_device(
             I2C_PORT_NUM,
