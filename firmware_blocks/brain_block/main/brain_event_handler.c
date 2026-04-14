@@ -1616,6 +1616,14 @@ static bool process_block_event(uint8_t block_addr,
     }
 
     if (event_id == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
+        ESP_LOGI(TAG,
+                 "BUTTON_EVT_RAW: addr=0x%02X payload_len=%u b0=0x%02X b1=0x%02X b2=0x%02X b3=0x%02X",
+                 block_addr,
+                 (unsigned)payload_len,
+                 (payload_len > 0 && payload) ? payload[0] : 0xFF,
+                 (payload_len > 1 && payload) ? payload[1] : 0xFF,
+                 (payload_len > 2 && payload) ? payload[2] : 0xFF,
+                 (payload_len > 3 && payload) ? payload[3] : 0xFF);
         uint8_t pressed = 1;
         if (payload && payload_len >= 1) {
             pressed = payload[0];
@@ -1631,11 +1639,15 @@ static bool process_block_event(uint8_t block_addr,
             // Semantics:
             // - pressed!=0 (Execute): unblock + arm IF latch (so THEN can run)
             // - pressed==0 (Skip): unblock only; do NOT arm IF latch (so THEN skips)
-            if (block_addr == s_program_addr[s_executor_ctx.pc] &&
-                program_slot_effectively_present(s_executor_ctx.pc)) {
+            if (block_addr == s_program_addr[s_executor_ctx.pc]) {
+                // Unblock WAIT_INPUT on address match even if present flags disagree.
                 s_executor_ctx.button_pressed = true;
             } else {
                 // Wrong button while waiting on a BUTTON step: do not arm IF latch.
+                update_if_latch = false;
+            }
+            // Only arm IF latch on Execute (pressed!=0) when the address matched the expected button.
+            if (pressed == 0) {
                 update_if_latch = false;
             }
         }
@@ -1808,6 +1820,20 @@ bool brain_executor_prefers_i2c_yield(void)
 uint8_t brain_executor_get_active_poll_addr(void)
 {
     return s_executor_active_poll_addr;
+}
+
+uint8_t brain_executor_get_expected_button_addr(void)
+{
+    if (s_executor_ctx.state != EXECUTOR_WAIT_INPUT) {
+        return 0;
+    }
+    if (s_executor_ctx.pc >= s_executor_ctx.program_len) {
+        return 0;
+    }
+    if (s_executor_ctx.program[s_executor_ctx.pc] != BLOCK_TYPE_BUTTON) {
+        return 0;
+    }
+    return s_program_addr[s_executor_ctx.pc];
 }
 
 void brain_executor_set_button_state(bool is_pressed) {

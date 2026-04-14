@@ -93,6 +93,10 @@ bool brain_executor_prefers_i2c_yield(void);
  *  block_event_poll_task skips this address to prevent TX FIFO poisoning. */
 uint8_t brain_executor_get_active_poll_addr(void);
 
+/** Returns the expected BUTTON block address only while the executor is waiting on a BUTTON step.
+ *  0 means "not waiting for a BUTTON event". */
+uint8_t brain_executor_get_expected_button_addr(void);
+
 // App/host text command entry point (e.g., "START", "STOP", "SET_LED 0x08 7").
 // START/STOP are handled immediately; return true only if the executor accepted them.
 // Other commands return true if enqueued successfully.

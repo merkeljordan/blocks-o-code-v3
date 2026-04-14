@@ -96,6 +96,7 @@ static void block_event_poll_task(void *arg) {
         const brain_executor_context_t *exec_ctx = brain_executor_get_context();
         bool waiting_for_button =
             (exec_ctx != NULL && exec_ctx->state == EXECUTOR_WAIT_INPUT);
+        uint8_t expected_button_addr = brain_executor_get_expected_button_addr();
         // After STOP, the latch is cleared and we must not keep reading the BUTTON block:
         // the child may still alternate READY vs BUSY|DATA_READY (UI / pending event), which
         // spams BTN_POLL and can repeatedly consume events that no longer drive the executor.
@@ -125,11 +126,13 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
-            // Gate BUTTON polling: only poll the button block when the executor is
-            // actively waiting on a BUTTON opcode. Otherwise, button UI/status can
-            // flap and spam logs (and we can consume events that don't drive execution).
-            if (entry->type == BLOCK_TYPE_BUTTON && !waiting_for_button) {
-                continue;
+            // Gate BUTTON polling to the executor's expected button address at the current PC.
+            // This prevents consuming UI/status flapping from other times and ensures we only
+            // poll when execution has actually reached a BUTTON step.
+            if (entry->type == BLOCK_TYPE_BUTTON) {
+                if (!waiting_for_button || expected_button_addr == 0 || entry->address != expected_button_addr) {
+                    continue;
+                }
             }
 
             if (skip_button_poll_while_stopped && entry->type == BLOCK_TYPE_BUTTON) {

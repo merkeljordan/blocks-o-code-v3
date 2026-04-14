@@ -59,6 +59,8 @@ static lv_obj_t *s_submit_button;
 static lv_obj_t *s_secondary_button;
 static lv_obj_t *s_minus_button;
 static lv_obj_t *s_plus_button;
+/** Dual-action (Execute/Skip): green prompt above the buttons. */
+static lv_obj_t *s_dual_action_prompt_label;
 static lv_timer_t *s_anim_timer;
 static lv_timer_t *s_state_timer;
 static control_flow_ui_config_t s_cfg;
@@ -369,6 +371,9 @@ static void apply_idle_palette(void)
     }
     if (s_value_label != NULL) {
         lv_obj_set_style_text_color(s_value_label, lv_color_hex(0xF8FAFCu), 0);
+    }
+    if (s_dual_action_prompt_label != NULL) {
+        lv_obj_set_style_text_color(s_dual_action_prompt_label, lv_color_hex(0x22C55Eu), 0);
     }
     if (s_control_card != NULL) {
         lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
@@ -729,6 +734,7 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
     s_secondary_button = NULL;
     s_minus_button = NULL;
     s_plus_button = NULL;
+    s_dual_action_prompt_label = NULL;
 
     if (s_cfg.supports_value) {
         s_current_value = clamp_value(s_current_value);
@@ -843,8 +849,8 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
         s_secondary_button = NULL;
     } else if (s_cfg.supports_dual_action) {
         s_control_card = lv_obj_create(s_screen);
-        lv_obj_set_size(s_control_card, 212, 96);
-        lv_obj_set_pos(s_control_card, 14, 204);
+        lv_obj_set_size(s_control_card, 212, 112);
+        lv_obj_set_pos(s_control_card, 14, 196);
         lv_obj_set_style_radius(s_control_card, 24, 0);
         lv_obj_set_style_bg_color(s_control_card, lv_color_hex(0x101728u), 0);
         lv_obj_set_style_bg_grad_color(s_control_card, lv_color_hex(0x17213Au), 0);
@@ -854,10 +860,18 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
         lv_obj_set_style_pad_all(s_control_card, 0, 0);
         lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_SCROLLABLE);
 
+        s_dual_action_prompt_label = lv_label_create(s_control_card);
+        lv_label_set_text(s_dual_action_prompt_label, "Press Now!");
+        lv_obj_set_width(s_dual_action_prompt_label, 200);
+        lv_obj_set_pos(s_dual_action_prompt_label, 6, 4);
+        lv_obj_set_style_text_align(s_dual_action_prompt_label, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_text_font(s_dual_action_prompt_label, LV_FONT_DEFAULT, 0);
+        lv_obj_set_style_text_color(s_dual_action_prompt_label, lv_color_hex(0x22C55Eu), 0);
+
         const char *primary_label = (s_cfg.primary_action_label != NULL) ? s_cfg.primary_action_label : "Execute";
         const char *secondary_label = (s_cfg.secondary_action_label != NULL) ? s_cfg.secondary_action_label : "Skip";
-        s_submit_button = create_button(s_control_card, 12, 18, 92, 56, primary_label);
-        s_secondary_button = create_button(s_control_card, 108, 18, 92, 56, secondary_label);
+        s_submit_button = create_button(s_control_card, 12, 34, 92, 56, primary_label);
+        s_secondary_button = create_button(s_control_card, 108, 34, 92, 56, secondary_label);
         set_button_palette(s_submit_button, s_cfg.accent_color);
         set_button_palette(s_secondary_button, blend_hex(s_cfg.accent_color, 0xFFFFFFu, 96u));
         lv_obj_add_event_cb(s_submit_button, primary_action_button_cb, LV_EVENT_CLICKED, NULL);
