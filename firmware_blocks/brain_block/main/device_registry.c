@@ -130,8 +130,6 @@ static void release_address(uint8_t addr)
         state->uid = 0u;
         return;
     }
-    return DEVICE_REGISTRY_ADDR_MAX;
-}
 
     ESP_LOGW(TAG,
              "Releasing addr=0x%02X from physical_position=%u",
