@@ -104,7 +104,7 @@ void matrix_fill(uint8_t r, uint8_t g, uint8_t b) {
     if (s_matrix_locked) {
         return;
     }
-    ESP_LOGI(TAG, "Filling matrix RGB(%d, %d, %d) @ brightness %d",
+    ESP_LOGD(TAG, "Filling matrix RGB(%d, %d, %d) @ brightness %d",
              r, g, b, matrix_brightness);
 
     // Apply brightness scaling
@@ -138,7 +138,7 @@ void matrix_clear(void) {
     if (s_matrix_locked) {
         return;
     }
-    ESP_LOGI(TAG, "Clearing matrix");
+    ESP_LOGD(TAG, "Clearing matrix");
     memset(matrix_pixels, 0, sizeof(matrix_pixels));
     led_strip_clear(led_strip);
 }
@@ -156,7 +156,7 @@ void matrix_show(void) {
 // ============================================================================
 void matrix_set_brightness(uint8_t brightness) {
     matrix_brightness = brightness;
-    ESP_LOGI(TAG, "Brightness set to %d", matrix_brightness);
+    ESP_LOGD(TAG, "Brightness set to %d", matrix_brightness);
 }
 
 // ============================================================================

@@ -1560,6 +1560,12 @@ static bool process_block_event(uint8_t block_addr,
         if (loop_count_addr_to_slot(block_addr, &slot)) {
             s_loop_count_stash_by_addr[slot] = loop_count;
             s_loop_count_stash_valid_by_addr[slot] = true;
+        } else {
+            ESP_LOGW(TAG,
+                     "LOOP_COUNT submit at 0x%02X not stashed (addr outside 0x%02X-0x%02X)",
+                     block_addr,
+                     (unsigned)DEVICE_REGISTRY_ADDR_MIN,
+                     (unsigned)DEVICE_REGISTRY_ADDR_MAX);
         }
 
         // Keep executor globals in sync so any fallback path (scan !present, etc.) sees latest submit.
@@ -1863,6 +1869,9 @@ static esp_err_t brain_executor_start_nolock(void) {
     memset(s_loop_count_valid_by_pc, 0, sizeof(s_loop_count_valid_by_pc));
     refresh_loop_iteration_counts_from_i2c_registers();
     apply_loop_count_stash_to_program();
+    /* Stash was merged into s_loop_count_by_pc; clear validity so later runs do not
+     * prefer stale addr-keyed submits in resolve_loop_iteration_count(). */
+    memset(s_loop_count_stash_valid_by_addr, 0, sizeof(s_loop_count_stash_valid_by_addr));
 
     memset(s_delay_ms_by_pc, 0, sizeof(s_delay_ms_by_pc));
     memset(s_delay_ms_valid_by_pc, 0, sizeof(s_delay_ms_valid_by_pc));

@@ -17,8 +17,26 @@
 #include "esp_timer.h"
 #include "cJSON.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 static const char *TAG = "BLOCK_CONFIG";
+
+#define BLOCK_CONFIG_STATE_LOCK_MS pdMS_TO_TICKS(5000)
+
+static SemaphoreHandle_t s_cfg_lock;
+static block_config_state_t s_get_state_shadow;
+static block_event_map_t s_get_event_map_shadow;
+
+static void cfg_lock_create_once(void)
+{
+    if (s_cfg_lock != NULL) {
+        return;
+    }
+    s_cfg_lock = xSemaphoreCreateMutex();
+    if (s_cfg_lock == NULL) {
+        ESP_LOGE(TAG, "Failed to create block config mutex");
+    }
+}
 static const uint8_t TOPOLOGY_STABLE_SCAN_THRESHOLD = 2;
 static const uint8_t APPEND_STABLE_SCAN_THRESHOLD = 2;
 static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 2;
@@ -86,6 +104,7 @@ static void record_scan_error(const char *type,
 }
 
 void block_config_manager_init(void) {
+    cfg_lock_create_once();
     memset(&s_config_state, 0, sizeof(s_config_state));
     memset(&s_previous_state, 0, sizeof(s_previous_state));
     memset(&s_pending_state, 0, sizeof(s_pending_state));
@@ -480,6 +499,12 @@ static void recompute_event_map_from_config(void) {
 }
 
 esp_err_t block_config_manager_scan(void) {
+    cfg_lock_create_once();
+    if (s_cfg_lock != NULL && xSemaphoreTake(s_cfg_lock, BLOCK_CONFIG_STATE_LOCK_MS) != pdTRUE) {
+        ESP_LOGW(TAG, "scan skipped: config mutex timeout");
+        return ESP_ERR_TIMEOUT;
+    }
+
     ESP_LOGD(TAG, "=== BLOCK CONFIGURATION SCAN ===");
     clear_scan_errors();
 
@@ -746,23 +771,62 @@ esp_err_t block_config_manager_scan(void) {
         }
     }
 
+    if (s_cfg_lock != NULL) {
+        xSemaphoreGive(s_cfg_lock);
+    }
     return ESP_OK;
 }
 
 bool block_config_manager_has_changed(void) {
-    return s_config_state.has_changed;
+    cfg_lock_create_once();
+    if (s_cfg_lock == NULL) {
+        return s_config_state.has_changed;
+    }
+    if (xSemaphoreTake(s_cfg_lock, BLOCK_CONFIG_STATE_LOCK_MS) != pdTRUE) {
+        return false;
+    }
+    const bool v = s_config_state.has_changed;
+    xSemaphoreGive(s_cfg_lock);
+    return v;
 }
 
 uint8_t block_config_manager_get_error_count(void) {
-    return s_config_state.error_count;
+    cfg_lock_create_once();
+    if (s_cfg_lock == NULL) {
+        return s_config_state.error_count;
+    }
+    if (xSemaphoreTake(s_cfg_lock, BLOCK_CONFIG_STATE_LOCK_MS) != pdTRUE) {
+        return 0;
+    }
+    const uint8_t n = s_config_state.error_count;
+    xSemaphoreGive(s_cfg_lock);
+    return n;
 }
 
 const block_config_state_t* block_config_manager_get_state(void) {
-    return &s_config_state;
+    cfg_lock_create_once();
+    if (s_cfg_lock == NULL) {
+        return &s_config_state;
+    }
+    if (xSemaphoreTake(s_cfg_lock, portMAX_DELAY) != pdTRUE) {
+        return &s_get_state_shadow;
+    }
+    memcpy(&s_get_state_shadow, &s_config_state, sizeof(s_get_state_shadow));
+    xSemaphoreGive(s_cfg_lock);
+    return &s_get_state_shadow;
 }
 
 const block_event_map_t* block_config_manager_get_event_map(void) {
-    return &s_event_map;
+    cfg_lock_create_once();
+    if (s_cfg_lock == NULL) {
+        return &s_event_map;
+    }
+    if (xSemaphoreTake(s_cfg_lock, portMAX_DELAY) != pdTRUE) {
+        return &s_get_event_map_shadow;
+    }
+    memcpy(&s_get_event_map_shadow, &s_event_map, sizeof(s_get_event_map_shadow));
+    xSemaphoreGive(s_cfg_lock);
+    return &s_get_event_map_shadow;
 }
 
 esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_state) {
@@ -770,7 +834,16 @@ esp_err_t block_config_manager_get_state_snapshot(block_config_state_t *out_stat
         return ESP_ERR_INVALID_ARG;
     }
 
+    cfg_lock_create_once();
+    if (s_cfg_lock == NULL) {
+        memcpy(out_state, &s_config_state, sizeof(*out_state));
+        return ESP_OK;
+    }
+    if (xSemaphoreTake(s_cfg_lock, BLOCK_CONFIG_STATE_LOCK_MS) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
     memcpy(out_state, &s_config_state, sizeof(*out_state));
+    xSemaphoreGive(s_cfg_lock);
     return ESP_OK;
 }
 
@@ -813,6 +886,28 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
         return ESP_ERR_INVALID_ARG;
     }
 
+    cfg_lock_create_once();
+    uint64_t timestamp_ms = 0;
+    int block_count = 0;
+    block_config_entry_t blocks_copy[BLOCK_CONFIG_MAX_BLOCKS];
+    uint8_t scan_err_copy_n = 0;
+    block_config_scan_error_t scan_err_copy[BLOCK_CONFIG_MAX_SCAN_ERRORS];
+
+    if (s_cfg_lock != NULL && xSemaphoreTake(s_cfg_lock, BLOCK_CONFIG_STATE_LOCK_MS) != pdTRUE) {
+        return ESP_ERR_TIMEOUT;
+    }
+    timestamp_ms = s_config_state.last_scan_timestamp;
+    block_count = s_config_state.block_count;
+    if (block_count > BLOCK_CONFIG_MAX_BLOCKS) {
+        block_count = BLOCK_CONFIG_MAX_BLOCKS;
+    }
+    memcpy(blocks_copy, s_config_state.blocks, sizeof(blocks_copy));
+    scan_err_copy_n = s_last_scan_error_count;
+    memcpy(scan_err_copy, s_last_scan_errors, sizeof(scan_err_copy));
+    if (s_cfg_lock != NULL) {
+        xSemaphoreGive(s_cfg_lock);
+    }
+
     const uint32_t heap_before = esp_get_free_heap_size();
 
     esp_err_t ret = ESP_OK;
@@ -829,7 +924,6 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     cJSON_AddStringToObject(root, "type", "block_config");
 
     // Add timestamp
-    uint64_t timestamp_ms = s_config_state.last_scan_timestamp;
     if (timestamp_ms == 0) {
         timestamp_ms = esp_timer_get_time() / 1000;
     }
@@ -860,7 +954,7 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     cJSON_AddItemToObject(root, "config", config);
 
     // Add total_blocks (include Brain as a synthetic entry)
-    int total_blocks = s_config_state.block_count + 1;
+    int total_blocks = block_count + 1;
     cJSON_AddNumberToObject(config, "total_blocks", total_blocks);
 
     // Create blocks array
@@ -899,8 +993,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     }
 
     // Add each detected child block
-    for (int i = 0; i < s_config_state.block_count; i++) {
-        const block_config_entry_t *entry = &s_config_state.blocks[i];
+    for (int i = 0; i < block_count; i++) {
+        const block_config_entry_t *entry = &blocks_copy[i];
         
         cJSON *block_obj = cJSON_CreateObject();
         if (block_obj == NULL) {
@@ -954,8 +1048,8 @@ esp_err_t block_config_manager_get_json(char *json_buffer, size_t buffer_size) {
     cJSON_AddItemToObject(config, "errors", errors_array);
 
     // Add the detailed scan errors captured during the most recent scan.
-    for (uint8_t i = 0; i < s_last_scan_error_count; i++) {
-        const block_config_scan_error_t *err = &s_last_scan_errors[i];
+    for (uint8_t i = 0; i < scan_err_copy_n; i++) {
+        const block_config_scan_error_t *err = &scan_err_copy[i];
         add_error_to_json(errors_array,
                           err->type,
                           err->message,
