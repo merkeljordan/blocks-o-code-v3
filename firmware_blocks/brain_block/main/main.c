@@ -164,6 +164,32 @@ static void block_event_poll_task(void *arg) {
                              (status & STATUS_DATA_READY) ? " [DATA_READY]" : "");
                     s_last_btn_status[entry->address] = status;
                 }
+
+                /* BUTTON events are always [event_id, pressed] (2 bytes). Do not use REG_DATA_LEN
+                 * (stale values caused double GET_DATA + wrong lengths). Single read per event. */
+                if ((status & STATUS_DATA_READY) == 0) {
+                    continue;
+                }
+                uint8_t btn_frame[2] = {0};
+                if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) != ESP_OK) {
+                    ESP_LOGW(TAG, "CMD_GET_DATA (button) failed for 0x%02X while DATA_READY", entry->address);
+                    continue;
+                }
+                if (btn_frame[0] != BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
+                    ESP_LOGW(TAG, "BTN_RX drop: addr=0x%02X id=0x%02X (want 0x%02X) choice=0x%02X",
+                             entry->address, btn_frame[0], BRAIN_BLOCK_EVENT_BUTTON_PRESS, btn_frame[1]);
+                    continue;
+                }
+                ESP_LOGI("BTN_RX", "addr=0x%02X len=2 event_id=0x%02X choice=0x%02X",
+                         entry->address, btn_frame[0], btn_frame[1]);
+                bool queued = brain_event_handle_block_event(entry->address,
+                                                            btn_frame[0],
+                                                            &btn_frame[1],
+                                                            1U);
+                if (!queued) {
+                    ESP_LOGW(TAG, "Failed to enqueue button event from 0x%02X", entry->address);
+                }
+                continue;
             }
 
             if ((status & STATUS_DATA_READY) == 0) {
@@ -187,20 +213,6 @@ static void block_event_poll_task(void *arg) {
             // read length, otherwise we'd read random bytes (slave returns no payload)
             // and Brain would parse garbage as an event_id.
             if (data_len < 2 || data_len > sizeof(payload)) {
-                if (entry->type == BLOCK_TYPE_BUTTON) {
-                    /* When STATUS_DATA_READY is set but REG_DATA_LEN is briefly corrupted
-                     * (TX FIFO poisoning), attempt a safe minimal read for the only supported
-                     * BUTTON event: [event_id, pressed]. If it doesn't validate, drop it. */
-                    uint8_t btn_frame[2] = {0};
-                    if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) == ESP_OK &&
-                        btn_frame[0] == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
-                        payload[0] = btn_frame[0];
-                        payload[1] = btn_frame[1];
-                        data_len = 2;
-                    } else {
-                        continue;
-                    }
-                }
                 if (entry->type == BLOCK_TYPE_NOTE) {
                     continue;
                 }

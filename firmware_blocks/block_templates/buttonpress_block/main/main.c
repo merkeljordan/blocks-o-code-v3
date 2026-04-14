@@ -86,7 +86,8 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_BUTTON_PRESS;
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
-    set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
+    /* Always publish from a known-good base so stray bits cannot reach REG_STATUS. */
+    set_status_flags((uint8_t)(STATUS_READY | STATUS_DATA_READY));
     ESP_LOGI("BTN_EVT",
              "Published event: pressed=%u status=0x%02X has_event=%u data_len=%u",
              (unsigned)g_pending_event.payload[0],
@@ -97,7 +98,8 @@ static void publish_button_press_event(uint8_t pressed)
 
 uint8_t button_block_get_status_flags(void)
 {
-    return g_status_flags;
+    return (uint8_t)(g_status_flags & (STATUS_READY | STATUS_BUSY | STATUS_ERROR |
+                                       STATUS_DATA_READY | STATUS_IDLE));
 }
 
 uint8_t button_block_get_pending_data_len(void)
@@ -160,7 +162,7 @@ void command_handle(i2c_command_t cmd,
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
                 g_pending_event.payload_len = 0;
-                set_status_flags(g_status_flags & (uint8_t)~STATUS_DATA_READY);
+                set_status_flags(STATUS_READY);
                 ESP_LOGI("BTN_EVT", "Event consumed via CMD_GET_DATA; status=0x%02X", (unsigned)g_status_flags);
             } else {
                 ESP_LOGI("BTN_TX", "CMD_GET_DATA with no pending event; status=0x%02X", (unsigned)g_status_flags);

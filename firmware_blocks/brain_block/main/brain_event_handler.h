@@ -60,7 +60,8 @@ typedef struct {
     uint64_t wait_until_ms;
     /** Written from any task without the executor mutex (STOP must preempt long NOTE waits). */
     volatile bool stop_requested;
-    bool button_pressed;
+    /** Set from brain_evt task when a BUTTON_PRESS is accepted; read by executor tick. */
+    volatile bool button_pressed;
 } brain_executor_context_t;
 
 typedef struct {
