@@ -1127,11 +1127,11 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "LED_FLASH idle observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
-                dispatch_result = ESP_OK;
             } else {
-                ESP_LOGW(TAG, "LED_FLASH idle wait failed pc=%u addr=0x%02X ret=%d after=%u ms status=0x%02X",
+                ESP_LOGW(TAG, "LED_FLASH idle wait failed pc=%u addr=0x%02X ret=%d after=%u ms status=0x%02X — best-effort continuing",
                          (unsigned)pc, addr, (int)idle_ret, (unsigned)wait_ms, (unsigned)status);
             }
+            dispatch_result = ESP_OK;
             break;
         }
         case BLOCK_TYPE_NOTE: {
@@ -1175,11 +1175,11 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "NOTE idle observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
                          (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
-                dispatch_result = ESP_OK;
             } else {
-                ESP_LOGW(TAG, "NOTE idle wait failed pc=%u addr=0x%02X ret=%d after=%u ms status=0x%02X",
+                ESP_LOGW(TAG, "NOTE idle wait failed pc=%u addr=0x%02X ret=%d after=%u ms status=0x%02X — best-effort continuing",
                          (unsigned)pc, addr, (int)idle_ret, (unsigned)wait_ms, (unsigned)status);
             }
+            dispatch_result = ESP_OK;
             break;
         }
         case BLOCK_TYPE_MUSIC_SEQ: {
@@ -1227,11 +1227,11 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
-                dispatch_result = ESP_OK;
             } else {
-                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X)",
+                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) — best-effort continuing",
                          addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
             }
+            dispatch_result = ESP_OK;
             break;
         }
         default:

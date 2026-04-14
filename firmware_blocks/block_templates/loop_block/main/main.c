@@ -190,6 +190,13 @@ uint8_t loop_block_get_iteration_count_for_brain(void)
 // ============================================================================
 // COMMAND HANDLER
 // ============================================================================
+void loop_block_clear_pending_event(void)
+{
+    g_pending_event.has_event = false;
+    g_pending_event.payload_len = 0;
+    g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+}
+
 void command_handle(i2c_command_t cmd,
                     const uint8_t *rx,
                     size_t rx_len,
@@ -235,11 +242,6 @@ void command_handle(i2c_command_t cmd,
                     memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
                 }
                 *tx_len = 1 + g_pending_event.payload_len;
-
-                // Clear DATA_READY after Brain consumes the event.
-                g_pending_event.has_event = false;
-                g_pending_event.payload_len = 0;
-                g_status_flags &= (uint8_t)~STATUS_DATA_READY;
             }
             break;
 

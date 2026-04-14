@@ -156,23 +156,31 @@ void i2c_task(void *arg)
             continue;
         }
 
+        uint8_t head = buffer[0];
+
+        if (head != CMD_GET_DATA && head != REG_DATA_LEN) {
+            extern void loop_block_clear_pending_event(void);
+            loop_block_clear_pending_event();
+        }
+        (void)i2c_reset_tx_fifo(I2C_NUM_0);
+
         refresh_dynamic_registers();
-        if (len == 1 && buffer[0] < 0x10) {
-            uint8_t reg = buffer[0];
-            uint8_t response = registers[reg];
-            (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
+
+        if (len == 1 && head < 0x10) {
+            uint8_t response = registers[head];
+            (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, 0);
+            ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", head, response);
             continue;
         }
 
         size_t tx_len = 0;
-        i2c_command_t cmd = (i2c_command_t)buffer[0];
+        i2c_command_t cmd = (i2c_command_t)head;
         const uint8_t *payload = (len > 1) ? &buffer[1] : NULL;
         size_t payload_len = (len > 1) ? (size_t)(len - 1) : 0U;
 
         command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
         if (tx_len > 0U) {
-            (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+            (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, 0);
             ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
         }
     }

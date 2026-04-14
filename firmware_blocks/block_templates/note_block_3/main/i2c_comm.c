@@ -271,6 +271,15 @@ void i2c_task(void *arg)
         while (offset < total_len) {
             uint8_t head = work_buf[offset];
 
+            // If the incoming byte is ANYTHING other than a retry of the fetch process,
+            // we definitively know the Brain is done trying to fetch this event.
+            if (head != CMD_GET_DATA && head != REG_DATA_LEN) {
+                extern void note_block_clear_pending_event(void);
+                note_block_clear_pending_event();
+            }
+            // Always guarantee a clean TX queue for the current transaction's reply
+            (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
+
             if (is_register_index_byte(head)) {
                 refresh_dynamic_registers();
                 uint8_t value = s_registers[head];
@@ -280,7 +289,6 @@ void i2c_task(void *arg)
                          (unsigned)offset,
                          (unsigned)head);
 #endif
-                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
                 (void)i2c_slave_write_buffer(I2C_PORT_NUM, &value, 1, 0);
                 offset += 1U;
                 continue;
