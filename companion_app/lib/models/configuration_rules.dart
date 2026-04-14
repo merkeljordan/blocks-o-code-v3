@@ -31,6 +31,7 @@ class RuleViolation {
 enum RuleViolationType {
   brainBlockMissing,
   brainBlockNotFirst,
+  buttonPressMustFollowIf,
   ifSequenceIncomplete,
   ifSequenceInvalidBlock,
   loopSequenceIncomplete,
@@ -82,6 +83,34 @@ class ConfigurationRules {
     return violations;
   }
 
+  /// Every Button Press must be immediately preceded by an If Block (canonical
+  /// `IF → BUTTON → THEN` binding matches firmware `program[if_pc + 1]`).
+  static List<RuleViolation> checkButtonPressPlacementRule(
+      BlockConfiguration config) {
+    final violations = <RuleViolation>[];
+    final blocks = config.blocks;
+
+    for (int i = 0; i < blocks.length; i++) {
+      if (blocks[i].blockType != BlockType.buttonPress) continue;
+
+      final prev = i > 0 ? blocks[i - 1].blockType : null;
+      if (prev != BlockType.ifBlock) {
+        violations.add(RuleViolation(
+          type: RuleViolationType.buttonPressMustFollowIf,
+          message: prev == null
+              ? 'Button Press at position $i must be immediately preceded by an If Block'
+              : 'Button Press at position $i must immediately follow an If Block (found ${prev.displayName} before it)',
+          severity: Severity.error,
+          blockIndex: i,
+          expectedBlockType: BlockType.ifBlock,
+          actualBlockType: prev,
+        ));
+      }
+    }
+
+    return violations;
+  }
+
   /// Validate If/Loop nesting and structure using a stack-based approach
   static List<RuleViolation> checkNestingRule(BlockConfiguration config) {
     final violations = <RuleViolation>[];
@@ -112,20 +141,19 @@ class ConfigurationRules {
             blockIndex: i,
           ));
         } else {
-          // Check if If is followed by Input before Then
-          bool foundInput = false;
-          for (int j = stack.last.startIndex + 1; j < i; j++) {
-            if (blocks[j].blockType == BlockType.buttonPress) {
-              foundInput = true;
-              break;
-            }
-          }
-          if (!foundInput) {
+          // Firmware binds BUTTON at program[if_pc + 1] (must be before THEN).
+          final ifStart = stack.last.startIndex;
+          final afterIf = ifStart + 1;
+          if (afterIf >= i ||
+              blocks[afterIf].blockType != BlockType.buttonPress) {
             violations.add(RuleViolation(
               type: RuleViolationType.ifSequenceInvalidBlock,
-              message: 'If Block at position ${stack.last.startIndex} must be followed by an Input Block before the Then Block',
+              message: 'If Block at position $ifStart must be immediately followed by Button Press before the Then Block',
               severity: Severity.error,
-              blockIndex: stack.last.startIndex,
+              blockIndex: ifStart,
+              expectedBlockType: BlockType.buttonPress,
+              actualBlockType:
+                  afterIf < i ? blocks[afterIf].blockType : null,
             ));
           }
           stack.last.hasThen = true;
@@ -205,6 +233,9 @@ class ConfigurationRules {
 
     // Check Brain Block rule
     violations.addAll(checkBrainBlockRule(config));
+
+    // Button Press must sit immediately after If (global; pairs with nesting)
+    violations.addAll(checkButtonPressPlacementRule(config));
 
     // Validate nesting (IF/LOOP) and structural integrity
     violations.addAll(checkNestingRule(config));
