@@ -175,7 +175,12 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_EXECUTE:
-            set_status_flags(STATUS_BUSY);
+            /* In the Brain executor, BUTTON steps mean "arm and wait for user input".
+             * CMD_EXECUTE should prompt Execute/Skip without entering BUSY, otherwise the
+             * Brain can observe BUSY|DATA_READY flapping and never consume the event. */
+            g_pending_event.has_event = false;
+            g_pending_event.payload_len = 0;
+            set_status_flags(STATUS_READY);
             tft_ui_trigger_execute();
             break;
 

@@ -532,8 +532,8 @@ static void tcp_client_task(void *pvParameters) {
               }
               cJSON_Delete(json);
               log_json_heap_if_due("tcp_json");
-              vTaskDelay(
-                  pdMS_TO_TICKS(100)); // Small delay before next iteration
+              // Do not stall the TCP loop after heartbeats: it would delay
+              // Brain->app runtime/config updates (same task/loop).
               continue;
             } else if (strcmp(type, "config_validation") == 0) {
               if (!s_validation_requested_by_start) {

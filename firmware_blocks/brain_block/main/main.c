@@ -177,7 +177,21 @@ static void block_event_poll_task(void *arg) {
             // read length, otherwise we'd read random bytes (slave returns no payload)
             // and Brain would parse garbage as an event_id.
             if (data_len < 2 || data_len > sizeof(payload)) {
-                if (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_BUTTON) {
+                if (entry->type == BLOCK_TYPE_BUTTON) {
+                    /* When STATUS_DATA_READY is set but REG_DATA_LEN is briefly corrupted
+                     * (TX FIFO poisoning), attempt a safe minimal read for the only supported
+                     * BUTTON event: [event_id, pressed]. If it doesn't validate, drop it. */
+                    uint8_t btn_frame[2] = {0};
+                    if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) == ESP_OK &&
+                        btn_frame[0] == BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
+                        payload[0] = btn_frame[0];
+                        payload[1] = btn_frame[1];
+                        data_len = 2;
+                    } else {
+                        continue;
+                    }
+                }
+                if (entry->type == BLOCK_TYPE_NOTE) {
                     continue;
                 }
                 data_len = 2;
