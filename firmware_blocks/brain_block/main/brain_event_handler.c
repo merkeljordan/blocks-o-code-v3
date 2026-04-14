@@ -87,7 +87,7 @@ static uint32_t s_validation_block_attempts_since_last_log;
 // when tick is doing I²C (broadcast, scans racing) so the UI does not intermittently lose START.
 #define BRAIN_DISPATCH_MUTEX_TIMEOUT_MS 2000U
 
-#define MUSIC_EXEC_BUSY_TIMEOUT_MS   500U
+#define MUSIC_EXEC_BUSY_TIMEOUT_MS   1000U
 #define BRAIN_EXECUTOR_LOOP_COUNT_MAX 64U
 #define LED_FLASH_MIN_BUSY_DWELL_MS 300U
 
@@ -109,7 +109,9 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     uint8_t status = 0;
     uint32_t error_count = 0;
     uint32_t poll_idx = 0;
-    const uint32_t BUSY_CONFIRM_COUNT = 2;
+    // BUSY can be very short on some child implementations; requiring two consecutive
+    // polls can miss the transition entirely.
+    const uint32_t BUSY_CONFIRM_COUNT = 1;
     uint32_t consecutive_busy = 0;
 
     while (now_ms() < start + timeout_ms) {
@@ -150,7 +152,7 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
                 return ESP_FAIL;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
 
     if (out_elapsed_ms != NULL) {
@@ -158,6 +160,16 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     }
     if (out_status != NULL) {
         *out_status = status;
+    }
+    ESP_LOGW(TAG, "wait_for_status_busy(0x%02X): TIMEOUT after %lu ms last_status=0x%02X",
+             addr, (unsigned long)timeout_ms, status);
+    // Extra debug: grab a few immediate reads to distinguish "never BUSY" vs "stale/garbage".
+    for (int i = 0; i < 5; i++) {
+        uint8_t s = 0;
+        esp_err_t r = i2c_read_reg(addr, REG_STATUS, &s, 1);
+        ESP_LOGW(TAG, "wait_for_status_busy(0x%02X): post-timeout probe %d ret=%s status=0x%02X",
+                 addr, i + 1, esp_err_to_name(r), (unsigned)s);
+        vTaskDelay(pdMS_TO_TICKS(5));
     }
     return ESP_ERR_TIMEOUT;
 }
@@ -1064,7 +1076,7 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (unsigned)pc,
                      addr,
                      (int)exec_ret);
-            vTaskDelay(pdMS_TO_TICKS(15));
+            vTaskDelay(pdMS_TO_TICKS(30));
 
             // Release s_dispatch_mutex for the duration of BUSY+IDLE polling so that
             // brain_evt can process block events and STOP commands without timing out.
@@ -1124,7 +1136,13 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (unsigned)pc,
                      addr,
                      (int)exec_ret);
-            vTaskDelay(pdMS_TO_TICKS(15));
+            {
+                uint8_t s = 0;
+                esp_err_t sr = i2c_read_reg(addr, REG_STATUS, &s, 1);
+                ESP_LOGI(TAG, "NOTE status immediately after EXECUTE: addr=0x%02X ret=%s status=0x%02X",
+                         addr, esp_err_to_name(sr), (unsigned)s);
+            }
+            vTaskDelay(pdMS_TO_TICKS(30));
 
             s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
             s_executor_active_poll_addr = addr;
@@ -1170,7 +1188,7 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (unsigned)pc,
                      addr,
                      (int)exec_ret);
-            vTaskDelay(pdMS_TO_TICKS(15));
+            vTaskDelay(pdMS_TO_TICKS(30));
 
             s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
             s_executor_active_poll_addr = addr;
@@ -1225,7 +1243,7 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                      (unsigned)pc,
                      addr,
                      (int)exec_ret);
-            vTaskDelay(pdMS_TO_TICKS(15));
+            vTaskDelay(pdMS_TO_TICKS(30));
 
             s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
             s_executor_active_poll_addr = addr;
