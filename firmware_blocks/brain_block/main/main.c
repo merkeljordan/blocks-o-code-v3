@@ -203,12 +203,18 @@ static void block_event_poll_task(void *arg) {
                 data_len = 0;
                 vTaskDelay(pdMS_TO_TICKS(2));
             }
-            // For NOTE/BUTTON blocks we rely on REG_DATA_LEN being accurate.
+            // For NOTE/BUTTON/DELAY blocks we rely on REG_DATA_LEN being accurate.
             // If it's invalid (0/too small/too big), avoid falling back to a fixed
             // read length, otherwise we'd read random bytes (slave returns no payload)
             // and Brain would parse garbage as an event_id.
             if (data_len < 2 || data_len > sizeof(payload)) {
-                if (entry->type == BLOCK_TYPE_NOTE) {
+                ESP_LOGW(TAG,
+                         "REG_DATA_LEN invalid after retries: addr=0x%02X type=%u raw=%u — %s",
+                         entry->address, (unsigned)entry->type, (unsigned)data_len,
+                         (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_DELAY)
+                             ? "skipping this poll cycle"
+                             : "falling back to 2-byte read");
+                if (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_DELAY) {
                     continue;
                 }
                 data_len = 2;

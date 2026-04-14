@@ -257,6 +257,12 @@ void i2c_task(void *arg) {
                 uint8_t value = registers[head];
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, &value, 1, 0);
+                if (head == REG_STATUS || head == REG_DATA_LEN) {
+                    ESP_LOGI(TAG, "REG READ: reg=0x%02X -> 0x%02X (g_status=0x%02X pending_len=%u)",
+                             head, value,
+                             delay_block_get_status_flags(),
+                             (unsigned)delay_block_get_pending_data_len());
+                }
                 offset += 1U;
                 continue;
             }
@@ -317,6 +323,17 @@ void i2c_task(void *arg) {
             if (tx_len > 0U) {
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+
+                /* CMD_GET_DATA responses are multi-byte (up to 5). If the master
+                 * clocks fewer bytes than we wrote, the leftovers sit in the TX
+                 * FIFO and poison the next register read (the master sees
+                 * stale payload bytes instead of the requested register).
+                 * Give the master time to finish reading, then flush residuals. */
+                if (cmd == CMD_GET_DATA) {
+                    vTaskDelay(pdMS_TO_TICKS(5));
+                    (void)i2c_reset_tx_fifo(I2C_NUM_0);
+                    ESP_LOGI(TAG, "CMD_GET_DATA: flushed residual TX FIFO after response");
+                }
             }
 
             offset += frame_len;
