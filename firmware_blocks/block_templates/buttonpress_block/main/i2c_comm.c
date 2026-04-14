@@ -195,6 +195,29 @@ static void reset_i2c_fifos(void)
     (void)i2c_reset_tx_fifo(I2C_NUM_0);
 }
 
+static void flush_and_write_tx(const uint8_t *data, size_t len)
+{
+    /* Delete + re-install clears both hardware FIFOs and the software TX ring
+     * buffer.  The ESP32 legacy I2C slave driver's ring buffer is FIFO-ordered
+     * and has no public flush API; stale register-read responses accumulate
+     * and sit in front of any new write.  Recreating the driver is the only
+     * reliable way to start from a clean slate.  The Brain's split
+     * write -> delay -> read timing leaves ample room for this. */
+    (void)i2c_driver_delete(I2C_NUM_0);
+    i2c_config_t conf = {
+        .mode = I2C_MODE_SLAVE,
+        .sda_io_num = I2C_SDA_PIN,
+        .scl_io_num = I2C_SCL_PIN,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .slave.addr_10bit_en = 0,
+        .slave.slave_addr = s_runtime_address,
+    };
+    (void)i2c_param_config(I2C_NUM_0, &conf);
+    (void)i2c_driver_install(I2C_NUM_0, conf.mode, 128, 128, 0);
+    (void)i2c_slave_write_buffer(I2C_NUM_0, data, len, pdMS_TO_TICKS(50));
+}
+
 // ============================================================================
 // I²C RECEIVE TASK - Frame-based parser (handles FIFO coalescence)
 // ============================================================================
@@ -208,6 +231,13 @@ void i2c_task(void *arg) {
     size_t rx_carry_len = 0U;
     uint8_t work_buf[sizeof(rx_buf) + sizeof(rx_carry)];
     uint8_t tx_buf[16];
+
+    /* After a full flush_and_write_tx the ring buffer is known-clean (contains
+     * only our response).  With the Brain's split write→delay→read protocol
+     * each single-byte register response is consumed before the next request
+     * arrives, so the buffer stays clean.  We only need the heavy flush for
+     * command responses (multi-byte) or after error recovery. */
+    bool ring_dirty = true;
 
     while (1) {
         int len = i2c_slave_read_buffer(I2C_NUM_0, rx_buf, sizeof(rx_buf), pdMS_TO_TICKS(100));
@@ -223,6 +253,7 @@ void i2c_task(void *arg) {
                      (unsigned)read_len,
                      (unsigned)sizeof(work_buf));
             rx_carry_len = 0U;
+            ring_dirty = true;
         }
         if (rx_carry_len > 0U) {
             memcpy(work_buf, rx_carry, rx_carry_len);
@@ -240,8 +271,13 @@ void i2c_task(void *arg) {
             if (is_register_index_byte(head)) {
                 refresh_dynamic_registers();
                 uint8_t value = registers[head];
-                (void)i2c_reset_tx_fifo(I2C_NUM_0);
-                (void)i2c_slave_write_buffer(I2C_NUM_0, &value, 1, 0);
+                if (ring_dirty) {
+                    flush_and_write_tx(&value, 1);
+                    ring_dirty = false;
+                } else {
+                    (void)i2c_reset_tx_fifo(I2C_NUM_0);
+                    (void)i2c_slave_write_buffer(I2C_NUM_0, &value, 1, 0);
+                }
                 offset += 1U;
                 continue;
             }
@@ -253,6 +289,7 @@ void i2c_task(void *arg) {
                          (unsigned)offset,
                          (unsigned)head,
                          (unsigned)(total_len - offset));
+                ring_dirty = true;
                 break;
             }
 
@@ -263,6 +300,7 @@ void i2c_task(void *arg) {
                          (unsigned)offset,
                          (unsigned)head,
                          (unsigned)(total_len - offset));
+                ring_dirty = true;
                 break;
             }
             if (offset + frame_len > total_len) {
@@ -290,6 +328,7 @@ void i2c_task(void *arg) {
                     ESP_LOGE(TAG, "Failed to apply assigned address 0x%02X: %s",
                              payload[0], esp_err_to_name(err));
                 }
+                ring_dirty = true;
                 offset += frame_len;
                 continue;
             }
@@ -300,24 +339,8 @@ void i2c_task(void *arg) {
             command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
 
             if (tx_len > 0U) {
-                /* Delete + re-install clears both hardware FIFOs and the
-                 * software TX ring buffer.  Without this, stale register-read
-                 * responses sit in front of the CMD_GET_DATA payload, so the
-                 * Brain reads the wrong event ID.  The Brain's split
-                 * write -> 18 ms delay -> read leaves ample time. */
-                (void)i2c_driver_delete(I2C_NUM_0);
-                i2c_config_t flush_conf = {
-                    .mode = I2C_MODE_SLAVE,
-                    .sda_io_num = I2C_SDA_PIN,
-                    .scl_io_num = I2C_SCL_PIN,
-                    .sda_pullup_en = GPIO_PULLUP_ENABLE,
-                    .scl_pullup_en = GPIO_PULLUP_ENABLE,
-                    .slave.addr_10bit_en = 0,
-                    .slave.slave_addr = s_runtime_address,
-                };
-                (void)i2c_param_config(I2C_NUM_0, &flush_conf);
-                (void)i2c_driver_install(I2C_NUM_0, flush_conf.mode, 128, 128, 0);
-                (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+                flush_and_write_tx(tx_buf, tx_len);
+                ring_dirty = false;
             }
 
             offset += frame_len;

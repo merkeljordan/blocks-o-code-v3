@@ -88,8 +88,9 @@ static void publish_button_press_event(uint8_t pressed)
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_BUTTON_PRESS;
     g_pending_event.payload[0] = pressed ? 1 : 0;
     g_pending_event.payload_len = 1;
-    /* Always publish from a known-good base so stray bits cannot reach REG_STATUS. */
-    set_status_flags((uint8_t)(STATUS_READY | STATUS_DATA_READY));
+    uint8_t flags = STATUS_READY | STATUS_DATA_READY;
+    flags |= pressed ? STATUS_BTN_EXECUTE : STATUS_BTN_SKIP;
+    set_status_flags(flags);
     ESP_LOGI("BTN_EVT",
              "Published event: pressed=%u status=0x%02X has_event=%u data_len=%u",
              (unsigned)g_pending_event.payload[0],
@@ -101,7 +102,8 @@ static void publish_button_press_event(uint8_t pressed)
 uint8_t button_block_get_status_flags(void)
 {
     return (uint8_t)(g_status_flags & (STATUS_READY | STATUS_BUSY | STATUS_ERROR |
-                                       STATUS_DATA_READY | STATUS_IDLE));
+                                       STATUS_DATA_READY | STATUS_IDLE |
+                                       STATUS_BTN_EXECUTE | STATUS_BTN_SKIP));
 }
 
 uint8_t button_block_get_pending_data_len(void)

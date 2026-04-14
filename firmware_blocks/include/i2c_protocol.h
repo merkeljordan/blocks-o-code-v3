@@ -244,6 +244,8 @@ typedef enum {
 #define STATUS_ERROR 0x04
 #define STATUS_DATA_READY 0x08
 #define STATUS_IDLE 0x10
+#define STATUS_BTN_EXECUTE 0x20
+#define STATUS_BTN_SKIP    0x40
 
 // ============================================================================
 // BLOCK -> BRAIN EVENT IDs (returned via CMD_GET_DATA when STATUS_DATA_READY

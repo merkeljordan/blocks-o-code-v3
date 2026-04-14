@@ -165,29 +165,22 @@ static void block_event_poll_task(void *arg) {
                     s_last_btn_status[entry->address] = status;
                 }
 
-                /* BUTTON events are always [event_id, pressed] (2 bytes). Do not use REG_DATA_LEN
-                 * (stale values caused double GET_DATA + wrong lengths). Single read per event. */
                 if ((status & STATUS_DATA_READY) == 0) {
                     continue;
                 }
-                uint8_t btn_frame[2] = {0};
-                /* One GET_DATA only: each slave-side GET_DATA may consume the pending event;
-                 * retrying here after a bad read returns pad (0x00) and never recovers. */
-                if (i2c_get_data(entry->address, btn_frame, sizeof(btn_frame)) != ESP_OK) {
-                    ESP_LOGW(TAG, "CMD_GET_DATA (button) failed for 0x%02X while DATA_READY", entry->address);
-                    continue;
-                }
-                if (btn_frame[0] != BRAIN_BLOCK_EVENT_BUTTON_PRESS) {
-                    ESP_LOGW(TAG, "BTN_RX drop: addr=0x%02X id=0x%02X (want 0x%02X) choice=0x%02X",
-                             entry->address, btn_frame[0], BRAIN_BLOCK_EVENT_BUTTON_PRESS, btn_frame[1]);
-                    continue;
-                }
-                ESP_LOGI("BTN_RX", "addr=0x%02X len=2 event_id=0x%02X choice=0x%02X",
-                         entry->address, btn_frame[0], btn_frame[1]);
-                bool queued = brain_event_handle_block_event(entry->address,
-                                                            btn_frame[0],
-                                                            &btn_frame[1],
-                                                            1U);
+
+                /* Choice is encoded directly in the status byte —
+                 * immune to TX ring buffer corruption. */
+                uint8_t pressed = (status & STATUS_BTN_EXECUTE) ? 1 : 0;
+
+                /* Write-only CMD_RESET to clear DATA_READY + pending event
+                 * on the slave (~1ms vs ~26ms for CMD_GET_DATA's read phase). */
+                (void)i2c_reset(entry->address);
+
+                ESP_LOGI("BTN_RX", "addr=0x%02X choice=%u (from status 0x%02X)",
+                         entry->address, pressed, status);
+                bool queued = brain_event_handle_block_event(
+                    entry->address, BRAIN_BLOCK_EVENT_BUTTON_PRESS, &pressed, 1U);
                 if (!queued) {
                     ESP_LOGW(TAG, "Failed to enqueue button event from 0x%02X", entry->address);
                 }
