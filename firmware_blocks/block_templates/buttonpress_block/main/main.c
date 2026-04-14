@@ -11,6 +11,7 @@
 #include "led_matrix.h"
 #include "status_strip.h"
 #include "led_contract.h"
+#include "command_handler.h"
 
 #if defined(CONTROL_FLOW_TFT_UI_ENABLED)
 #include "tft_ui.h"
