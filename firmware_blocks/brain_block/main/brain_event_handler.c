@@ -1624,9 +1624,12 @@ static bool process_block_event(uint8_t block_addr,
             bool update_if_latch = true;
             if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT &&
                 s_executor_ctx.pc < s_executor_ctx.program_len &&
-                s_executor_ctx.program[s_executor_ctx.pc] == BLOCK_TYPE_BUTTON &&
-                s_program_present[s_executor_ctx.pc]) {
-                if (block_addr == s_program_addr[s_executor_ctx.pc]) {
+                s_executor_ctx.program[s_executor_ctx.pc] == BLOCK_TYPE_BUTTON) {
+                // START snapshot can race the live registry scan: a BUTTON slot might be marked
+                // !present even though the device is on-bus. If the address matches the current
+                // PC's bound device, accept the press to unblock EXECUTOR_WAIT_INPUT.
+                if (block_addr == s_program_addr[s_executor_ctx.pc] &&
+                    program_slot_effectively_present(s_executor_ctx.pc)) {
                     s_executor_ctx.button_pressed = true;
                 } else {
                     // Wrong button while waiting on a BUTTON step: do not arm IF latch.
