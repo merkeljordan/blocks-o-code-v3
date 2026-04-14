@@ -1554,8 +1554,12 @@ static bool process_block_event(uint8_t block_addr,
         }
     }
 
-    if (event_id == BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT && payload && payload_len >= 1) {
-        uint16_t loop_count = (payload[0] == 0) ? 1 : payload[0];
+    if (event_id == BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT) {
+        uint16_t loop_count = 1;
+        if (payload && payload_len >= 1) {
+            loop_count = (payload[0] == 0) ? 1 : payload[0];
+        }
+        ESP_LOGI(TAG, "LOOP_COUNT_SUBMIT: addr=0x%02X payload_len=%u loop_count=%u", block_addr, (unsigned)payload_len, loop_count);
 
         size_t slot = 0;
         if (loop_count_addr_to_slot(block_addr, &slot)) {
@@ -2045,6 +2049,13 @@ static void brain_executor_tick_nolock(void) {
                 s_last_button_press_addr == s_program_addr[fr->bound_button_pc]) {
                 condition_true = true;
             }
+            
+            ESP_LOGI(TAG, "THEN eval pc=%u condition=%d bound_btn_pc=%u press_valid=%d press_addr=0x%02X bind_addr=0x%02X depth=%u",
+                     s_executor_ctx.pc, condition_true, fr->bound_button_pc,
+                     s_last_button_press_valid, s_last_button_press_addr,
+                     (fr->bound_button_pc != 0xFFu) ? s_program_addr[fr->bound_button_pc] : 0,
+                     s_if_depth);
+                     
             s_last_button_press_valid = false;
             if (!condition_true) {
                 s_executor_ctx.pc = (uint8_t)(fr->end_if_pc + 1U);
@@ -2054,6 +2065,7 @@ static void brain_executor_tick_nolock(void) {
             s_executor_ctx.pc++;
             return;
         }
+        ESP_LOGW(TAG, "THEN at pc=%u without matching IF context (depth=%u)", s_executor_ctx.pc, s_if_depth);
         s_executor_ctx.pc++;
         return;
     }
@@ -2130,11 +2142,16 @@ static void brain_executor_tick_nolock(void) {
                 .then_pc = (uint8_t)then_index,
                 .bound_button_pc = bound,
             };
+            ESP_LOGI(TAG, "IF queued at pc=%u end_if=%u then=%u bound=%u depth=%u", 
+                     s_executor_ctx.pc, end_if_index, then_index, bound, s_if_depth);
             s_executor_ctx.pc++;
             return;
         }
 
         case BLOCK_TYPE_END_IF:
+            ESP_LOGI(TAG, "END_IF reached at pc=%u depth=%u match=%d", 
+                     s_executor_ctx.pc, s_if_depth,
+                     (s_if_depth > 0U && s_if_stack[s_if_depth - 1U].end_if_pc == s_executor_ctx.pc));
             if (s_if_depth > 0U && s_if_stack[s_if_depth - 1U].end_if_pc == s_executor_ctx.pc) {
                 s_if_depth--;
             }
