@@ -231,6 +231,8 @@ void i2c_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    (void)i2c_reset_rx_fifo(I2C_PORT_NUM);
+    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
 
     uint8_t rx_buf[128];
     uint8_t rx_carry[16];
@@ -391,6 +393,8 @@ void i2c_task(void *arg)
 #if I2C_VERBOSE_LOGS
                 ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
 #endif
+            } else {
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
             }
 
             offset += frame_len;

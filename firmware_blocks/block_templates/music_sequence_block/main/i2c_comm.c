@@ -377,6 +377,8 @@ void i2c_task(void *arg)
 #if I2C_VERBOSE_LOGS
                 ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
 #endif
+            } else {
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
             }
 
             offset += frame_len;

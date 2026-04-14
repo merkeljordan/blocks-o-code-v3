@@ -235,14 +235,19 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_GET_DATA:
-            if (tx && tx_len && g_pending_event.has_event) {
-                // tx[0] = event_id, tx[1..] = payload
-                tx[0] = g_pending_event.event_id;
-                if (g_pending_event.payload_len > 0) {
-                    memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+            if (tx && tx_len) {
+                if (g_pending_event.has_event) {
+                    tx[0] = g_pending_event.event_id;
+                    if (g_pending_event.payload_len > 0) {
+                        memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+                    }
+                    *tx_len = 1 + g_pending_event.payload_len;
+                    loop_block_clear_pending_event();
+                } else {
+                    tx[0] = 0x00;
+                    tx[1] = 0x00;
+                    *tx_len = 2;
                 }
-                *tx_len = 1 + g_pending_event.payload_len;
-                loop_block_clear_pending_event();
             }
             break;
 

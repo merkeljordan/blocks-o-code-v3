@@ -510,7 +510,6 @@ void command_handle(i2c_command_t cmd, const uint8_t *rx, size_t rx_len,
     break;
 
   case CMD_GET_DATA:
-    // Only return payload when an event is pending.
     if (tx && tx_len && rx_len == 0) {
       bool consumed_event = false;
       portENTER_CRITICAL(&s_pending_event_spinlock);
@@ -525,6 +524,10 @@ void command_handle(i2c_command_t cmd, const uint8_t *rx, size_t rx_len,
       if (consumed_event) {
         bool preserve_idle = (s_status_flags & STATUS_IDLE) != 0U;
         set_status_flags(nonbusy_status_flags(preserve_idle, false));
+      } else {
+        tx[0] = 0x00;
+        tx[1] = 0x00;
+        *tx_len = 2;
       }
     }
     break;

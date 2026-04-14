@@ -341,6 +341,9 @@ void i2c_task(void *arg) {
             if (tx_len > 0U) {
                 flush_and_write_tx(tx_buf, tx_len);
                 ring_dirty = false;
+            } else {
+                (void)i2c_reset_tx_fifo(I2C_NUM_0);
+                ring_dirty = true;
             }
 
             offset += frame_len;

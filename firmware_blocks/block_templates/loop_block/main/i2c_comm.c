@@ -135,6 +135,9 @@ esp_err_t i2c_slave_init(void)
 void i2c_task(void *arg)
 {
     (void)arg;
+    (void)i2c_reset_rx_fifo(I2C_NUM_0);
+    (void)i2c_reset_tx_fifo(I2C_NUM_0);
+
     uint8_t buffer[128];
     uint8_t tx_buf[16];
 
@@ -182,6 +185,8 @@ void i2c_task(void *arg)
         if (tx_len > 0U) {
             (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, 0);
             ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
+        } else {
+            (void)i2c_reset_tx_fifo(I2C_NUM_0);
         }
     }
 }

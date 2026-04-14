@@ -215,6 +215,8 @@ void i2c_task(void *arg)
 {
     (void)arg;
     ESP_LOGI(TAG, "i2c_task running on core %d", xPortGetCoreID());
+    (void)i2c_reset_rx_fifo(I2C_PORT_NUM);
+    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
 
     uint8_t rx_buf[128];
     uint8_t rx_carry[16];
@@ -336,13 +338,18 @@ void i2c_task(void *arg)
 
             if (cmd == CMD_GET_DATA) {
                 size_t resp_len = get_data_payload(tx_buf, sizeof(tx_buf));
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
                 if (resp_len > 0U) {
-                    (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
                     (void)i2c_slave_write_buffer(I2C_PORT_NUM, tx_buf, resp_len, pdMS_TO_TICKS(100));
 #if I2C_VERBOSE_LOGS
                     ESP_LOGI(TAG, "Sent %u GET_DATA response bytes", (unsigned)resp_len);
 #endif
+                } else {
+                    uint8_t sentinel[2] = {0x00, 0x00};
+                    (void)i2c_slave_write_buffer(I2C_PORT_NUM, sentinel, sizeof(sentinel), pdMS_TO_TICKS(100));
                 }
+            } else {
+                (void)i2c_reset_tx_fifo(I2C_PORT_NUM);
             }
 
             refresh_dynamic_registers();
