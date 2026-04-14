@@ -72,6 +72,7 @@ static bool config_is_valid(void)
 
 void delay_block_set_delay_ms_from_ui(uint32_t delay_ms)
 {
+    ESP_LOGI(TAG, "UI submit: delay_ms=%lu", (unsigned long)delay_ms);
     g_config.delay_ms = delay_ms;
     g_config_valid = true;
     set_status_flags(STATUS_READY);
@@ -94,6 +95,11 @@ static void publish_delay_ms_event(uint32_t delay_ms)
     g_pending_event.payload[2] = (uint8_t)((delay_ms >> 16) & 0xFFU);
     g_pending_event.payload[3] = (uint8_t)((delay_ms >> 24) & 0xFFU);
     g_pending_event.payload_len = BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN;
+    ESP_LOGI(TAG, "publish event: delay_ms=%lu bytes=[%02X %02X %02X %02X] event_id=0x%02X",
+             (unsigned long)delay_ms,
+             g_pending_event.payload[0], g_pending_event.payload[1],
+             g_pending_event.payload[2], g_pending_event.payload[3],
+             g_pending_event.event_id);
     set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
 }
 
@@ -220,6 +226,8 @@ void command_handle(i2c_command_t cmd,
                 v |= ((uint32_t)rx[1] << 8);
                 v |= ((uint32_t)rx[2] << 16);
                 v |= ((uint32_t)rx[3] << 24);
+                ESP_LOGI(TAG, "CMD_SET_DELAY rx=[%02X %02X %02X %02X] -> %lu ms",
+                         rx[0], rx[1], rx[2], rx[3], (unsigned long)v);
                 g_config.delay_ms = v;
                 g_config_valid = true;
                 set_status_flags(STATUS_READY);
@@ -235,6 +243,13 @@ void command_handle(i2c_command_t cmd,
                     memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
                 }
                 *tx_len = 1 + g_pending_event.payload_len;
+
+                ESP_LOGI(TAG, "CMD_GET_DATA tx_len=%u event_id=0x%02X payload=[%02X %02X %02X %02X]",
+                         (unsigned)*tx_len, tx[0],
+                         (*tx_len > 1) ? tx[1] : 0,
+                         (*tx_len > 2) ? tx[2] : 0,
+                         (*tx_len > 3) ? tx[3] : 0,
+                         (*tx_len > 4) ? tx[4] : 0);
 
                 // Clear DATA_READY after Brain consumes the event.
                 g_pending_event.has_event = false;
