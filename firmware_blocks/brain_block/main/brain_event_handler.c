@@ -1620,26 +1620,28 @@ static bool process_block_event(uint8_t block_addr,
         if (payload && payload_len >= 1) {
             pressed = payload[0];
         }
-        if (pressed != 0) {
-            bool update_if_latch = true;
-            if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT &&
-                s_executor_ctx.pc < s_executor_ctx.program_len &&
-                s_executor_ctx.program[s_executor_ctx.pc] == BLOCK_TYPE_BUTTON) {
-                // START snapshot can race the live registry scan: a BUTTON slot might be marked
-                // !present even though the device is on-bus. If the address matches the current
-                // PC's bound device, accept the press to unblock EXECUTOR_WAIT_INPUT.
-                if (block_addr == s_program_addr[s_executor_ctx.pc] &&
-                    program_slot_effectively_present(s_executor_ctx.pc)) {
-                    s_executor_ctx.button_pressed = true;
-                } else {
-                    // Wrong button while waiting on a BUTTON step: do not arm IF latch.
-                    update_if_latch = false;
-                }
+        bool update_if_latch = (pressed != 0);
+        if (s_executor_ctx.state == EXECUTOR_WAIT_INPUT &&
+            s_executor_ctx.pc < s_executor_ctx.program_len &&
+            s_executor_ctx.program[s_executor_ctx.pc] == BLOCK_TYPE_BUTTON) {
+            // START snapshot can race the live registry scan: a BUTTON slot might be marked
+            // !present even though the device is on-bus. If the address matches the current
+            // PC's bound device, accept the action to unblock EXECUTOR_WAIT_INPUT.
+            //
+            // Semantics:
+            // - pressed!=0 (Execute): unblock + arm IF latch (so THEN can run)
+            // - pressed==0 (Skip): unblock only; do NOT arm IF latch (so THEN skips)
+            if (block_addr == s_program_addr[s_executor_ctx.pc] &&
+                program_slot_effectively_present(s_executor_ctx.pc)) {
+                s_executor_ctx.button_pressed = true;
+            } else {
+                // Wrong button while waiting on a BUTTON step: do not arm IF latch.
+                update_if_latch = false;
             }
-            if (update_if_latch) {
-                s_last_button_press_addr = block_addr;
-                s_last_button_press_valid = true;
-            }
+        }
+        if (update_if_latch) {
+            s_last_button_press_addr = block_addr;
+            s_last_button_press_valid = true;
         }
         ESP_LOGI(TAG, "BUTTON_PRESS: addr=0x%02X pressed=%u state=%d btn_set=%d expect_addr=0x%02X",
                  block_addr, (unsigned)pressed,
@@ -1994,7 +1996,7 @@ static void brain_executor_tick_nolock(void) {
             if (fr->bound_button_pc != 0xFFu &&
                 (size_t)fr->bound_button_pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
                 s_executor_ctx.program[fr->bound_button_pc] == BLOCK_TYPE_BUTTON &&
-                s_program_present[fr->bound_button_pc] &&
+                program_slot_effectively_present(fr->bound_button_pc) &&
                 s_last_button_press_valid &&
                 s_last_button_press_addr == s_program_addr[fr->bound_button_pc]) {
                 condition_true = true;

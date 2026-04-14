@@ -39,7 +39,9 @@ static void cfg_lock_create_once(void)
 }
 static const uint8_t TOPOLOGY_STABLE_SCAN_THRESHOLD = 2;
 static const uint8_t APPEND_STABLE_SCAN_THRESHOLD = 2;
-static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 2;
+// Removals are user-visible and should feel immediate; require only one scan.
+// Additions/topology changes remain debounced to avoid flapping on noisy I2C.
+static const uint8_t REMOVAL_STABLE_SCAN_THRESHOLD = 1;
 
 #define BLOCK_CONFIG_MAX_SCAN_ERRORS 16
 #define BLOCK_CONFIG_ERROR_TYPE_LEN 24

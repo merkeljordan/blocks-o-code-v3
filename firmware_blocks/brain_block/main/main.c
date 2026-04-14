@@ -125,6 +125,13 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
+            // Gate BUTTON polling: only poll the button block when the executor is
+            // actively waiting on a BUTTON opcode. Otherwise, button UI/status can
+            // flap and spam logs (and we can consume events that don't drive execution).
+            if (entry->type == BLOCK_TYPE_BUTTON && !waiting_for_button) {
+                continue;
+            }
+
             if (skip_button_poll_while_stopped && entry->type == BLOCK_TYPE_BUTTON) {
                 continue;
             }

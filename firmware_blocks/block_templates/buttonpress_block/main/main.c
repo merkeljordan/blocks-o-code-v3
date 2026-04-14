@@ -181,7 +181,9 @@ void command_handle(i2c_command_t cmd,
             g_pending_event.has_event = false;
             g_pending_event.payload_len = 0;
             set_status_flags(STATUS_READY);
-            tft_ui_trigger_execute();
+            /* `control_flow_tft_ui_trigger_execute()` enters the shared disco "running" state.
+             * For BUTTON, we want the dual-action card (Execute/Skip) without disco. */
+            tft_ui_set_idle();
             break;
 
         case CMD_MATRIX_FILL:
