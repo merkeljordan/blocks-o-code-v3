@@ -29,6 +29,7 @@ esp_err_t command_handler_init(void);
 void handle_command(uint8_t *buffer, int len);
 
 // Payload returned when Brain sends CMD_GET_DATA.
+// Execute/status contract returns no payload for LED flash (always 0 bytes).
 size_t get_data_payload(uint8_t *out, size_t max_len);
 
 // Live status read by i2c_comm when Brain reads REG_STATUS.
@@ -40,7 +41,7 @@ bool command_handler_enqueue_preview(uint8_t digit);
 // Queue full local execute flow (used by legacy/local-only flows).
 bool command_handler_enqueue_execute_digit(uint8_t digit);
 
-// Publish submit intent for Brain orchestration (sets STATUS_DATA_READY + payload).
+// Store local selection for future CMD_EXECUTE; no Brain payload/event is emitted.
 bool command_handler_submit_selection(uint8_t digit);
 
 #ifdef __cplusplus

@@ -323,6 +323,7 @@ void i2c_task(void *arg) {
             if (tx_len > 0U) {
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+<<<<<<< Updated upstream
 
                 /* CMD_GET_DATA responses are multi-byte (up to 5). If the master
                  * clocks fewer bytes than we wrote, the leftovers sit in the TX
@@ -336,6 +337,8 @@ void i2c_task(void *arg) {
                 }
             } else {
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
+=======
+>>>>>>> Stashed changes
             }
 
             offset += frame_len;

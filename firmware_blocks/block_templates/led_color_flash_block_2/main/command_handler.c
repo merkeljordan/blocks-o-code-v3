@@ -27,14 +27,10 @@ static uint8_t led_r = 0, led_g = 0, led_b = 0;
 static uint8_t color_id = 0;
 static uint8_t current_status = STATUS_READY;
 static QueueHandle_t s_action_queue = NULL;
-static bool s_pending_event_valid = false;
-static uint8_t s_pending_event_id = 0;
-static uint8_t s_pending_event_value = 0;
 static int64_t s_busy_since_us = 0;
 static volatile bool s_effect_active = false;
 static volatile bool s_execute_inflight = false;
 
-#define LED_FLASH_EVENT_SELECTION_SUBMIT 0x01
 #define LED_FLASH_MIN_BUSY_HOLD_MS 35
 
 typedef enum {
@@ -92,17 +88,13 @@ static uint8_t normalize_status(uint8_t status)
     return flags;
 }
 
-static uint8_t compose_nonbusy_status(bool preserve_idle, bool has_pending_event)
+static uint8_t compose_nonbusy_status(bool preserve_idle)
 {
     uint8_t flags = 0U;
 
     if (preserve_idle) {
         flags |= STATUS_IDLE;
     }
-    if (has_pending_event) {
-        flags |= STATUS_DATA_READY;
-    }
-
     return normalize_status(flags);
 }
 
@@ -207,13 +199,13 @@ static void command_action_task(void *arg) {
                 break;
         }
         if (track_busy) {
-            set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
+            set_current_status(compose_nonbusy_status(true));
             if (action.type == ACTION_EXECUTE) {
                 s_execute_inflight = false;
             }
         } else {
             if (!s_execute_inflight) {
-                set_current_status(compose_nonbusy_status(true, s_pending_event_valid));
+                set_current_status(compose_nonbusy_status(true));
             }
         }
         led_matrix_set_status_mirror(false);
@@ -264,10 +256,23 @@ bool command_handler_enqueue_execute_digit(uint8_t digit) {
         return false;
     }
     led_action_t action = {.type = ACTION_EXECUTE, .value = digit};
+    led_action_t dropped = {0};
     s_execute_inflight = true;
-    if (xQueueSend(s_action_queue, &action, 0) == pdTRUE) {
+    if (xQueueSend(s_action_queue, &action, pdMS_TO_TICKS(20)) == pdTRUE) {
         return true;
     }
+
+    // If preview taps filled the queue, drop stale previews and prioritize execute.
+    while (uxQueueMessagesWaiting(s_action_queue) > 0U) {
+        if (xQueuePeek(s_action_queue, &dropped, 0) != pdTRUE || dropped.type != ACTION_PREVIEW) {
+            break;
+        }
+        (void)xQueueReceive(s_action_queue, &dropped, 0);
+    }
+    if (xQueueSend(s_action_queue, &action, pdMS_TO_TICKS(20)) == pdTRUE) {
+        return true;
+    }
+
     s_execute_inflight = false;
     return false;
 }
@@ -283,26 +288,15 @@ bool command_handler_submit_selection(uint8_t digit) {
     }
 
     color_id = digit;
-    s_pending_event_id = LED_FLASH_EVENT_SELECTION_SUBMIT;
-    s_pending_event_value = digit;
-    s_pending_event_valid = true;
-    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, true));
+    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U));
     return true;
 }
 
-// CMD_GET_DATA payload currently reports selected color_id.
+// LED flash uses execute/status contract; no Brain-facing payload event.
 size_t get_data_payload(uint8_t *out, size_t max_len) {
-    if (!s_pending_event_valid || max_len < 2) {
-        return 0;
-    }
-
-    out[0] = s_pending_event_id;
-    out[1] = s_pending_event_value;
-    s_pending_event_valid = false;
-    if ((current_status & STATUS_BUSY) == 0U) {
-        set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U, false));
-    }
-    return 2;
+    (void)out;
+    (void)max_len;
+    return 0;
 }
 
 // ============================================================================
@@ -358,8 +352,7 @@ void handle_command(uint8_t *buffer, int len) {
         case CMD_PING:
             ESP_LOGI(TAG, "  → PING");
             if ((current_status & STATUS_BUSY) == 0U) {
-                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
-                                                          s_pending_event_valid));
+                set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U));
             }
             break;
 
@@ -379,8 +372,7 @@ void handle_command(uint8_t *buffer, int len) {
                 // SET_LED is a configuration update, not a block-originated event.
                 // Only assert DATA_READY when a submit event is actually pending.
                 if ((current_status & STATUS_BUSY) == 0U) {
-                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
-                                                              s_pending_event_valid));
+                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U));
                 }
             } else if (len >= 4) {
                 led_r = buffer[1];
@@ -389,8 +381,7 @@ void handle_command(uint8_t *buffer, int len) {
                 ESP_LOGI(TAG, "  → SET_LED RGB(%d, %d, %d)", led_r, led_g, led_b);
                 // SET_LED is a configuration update, not a block-originated event.
                 if ((current_status & STATUS_BUSY) == 0U) {
-                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U,
-                                                              s_pending_event_valid));
+                    set_current_status(compose_nonbusy_status((current_status & STATUS_IDLE) != 0U));
                 }
             }
             break;

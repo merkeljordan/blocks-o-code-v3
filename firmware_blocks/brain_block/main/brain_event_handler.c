@@ -583,7 +583,7 @@ static void refresh_loop_iteration_counts_from_i2c_registers(void)
 }
 
 // Run after refresh_delay_ms_from_i2c_registers(); submit stash wins over REG when present.
-static void apply_delay_stash_to_program(void)
+static void __attribute__((unused)) apply_delay_stash_to_program(void)
 {
     block_config_state_t snap;
     if (block_config_manager_get_state_snapshot(&snap) != ESP_OK) {
@@ -662,7 +662,7 @@ static void refresh_delay_ms_from_i2c_registers(void)
     }
 }
 
-static void apply_led_stash_to_program(void)
+static void __attribute__((unused)) apply_led_stash_to_program(void)
 {
     block_config_state_t snap;
     if (block_config_manager_get_state_snapshot(&snap) != ESP_OK) {
@@ -693,7 +693,7 @@ static void apply_led_stash_to_program(void)
     }
 }
 
-static void apply_note_stash_to_program(void)
+static void __attribute__((unused)) apply_note_stash_to_program(void)
 {
     block_config_state_t snap;
     if (block_config_manager_get_state_snapshot(&snap) != ESP_OK) {
@@ -898,7 +898,7 @@ static block_type_t resolve_block_type_for_event(uint8_t addr)
 }
 
 // NOTE block publish: [count, note0..] with 1 <= count <= 15 and full frame in one read (not used for LED: len 1).
-static bool note_selection_submit_payload_is_valid(const uint8_t *payload, size_t payload_len)
+static bool __attribute__((unused)) note_selection_submit_payload_is_valid(const uint8_t *payload, size_t payload_len)
 {
     if (payload == NULL || payload_len < 2U) {
         return false;
@@ -1304,10 +1304,7 @@ static void sync_collect_pending_block_events_before_start(void)
         if (!entry->present) {
             continue;
         }
-        if (entry->block_type != BLOCK_TYPE_LED_FLASH &&
-            entry->block_type != BLOCK_TYPE_NOTE &&
-            entry->block_type != BLOCK_TYPE_BUTTON &&
-            entry->block_type != BLOCK_TYPE_DELAY &&
+        if (entry->block_type != BLOCK_TYPE_BUTTON &&
             entry->block_type != BLOCK_TYPE_LOOP) {
             continue;
         }
@@ -1324,13 +1321,10 @@ static void sync_collect_pending_block_events_before_start(void)
         esp_err_t data_len_err = i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &raw_data_len, 1);
         if (data_len_err != ESP_OK || raw_data_len < 2U || raw_data_len > sizeof(payload)) {
             ESP_LOGW(TAG,
-                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> %s",
+                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> using 2",
                      entry->i2c_address, (unsigned)entry->block_type,
-                     esp_err_to_name(data_len_err), (unsigned)raw_data_len,
-                     (entry->block_type == BLOCK_TYPE_NOTE || entry->block_type == BLOCK_TYPE_DELAY)
-                         ? "skipping (no fallback for NOTE/DELAY)"
-                         : "using 2");
-            data_len = (entry->block_type == BLOCK_TYPE_NOTE || entry->block_type == BLOCK_TYPE_DELAY) ? 0U : 2U;
+                     esp_err_to_name(data_len_err), (unsigned)raw_data_len);
+            data_len = 2U;
         } else {
             data_len = raw_data_len;
         }
@@ -1525,89 +1519,9 @@ static bool process_block_event(uint8_t block_addr,
                                 size_t payload_len) {
     if (event_id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT && payload && payload_len >= 1) {
         block_type_t type = resolve_block_type_for_event(block_addr);
-        ESP_LOGI(TAG, "Block 0x%02X (%s) selection submit (len=%u)",
+        ESP_LOGI(TAG, "Block 0x%02X (%s) selection submit ignored by execute/status contract (len=%u)",
                  block_addr, block_type_to_string(type), (unsigned)payload_len);
-
-        if (type == BLOCK_TYPE_LED_FLASH && payload_len == 1U) {
-            uint8_t selection = payload[0];
-            size_t slot = 0;
-            if (loop_count_addr_to_slot(block_addr, &slot)) {
-                s_led_color_stash_by_addr[slot] = selection;
-                s_led_color_stash_valid_by_addr[slot] = true;
-            }
-            uint8_t pc_idx = 0;
-            if (get_program_index_for_block_addr(block_addr, &pc_idx)) {
-                s_led_color_by_pc[pc_idx] = selection;
-                s_led_color_valid_by_pc[pc_idx] = true;
-                ESP_LOGI(TAG, "LED submit cached: addr=0x%02X pc=%u color=%u",
-                         block_addr, (unsigned)pc_idx, (unsigned)selection);
-            } else {
-                ESP_LOGI(TAG, "LED submit stashed by addr only: addr=0x%02X color=%u",
-                         block_addr, (unsigned)selection);
-            }
-            s_executor_params.color_id = selection;
-            return true;
-        }
-
-        const bool note_by_type = (type == BLOCK_TYPE_NOTE);
-        const bool note_by_shape = note_selection_submit_payload_is_valid(payload, payload_len);
-        if (note_by_type || note_by_shape) {
-            if (!note_by_type && note_by_shape) {
-                ESP_LOGI(TAG,
-                         "NOTE selection submit inferred from payload (addr=0x%02X registry/config was %s)",
-                         block_addr,
-                         block_type_to_string(type));
-            }
-            // NOTE block wire format is always [count, note0, …] (even for one note: [1, id]).
-            // A truncated I²C read often yields len==1 (only the count byte). Treating that byte
-            // as a legacy single note_id produced wrong pitch and broke sequences.
-            if (payload_len < 2U) {
-                ESP_LOGW(TAG,
-                         "NOTE submit ignored at 0x%02X: need len>=2 [count,note…], got len=%u",
-                         block_addr,
-                         (unsigned)payload_len);
-                return false;
-            }
-
-            brain_note_config_t note_cfg = {0};
-            uint8_t count = payload[0];
-            if (count > 15U) {
-                count = 15U;
-            }
-            if ((size_t)(1U + count) > payload_len) {
-                count = (uint8_t)(payload_len - 1U);
-                if (count > 15U) {
-                    count = 15U;
-                }
-            }
-            if (count < 1U) {
-                ESP_LOGW(TAG, "NOTE submit ignored at 0x%02X: count clamped to zero", block_addr);
-                return false;
-            }
-
-            note_cfg.note_seq_len = count;
-            for (uint8_t i = 0; i < count; i++) {
-                note_cfg.note_seq[i] = (uint8_t)(payload[1 + i] % 7U);
-            }
-            note_cfg.note_id = note_cfg.note_seq[count - 1U];
-
-            s_executor_params.note_seq_len = count;
-            memcpy(s_executor_params.note_seq, note_cfg.note_seq, sizeof(note_cfg.note_seq));
-            s_executor_params.note_id = note_cfg.note_id;
-            ESP_LOGI(TAG, "Executor note sequence updated len=%u", (unsigned)count);
-
-            size_t slot = 0;
-            if (loop_count_addr_to_slot(block_addr, &slot)) {
-                s_note_stash_by_addr[slot] = note_cfg;
-                s_note_stash_valid_by_addr[slot] = true;
-            }
-            uint8_t pc_idx = 0;
-            if (get_program_index_for_block_addr(block_addr, &pc_idx)) {
-                s_note_by_pc[pc_idx] = note_cfg;
-                s_note_valid_by_pc[pc_idx] = true;
-            }
-            return true;
-        }
+        return true;
     }
 
     if (event_id == BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT) {
@@ -1650,29 +1564,8 @@ static bool process_block_event(uint8_t block_addr,
     }
 
     if (event_id == BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT && payload && payload_len >= 4) {
-        uint32_t v = 0;
-        v |= (uint32_t)payload[0];
-        v |= ((uint32_t)payload[1] << 8);
-        v |= ((uint32_t)payload[2] << 16);
-        v |= ((uint32_t)payload[3] << 24);
-
-        size_t slot = 0;
-        if (loop_count_addr_to_slot(block_addr, &slot)) {
-            s_delay_ms_stash_by_addr[slot] = v;
-            s_delay_ms_stash_valid_by_addr[slot] = true;
-        }
-
-        uint8_t pc = 0;
-        if (get_program_index_for_block_addr(block_addr, &pc)) {
-            s_delay_ms_by_pc[pc] = v;
-            s_delay_ms_valid_by_pc[pc] = true;
-            ESP_LOGI(TAG, "DELAY_MS submit: addr=0x%02X pc=%u delay_ms=%lu",
-                     block_addr, (unsigned)pc, (unsigned long)v);
-        } else {
-            ESP_LOGI(TAG,
-                     "DELAY_MS stashed for addr=0x%02X delay_ms=%lu (binds to program on START)",
-                     block_addr, (unsigned long)v);
-        }
+        ESP_LOGI(TAG, "DELAY_MS submit ignored by execute/status contract: addr=0x%02X len=%u",
+                 block_addr, (unsigned)payload_len);
         return true;
     }
 
@@ -1968,10 +1861,6 @@ static esp_err_t brain_executor_start_nolock(void) {
     memset(s_delay_ms_by_pc, 0, sizeof(s_delay_ms_by_pc));
     memset(s_delay_ms_valid_by_pc, 0, sizeof(s_delay_ms_valid_by_pc));
     refresh_delay_ms_from_i2c_registers();
-    apply_delay_stash_to_program();
-
-    apply_led_stash_to_program();
-    apply_note_stash_to_program();
 
     {
         block_config_state_t snap;

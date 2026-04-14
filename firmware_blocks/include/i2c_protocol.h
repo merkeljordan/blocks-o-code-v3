@@ -69,7 +69,7 @@ typedef enum {
   CMD_GET_TYPE = 0x81,   // (legacy) Request block type
   CMD_SET_LED = 0x82,    // Set LED color (RGB)
   CMD_GET_STATUS = 0x83, // Request status
-  CMD_GET_DATA = 0x84,   // Request sensor/input data
+  CMD_GET_DATA = 0x84,   // Request child event/input data (runtime use: BUTTON/LOOP)
   CMD_PLAY_NOTE = 0x85,  // Play musical note
   CMD_EXECUTE = 0x86,    // Execute block action
   CMD_RESET = 0x87,      // Reset block state
@@ -249,7 +249,12 @@ typedef enum {
 
 // ============================================================================
 // BLOCK -> BRAIN EVENT IDs (returned via CMD_GET_DATA when STATUS_DATA_READY
-// set)
+// set).
+//
+// Runtime contract (current):
+// - BUTTON and LOOP remain data/event-driven via CMD_GET_DATA.
+// - Output and DELAY blocks are execute/status-driven; their submit events are
+//   deprecated for Brain runtime orchestration.
 // ============================================================================
 // Payload wire format returned by child on CMD_GET_DATA:
 //   byte0 = event_id

@@ -118,9 +118,11 @@ static void block_event_poll_task(void *arg) {
             if (!entry->present) {
                 continue;
             }
-            // Only BUTTON remains event-polled at runtime.
-            // DELAY/LOOP/NOTE/LED_FLASH are snapshot-collected before START via block_config_manager_scan().
-            if (entry->type != BLOCK_TYPE_BUTTON) {
+            // Runtime event polling contract:
+            // - BUTTON: read press/skip decisions from DATA_READY.
+            // - LOOP: read loop-count submit events from DATA_READY.
+            // Output and delay blocks are execute/status-only.
+            if (entry->type != BLOCK_TYPE_BUTTON && entry->type != BLOCK_TYPE_LOOP) {
                 continue;
             }
 
@@ -198,10 +200,10 @@ static void block_event_poll_task(void *arg) {
                 }
             }
 
-            // Read how many bytes the child will return for CMD_GET_DATA.
+            // LOOP submits use event frames via CMD_GET_DATA.
+            // Read how many bytes the child will return.
             data_len = 0;
-            // REG_DATA_LEN is optional; retry a couple times to avoid falling back
-            // to the legacy 2-byte read for sequence events.
+            // REG_DATA_LEN is optional; retry a couple times before fallback.
             for (int attempt = 0; attempt < 3; attempt++) {
                 if (i2c_read_reg(entry->address, REG_DATA_LEN, &data_len, 1) == ESP_OK &&
                     data_len >= 2 && data_len <= sizeof(payload)) {
@@ -210,29 +212,18 @@ static void block_event_poll_task(void *arg) {
                 data_len = 0;
                 vTaskDelay(pdMS_TO_TICKS(2));
             }
-            // For NOTE/BUTTON/DELAY blocks we rely on REG_DATA_LEN being accurate.
-            // If it's invalid (0/too small/too big), avoid falling back to a fixed
-            // read length, otherwise we'd read random bytes (slave returns no payload)
-            // and Brain would parse garbage as an event_id.
+            // For LOOP blocks we rely on REG_DATA_LEN being accurate.
+            // If it's invalid (0/too small/too big), fall back to 2-byte event frame:
+            // [event_id, payload0]
             if (data_len < 2 || data_len > sizeof(payload)) {
                 ESP_LOGW(TAG,
                          "REG_DATA_LEN invalid after retries: addr=0x%02X type=%u raw=%u — %s",
                          entry->address, (unsigned)entry->type, (unsigned)data_len,
-                         (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_DELAY)
-                             ? "skipping this poll cycle"
-                             : "falling back to 2-byte read");
-                if (entry->type == BLOCK_TYPE_NOTE || entry->type == BLOCK_TYPE_DELAY) {
-                    continue;
-                }
+                         "falling back to 2-byte read");
                 data_len = 2;
             }
 
             if (i2c_get_data(entry->address, payload, data_len) == ESP_OK) {
-                if (entry->type == BLOCK_TYPE_BUTTON) {
-                    ESP_LOGI("BTN_RX", "addr=0x%02X len=%u event_id=0x%02X choice=0x%02X",
-                             entry->address, (unsigned)data_len, payload[0],
-                             (data_len >= 2) ? payload[1] : 0xFF);
-                }
                 // payload[0] = event_id, remaining bytes are event payload.
                 size_t event_payload_len = (data_len >= 1) ? (size_t)(data_len - 1) : 0U;
                 bool queued = brain_event_handle_block_event(entry->address,
