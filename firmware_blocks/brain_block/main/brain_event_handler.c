@@ -616,23 +616,28 @@ static void refresh_delay_ms_from_i2c_registers(void)
         }
 
         uint8_t b[4];
-        if (i2c_read_reg(entry->i2c_address, REG_DELAY_MS0, &b[0], 1) != ESP_OK) {
-            continue;
-        }
-        if (i2c_read_reg(entry->i2c_address, REG_DELAY_MS1, &b[1], 1) != ESP_OK) {
-            continue;
-        }
-        if (i2c_read_reg(entry->i2c_address, REG_DELAY_MS2, &b[2], 1) != ESP_OK) {
-            continue;
-        }
-        if (i2c_read_reg(entry->i2c_address, REG_DELAY_MS3, &b[3], 1) != ESP_OK) {
+        esp_err_t rb_err = ESP_OK;
+        if ((rb_err = i2c_read_reg(entry->i2c_address, REG_DELAY_MS0, &b[0], 1)) != ESP_OK ||
+            (rb_err = i2c_read_reg(entry->i2c_address, REG_DELAY_MS1, &b[1], 1)) != ESP_OK ||
+            (rb_err = i2c_read_reg(entry->i2c_address, REG_DELAY_MS2, &b[2], 1)) != ESP_OK ||
+            (rb_err = i2c_read_reg(entry->i2c_address, REG_DELAY_MS3, &b[3], 1)) != ESP_OK) {
+            ESP_LOGW(TAG,
+                     "REG_DELAY_MS read failed: pc=%u addr=0x%02X err=%s (skipping delay refresh)",
+                     (unsigned)i, entry->i2c_address, esp_err_to_name(rb_err));
             continue;
         }
 
         uint32_t v = (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) |
                      ((uint32_t)b[3] << 24);
+        ESP_LOGI(TAG,
+                 "REG_DELAY_MS raw: pc=%u addr=0x%02X bytes=[%02X %02X %02X %02X] -> %lu ms",
+                 (unsigned)i, entry->i2c_address, b[0], b[1], b[2], b[3], (unsigned long)v);
         if (v == 0U) {
-            v = (s_executor_params.delay_ms != 0U) ? s_executor_params.delay_ms : 500U;
+            uint32_t fallback = (s_executor_params.delay_ms != 0U) ? s_executor_params.delay_ms : 500U;
+            ESP_LOGW(TAG,
+                     "REG_DELAY_MS was 0, falling back to %lu ms (pc=%u addr=0x%02X)",
+                     (unsigned long)fallback, (unsigned)i, entry->i2c_address);
+            v = fallback;
         }
 
         s_delay_ms_by_pc[i] = v;
@@ -1274,9 +1279,17 @@ static void sync_collect_pending_block_events_before_start(void)
         }
 
         data_len = 0U;
-        if (i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &data_len, 1) != ESP_OK ||
-            data_len < 2U || data_len > sizeof(payload)) {
+        uint8_t raw_data_len = 0U;
+        esp_err_t data_len_err = i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &raw_data_len, 1);
+        if (data_len_err != ESP_OK || raw_data_len < 2U || raw_data_len > sizeof(payload)) {
+            ESP_LOGW(TAG,
+                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> using %u (payload may be truncated)",
+                     entry->i2c_address, (unsigned)entry->block_type,
+                     esp_err_to_name(data_len_err), (unsigned)raw_data_len,
+                     (entry->block_type == BLOCK_TYPE_NOTE) ? 0U : 2U);
             data_len = (entry->block_type == BLOCK_TYPE_NOTE) ? 0U : 2U;
+        } else {
+            data_len = raw_data_len;
         }
         if (data_len < 2U) {
             continue;
