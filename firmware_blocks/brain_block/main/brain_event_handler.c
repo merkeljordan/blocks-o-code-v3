@@ -1283,11 +1283,13 @@ static void sync_collect_pending_block_events_before_start(void)
         esp_err_t data_len_err = i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &raw_data_len, 1);
         if (data_len_err != ESP_OK || raw_data_len < 2U || raw_data_len > sizeof(payload)) {
             ESP_LOGW(TAG,
-                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> using %u (payload may be truncated)",
+                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> %s",
                      entry->i2c_address, (unsigned)entry->block_type,
                      esp_err_to_name(data_len_err), (unsigned)raw_data_len,
-                     (entry->block_type == BLOCK_TYPE_NOTE) ? 0U : 2U);
-            data_len = (entry->block_type == BLOCK_TYPE_NOTE) ? 0U : 2U;
+                     (entry->block_type == BLOCK_TYPE_NOTE || entry->block_type == BLOCK_TYPE_DELAY)
+                         ? "skipping (no fallback for NOTE/DELAY)"
+                         : "using 2");
+            data_len = (entry->block_type == BLOCK_TYPE_NOTE || entry->block_type == BLOCK_TYPE_DELAY) ? 0U : 2U;
         } else {
             data_len = raw_data_len;
         }

@@ -61,6 +61,8 @@ static struct {
     size_t payload_len;
 } g_pending_event;
 
+static portMUX_TYPE s_pending_event_spinlock = portMUX_INITIALIZER_UNLOCKED;
+
 static void set_status_flags(uint8_t status_flags);
 static void config_reset(void);
 static void publish_delay_ms_event(uint32_t delay_ms);
@@ -83,18 +85,22 @@ static void config_reset(void)
 {
     memset(&g_config, 0, sizeof(g_config));
     g_config_valid = false;
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     memset(&g_pending_event, 0, sizeof(g_pending_event));
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
 }
 
 static void publish_delay_ms_event(uint32_t delay_ms)
 {
-    g_pending_event.has_event = true;
+    portENTER_CRITICAL(&s_pending_event_spinlock);
     g_pending_event.event_id = BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT;
     g_pending_event.payload[0] = (uint8_t)(delay_ms & 0xFFU);
     g_pending_event.payload[1] = (uint8_t)((delay_ms >> 8)  & 0xFFU);
     g_pending_event.payload[2] = (uint8_t)((delay_ms >> 16) & 0xFFU);
     g_pending_event.payload[3] = (uint8_t)((delay_ms >> 24) & 0xFFU);
     g_pending_event.payload_len = BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN;
+    g_pending_event.has_event = true;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
     ESP_LOGI(TAG, "publish event: delay_ms=%lu bytes=[%02X %02X %02X %02X] event_id=0x%02X",
              (unsigned long)delay_ms,
              g_pending_event.payload[0], g_pending_event.payload[1],
@@ -105,7 +111,10 @@ static void publish_delay_ms_event(uint32_t delay_ms)
 
 uint8_t delay_block_get_pending_data_len(void)
 {
-    return g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+    portENTER_CRITICAL(&s_pending_event_spinlock);
+    uint8_t len = g_pending_event.has_event ? (uint8_t)(1 + g_pending_event.payload_len) : 0;
+    portEXIT_CRITICAL(&s_pending_event_spinlock);
+    return len;
 }
 
 // uint32_t LE in I2C regs REG_DELAY_MS0..3 — Brain reads at program start.
@@ -236,25 +245,32 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_GET_DATA:
-            if (tx && tx_len && g_pending_event.has_event) {
-                // tx[0] = event_id, tx[1..] = payload
-                tx[0] = g_pending_event.event_id;
-                if (g_pending_event.payload_len > 0) {
-                    memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+            if (tx && tx_len) {
+                portENTER_CRITICAL(&s_pending_event_spinlock);
+                if (g_pending_event.has_event) {
+                    tx[0] = g_pending_event.event_id;
+                    if (g_pending_event.payload_len > 0) {
+                        memcpy(&tx[1], g_pending_event.payload, g_pending_event.payload_len);
+                    }
+                    *tx_len = 1 + g_pending_event.payload_len;
+                    g_pending_event.has_event = false;
+                    g_pending_event.payload_len = 0;
+                    portEXIT_CRITICAL(&s_pending_event_spinlock);
+
+                    ESP_LOGI(TAG, "CMD_GET_DATA tx_len=%u event_id=0x%02X payload=[%02X %02X %02X %02X]",
+                             (unsigned)*tx_len, tx[0],
+                             (*tx_len > 1) ? tx[1] : 0,
+                             (*tx_len > 2) ? tx[2] : 0,
+                             (*tx_len > 3) ? tx[3] : 0,
+                             (*tx_len > 4) ? tx[4] : 0);
+
+                    set_status_flags(g_status_flags & (uint8_t)~STATUS_DATA_READY);
+                } else {
+                    portEXIT_CRITICAL(&s_pending_event_spinlock);
+                    tx[0] = 0x00;
+                    tx[1] = 0x00;
+                    *tx_len = 2;
                 }
-                *tx_len = 1 + g_pending_event.payload_len;
-
-                ESP_LOGI(TAG, "CMD_GET_DATA tx_len=%u event_id=0x%02X payload=[%02X %02X %02X %02X]",
-                         (unsigned)*tx_len, tx[0],
-                         (*tx_len > 1) ? tx[1] : 0,
-                         (*tx_len > 2) ? tx[2] : 0,
-                         (*tx_len > 3) ? tx[3] : 0,
-                         (*tx_len > 4) ? tx[4] : 0);
-
-                // Clear DATA_READY after Brain consumes the event.
-                g_pending_event.has_event = false;
-                g_pending_event.payload_len = 0;
-                set_status_flags(g_status_flags & (uint8_t)~STATUS_DATA_READY);
             }
             break;
 

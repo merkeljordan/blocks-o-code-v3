@@ -334,6 +334,8 @@ void i2c_task(void *arg) {
                     (void)i2c_reset_tx_fifo(I2C_NUM_0);
                     ESP_LOGI(TAG, "CMD_GET_DATA: flushed residual TX FIFO after response");
                 }
+            } else {
+                (void)i2c_reset_tx_fifo(I2C_NUM_0);
             }
 
             offset += frame_len;

@@ -191,6 +191,15 @@ static void block_event_poll_task(void *arg) {
                 continue;
             }
 
+            // Confirm DATA_READY with a second read to guard against stale TX FIFO bytes.
+            {
+                uint8_t status_confirm = 0;
+                if (i2c_read_reg(entry->address, REG_STATUS, &status_confirm, 1) != ESP_OK ||
+                    (status_confirm & STATUS_DATA_READY) == 0) {
+                    continue;
+                }
+            }
+
             // Read how many bytes the child will return for CMD_GET_DATA.
             data_len = 0;
             // REG_DATA_LEN is optional; retry a couple times to avoid falling back
