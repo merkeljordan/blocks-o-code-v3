@@ -118,11 +118,9 @@ static void block_event_poll_task(void *arg) {
             if (!entry->present) {
                 continue;
             }
-            if (entry->type != BLOCK_TYPE_LED_FLASH &&
-                entry->type != BLOCK_TYPE_NOTE &&
-                entry->type != BLOCK_TYPE_BUTTON &&
-                entry->type != BLOCK_TYPE_DELAY &&
-                entry->type != BLOCK_TYPE_LOOP) {
+            // Only BUTTON remains event-polled at runtime.
+            // DELAY/LOOP/NOTE/LED_FLASH are snapshot-collected before START via block_config_manager_scan().
+            if (entry->type != BLOCK_TYPE_BUTTON) {
                 continue;
             }
 

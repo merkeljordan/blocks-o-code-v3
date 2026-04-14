@@ -72,6 +72,30 @@ static bool config_is_valid(void)
     return g_config_valid;
 }
 
+static void peripherals_show_running(void);
+
+// ============================================================================
+// ASYNCHRONOUS EXECUTION (delay locally on CMD_EXECUTE)
+// ============================================================================
+typedef struct {
+    uint32_t delay_ms;
+} delay_exec_request_t;
+
+static QueueHandle_t s_exec_queue = NULL;
+
+static void delay_exec_task(void *arg)
+{
+    (void)arg;
+    delay_exec_request_t req;
+    for (;;) {
+        if (xQueueReceive(s_exec_queue, &req, portMAX_DELAY) == pdTRUE) {
+            peripherals_show_running();
+            vTaskDelay(pdMS_TO_TICKS(req.delay_ms));
+            set_status_flags((uint8_t)(STATUS_READY | STATUS_IDLE));
+        }
+    }
+}
+
 void delay_block_set_delay_ms_from_ui(uint32_t delay_ms)
 {
     ESP_LOGI(TAG, "UI submit: delay_ms=%lu", (unsigned long)delay_ms);
@@ -280,9 +304,23 @@ void command_handle(i2c_command_t cmd,
                 peripherals_error_feedback();
                 break;
             }
-            set_status_flags(STATUS_BUSY);
-            peripherals_show_running();
-            set_status_flags(STATUS_READY);
+            if ((g_status_flags & STATUS_BUSY) != 0U) {
+                break;
+            }
+            if (s_exec_queue == NULL) {
+                set_status_flags(STATUS_ERROR);
+                peripherals_error_feedback();
+                break;
+            }
+            {
+                uint32_t delay_ms = delay_block_get_delay_ms_for_brain();
+                set_status_flags(STATUS_BUSY);
+                delay_exec_request_t req = {.delay_ms = delay_ms};
+                if (xQueueSendToBack(s_exec_queue, &req, 0) != pdTRUE) {
+                    set_status_flags(STATUS_ERROR);
+                    peripherals_error_feedback();
+                }
+            }
             break;
 
         case CMD_MATRIX_FILL:
@@ -345,6 +383,13 @@ void app_main(void) {
         return;
     }
     xTaskCreate(i2c_task, "i2c", 4096, NULL, 5, NULL);
+
+    s_exec_queue = xQueueCreate(2, sizeof(delay_exec_request_t));
+    if (s_exec_queue != NULL) {
+        xTaskCreate(delay_exec_task, "delay_exec", 3072, NULL, 4, NULL);
+    } else {
+        ESP_LOGE(TAG, "Failed to create exec queue");
+    }
 
     ret = led_matrix_init();
     if (ret != ESP_OK) {

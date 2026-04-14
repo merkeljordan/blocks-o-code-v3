@@ -731,7 +731,8 @@ static void set_runtime_snapshot(brain_runtime_broadcast_state_t state,
 static bool is_output_block(block_type_t type) {
     return type == BLOCK_TYPE_LED_FLASH ||
            type == BLOCK_TYPE_NOTE ||
-           type == BLOCK_TYPE_MUSIC_SEQ;
+           type == BLOCK_TYPE_MUSIC_SEQ ||
+           type == BLOCK_TYPE_DELAY;
 }
 
 static uint8_t executor_broadcast_pc(void)
@@ -1054,39 +1055,14 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 
     switch (step_type) {
         case BLOCK_TYPE_LED_FLASH: {
-            uint8_t color_id = 0U;
-            bool has_color = false;
-            const char *color_source = "child-local";
-            if (pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS && s_led_color_valid_by_pc[pc]) {
-                color_id = s_led_color_by_pc[pc];
-                has_color = true;
-                color_source = "pc-cache";
-            } else {
-                size_t slot = 0U;
-                if (loop_count_addr_to_slot(addr, &slot) && s_led_color_stash_valid_by_addr[slot]) {
-                    color_id = s_led_color_stash_by_addr[slot];
-                    has_color = true;
-                    color_source = "addr-stash";
-                }
-            }
-            if (has_color) {
-                ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X color=%u (%s)",
-                         (unsigned)pc, addr, (unsigned)color_id, color_source);
-                esp_err_t set_ret = i2c_set_led_color_id(addr, color_id);
-                if (set_ret != ESP_OK) {
-                    ESP_LOGW(TAG, "LED_FLASH set color failed addr=0x%02X (ret=%d)", addr, (int)set_ret);
-                }
-            } else {
-                ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X color=child-local (no cached submit)",
-                         (unsigned)pc, addr);
-            }
+            // Music-seq style: block owns its configured state locally; Brain only triggers EXECUTE.
+            ESP_LOGI(TAG, "LED_FLASH dispatch start pc=%u addr=0x%02X (child-local config)",
+                     (unsigned)pc, addr);
             esp_err_t exec_ret = i2c_execute(addr);
             ESP_LOGD(TAG,
-                     "SEQUENTIAL LED step pc=%u addr=0x%02X color=%u cached=%d exec_ret=%d",
+                     "SEQUENTIAL LED step pc=%u addr=0x%02X exec_ret=%d",
                      (unsigned)pc,
                      addr,
-                     (unsigned)color_id,
-                     (int)has_color,
                      (int)exec_ret);
             vTaskDelay(pdMS_TO_TICKS(15));
 
@@ -1234,6 +1210,53 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                 ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
             } else {
                 ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) — best-effort continuing",
+                         addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
+            }
+            dispatch_result = ESP_OK;
+            break;
+        }
+        case BLOCK_TYPE_DELAY: {
+            // Music-seq style: delay duration is owned by the child; Brain only triggers EXECUTE.
+            ESP_LOGI(TAG, "DELAY dispatch start pc=%u addr=0x%02X (child-local delay)",
+                     (unsigned)pc, addr);
+            esp_err_t exec_ret = i2c_execute(addr);
+            ESP_LOGD(TAG,
+                     "SEQUENTIAL DELAY step pc=%u addr=0x%02X exec_ret=%d",
+                     (unsigned)pc,
+                     addr,
+                     (int)exec_ret);
+            vTaskDelay(pdMS_TO_TICKS(15));
+
+            s_executor_ctx.state = EXECUTOR_WAIT_OUTPUT;
+            s_executor_active_poll_addr = addr;
+            if (s_dispatch_mutex != NULL) { xSemaphoreGiveRecursive(s_dispatch_mutex); }
+
+            uint32_t elapsed_ms = 0;
+            uint8_t status = 0;
+            esp_err_t busy_ret = wait_for_status_busy(addr,
+                                                      MUSIC_EXEC_BUSY_TIMEOUT_MS,
+                                                      &elapsed_ms,
+                                                      &status);
+            esp_err_t idle_ret = (busy_ret == ESP_OK)
+                ? wait_for_status_idle(addr, 60000U, &elapsed_ms, &status)
+                : ESP_ERR_TIMEOUT;
+
+            if (s_dispatch_mutex != NULL) { xSemaphoreTakeRecursive(s_dispatch_mutex, portMAX_DELAY); }
+            s_executor_active_poll_addr = 0;
+            s_executor_ctx.state = EXECUTOR_RUNNING;
+
+            if (s_executor_ctx.stop_requested) { break; }
+
+            if (busy_ret != ESP_OK) {
+                ESP_LOGE(TAG,
+                         "DELAY busy wait failed (TIMEOUT) pc=%u addr=0x%02X status=0x%02X",
+                         (unsigned)pc, addr, (unsigned)status);
+                break;
+            }
+            if (idle_ret == ESP_OK) {
+                ESP_LOGI(TAG, "DELAY finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
+            } else {
+                ESP_LOGW(TAG, "DELAY idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) — best-effort continuing",
                          addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
             }
             dispatch_result = ESP_OK;
@@ -2107,24 +2130,6 @@ static void brain_executor_tick_nolock(void) {
     }
 
     switch (current) {
-        case BLOCK_TYPE_DELAY: {
-            uint32_t delay_ms = s_executor_params.delay_ms;
-            if (s_executor_params.delay_ms == 0U) {
-                delay_ms = 500U;
-            }
-            if (s_executor_ctx.pc < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS &&
-                s_delay_ms_valid_by_pc[s_executor_ctx.pc]) {
-                delay_ms = s_delay_ms_by_pc[s_executor_ctx.pc];
-            }
-            ESP_LOGI(TAG,
-                     "DELAY pc=%u wait_ms=%lu",
-                     (unsigned)s_executor_ctx.pc,
-                     (unsigned long)delay_ms);
-            s_executor_ctx.wait_until_ms = now_ms() + delay_ms;
-            s_executor_ctx.state = EXECUTOR_WAIT_DELAY;
-            return;
-        }
-
         case BLOCK_TYPE_IF: {
             int end_if_index = find_matching_end_index(s_executor_ctx.pc, BLOCK_TYPE_IF);
             if (end_if_index < 0) {

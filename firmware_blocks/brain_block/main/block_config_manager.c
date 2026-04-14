@@ -137,6 +137,9 @@ static esp_err_t i2c_read_reg_retry(uint8_t address, uint8_t reg, uint8_t *out, 
     return ESP_FAIL;
 }
 
+// Read and stash block configuration BEFORE START without using the block-event dispatcher.
+// This consumes any pending CMD_GET_DATA payloads on NOTE/LED/LOOP/DELAY blocks and writes the
+// resulting configuration directly into brain_event_handler's snapshot tables.
 const char* block_type_to_json_string(block_type_t type) {
     switch (type) {
         case BLOCK_TYPE_BRAIN:      return "brain_block";

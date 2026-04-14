@@ -52,7 +52,7 @@ Enhancement:
 #include "cJSON.h"
 #include "tft_ui.h"
 
-#define WIFI_SSID "Jordan"      // <-- Set your Wi‑Fi SSID here
+#define WIFI_SSID "iPhone"      // <-- Set your Wi‑Fi SSID here
 #define WIFI_PASS "blocksocode" // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening
