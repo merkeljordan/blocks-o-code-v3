@@ -30,6 +30,8 @@ LV_FONT_DECLARE(mochi_boom_34);
 #define DISCO_SPOT_R   ((DISCO_SPOT_SIZE) / 2)
 
 #define CONTROL_FLOW_TITLE_FONT (&mochi_boom_34)
+/** Dual-action "Press Now!" — larger display font + letter spacing reads bolder than DEFAULT. */
+#define CONTROL_FLOW_DUAL_PROMPT_FONT (&mochi_boom_28)
 
 typedef struct {
     uint8_t r;
@@ -373,7 +375,10 @@ static void apply_idle_palette(void)
         lv_obj_set_style_text_color(s_value_label, lv_color_hex(0xF8FAFCu), 0);
     }
     if (s_dual_action_prompt_label != NULL) {
+        lv_obj_set_style_text_font(s_dual_action_prompt_label, CONTROL_FLOW_DUAL_PROMPT_FONT, 0);
+        lv_obj_set_style_text_letter_space(s_dual_action_prompt_label, 2, 0);
         lv_obj_set_style_text_color(s_dual_action_prompt_label, lv_color_hex(0x22C55Eu), 0);
+        lv_obj_set_style_text_opa(s_dual_action_prompt_label, LV_OPA_COVER, 0);
     }
     if (s_control_card != NULL) {
         lv_obj_clear_flag(s_control_card, LV_OBJ_FLAG_HIDDEN);
@@ -863,10 +868,12 @@ void control_flow_tft_ui_start(const control_flow_ui_config_t *cfg)
         s_dual_action_prompt_label = lv_label_create(s_control_card);
         lv_label_set_text(s_dual_action_prompt_label, "Press Now!");
         lv_obj_set_width(s_dual_action_prompt_label, 200);
-        lv_obj_set_pos(s_dual_action_prompt_label, 6, 4);
+        lv_obj_set_pos(s_dual_action_prompt_label, 6, 2);
         lv_obj_set_style_text_align(s_dual_action_prompt_label, LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_set_style_text_font(s_dual_action_prompt_label, LV_FONT_DEFAULT, 0);
+        lv_obj_set_style_text_font(s_dual_action_prompt_label, CONTROL_FLOW_DUAL_PROMPT_FONT, 0);
+        lv_obj_set_style_text_letter_space(s_dual_action_prompt_label, 2, 0);
         lv_obj_set_style_text_color(s_dual_action_prompt_label, lv_color_hex(0x22C55Eu), 0);
+        lv_obj_set_style_text_opa(s_dual_action_prompt_label, LV_OPA_COVER, 0);
 
         const char *primary_label = (s_cfg.primary_action_label != NULL) ? s_cfg.primary_action_label : "Execute";
         const char *secondary_label = (s_cfg.secondary_action_label != NULL) ? s_cfg.secondary_action_label : "Skip";
