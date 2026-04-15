@@ -124,8 +124,9 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
 #endif
             error_count = 0;
             if ((status & ~0x1F) != 0U) {
+                // Treat corrupted status bytes as transient bus noise. Do not reset
+                // confirmation progress; wait for the next valid sample.
                 ESP_LOGE(TAG, "wait_for_status_busy(0x%02X): invalid status byte 0x%02X ignored", addr, status);
-                consecutive_busy = 0;
             } else if ((status & STATUS_BUSY) != 0U) {
                 consecutive_busy++;
                 if (consecutive_busy >= BUSY_CONFIRM_COUNT) {
@@ -200,8 +201,9 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
 #endif
             error_count = 0;
             if ((status & ~0x1F) != 0U) {
+                // Treat corrupted status bytes as transient bus noise. Do not reset
+                // confirmation progress; wait for the next valid sample.
                 ESP_LOGE(TAG, "wait_for_status_idle(0x%02X): invalid status byte 0x%02X ignored", addr, status);
-                consecutive_idle = 0;
             } else if ((status & STATUS_IDLE) != 0U) {
                 consecutive_idle++;
                 if (consecutive_idle >= IDLE_CONFIRM_COUNT) {
@@ -1091,18 +1093,20 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             s_executor_active_poll_addr = addr;
             if (s_dispatch_mutex != NULL) { xSemaphoreGiveRecursive(s_dispatch_mutex); }
 
-            uint32_t wait_ms = 0;
-            uint8_t status = 0;
-            esp_err_t busy_ret = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &wait_ms, &status);
+            uint32_t busy_wait_ms = 0;
+            uint8_t busy_status = 0;
+            uint32_t idle_wait_ms = 0;
+            uint8_t idle_status = 0;
+            esp_err_t busy_ret = wait_for_status_busy(addr, MUSIC_EXEC_BUSY_TIMEOUT_MS, &busy_wait_ms, &busy_status);
 
             // Guard against stale TX FIFO IDLE reads right after BUSY is observed.
             // Require a minimum BUSY dwell before we begin idle confirmation.
-            if (busy_ret == ESP_OK && wait_ms < LED_FLASH_MIN_BUSY_DWELL_MS) {
-                vTaskDelay(pdMS_TO_TICKS(LED_FLASH_MIN_BUSY_DWELL_MS - wait_ms));
+            if (busy_ret == ESP_OK && busy_wait_ms < LED_FLASH_MIN_BUSY_DWELL_MS) {
+                vTaskDelay(pdMS_TO_TICKS(LED_FLASH_MIN_BUSY_DWELL_MS - busy_wait_ms));
             }
 
             esp_err_t idle_ret = (busy_ret == ESP_OK)
-                ? wait_for_status_idle(addr, 10000U, &wait_ms, &status)
+                ? wait_for_status_idle(addr, 10000U, &idle_wait_ms, &idle_status)
                 : ESP_ERR_TIMEOUT;
 
             // Re-acquire mutex before touching any shared executor state.
@@ -1114,20 +1118,20 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 
             if (busy_ret == ESP_OK) {
                 ESP_LOGI(TAG, "LED_FLASH busy observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
-                         (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
+                         (unsigned)pc, addr, (unsigned)busy_wait_ms, (unsigned)busy_status);
             } else {
                 ESP_LOGE(TAG, "LED_FLASH busy wait failed (TIMEOUT) pc=%u addr=0x%02X status=0x%02X",
-                         (unsigned)pc, addr, (unsigned)status);
+                         (unsigned)pc, addr, (unsigned)busy_status);
                 // Abort if block didn't even start to avoid confusing the timeline.
                 break;
             }
 
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "LED_FLASH idle observed pc=%u addr=0x%02X after=%u ms status=0x%02X",
-                         (unsigned)pc, addr, (unsigned)wait_ms, (unsigned)status);
+                         (unsigned)pc, addr, (unsigned)idle_wait_ms, (unsigned)idle_status);
             } else {
                 ESP_LOGW(TAG, "LED_FLASH idle wait failed pc=%u addr=0x%02X ret=%d after=%u ms status=0x%02X — best-effort continuing",
-                         (unsigned)pc, addr, (int)idle_ret, (unsigned)wait_ms, (unsigned)status);
+                         (unsigned)pc, addr, (int)idle_ret, (unsigned)idle_wait_ms, (unsigned)idle_status);
             }
             dispatch_result = ESP_OK;
             break;
