@@ -88,7 +88,7 @@ static uint32_t s_validation_block_attempts_since_last_log;
 #define BRAIN_DISPATCH_MUTEX_TIMEOUT_MS 2000U
 
 #define MUSIC_EXEC_BUSY_TIMEOUT_MS   1000U
-#define BRAIN_EXECUTOR_LOOP_COUNT_MAX 64U
+#define BRAIN_EXECUTOR_LOOP_COUNT_MAX BRAIN_LOOP_ITERATION_CAP
 #define LED_FLASH_MIN_BUSY_DWELL_MS 300U
 
 static bool loop_count_addr_to_slot(uint8_t addr, size_t *out_slot);
@@ -921,8 +921,13 @@ static int program_loop_opcode_count(void)
     return n;
 }
 
-// Iteration count for the LOOP opcode at `loop_pc`: addr stash (Submit) wins over a live REG read,
-// then START-time per-pc tables (which can mismatch the physical block after config reorder).
+// Iteration count for the LOOP opcode at `loop_pc`. `*out_src` (for UART / LOOP enter log):
+//   addr_stash — loop_count_addr_to_slot + mid-run submit stash valid (below ~940).
+//   sole_stash — exactly one LOOP opcode in program and exactly one stash slot (~947–961).
+//   reg        — live I2C REG_LOOP_COUNT after WHOAMI==LOOP check (~965–984).
+//   pc_snap    — START-bound s_loop_count_by_pc[loop_pc] (stash+REG refresh at START) (~988–993).
+//   glob       — s_executor_params.loop_count; also initial default when loop_pc out of range
+//                or when no higher-priority source matched (~928–930, ~996–1000).
 static uint16_t resolve_loop_iteration_count(uint8_t loop_pc, const char **out_src)
 {
     if (out_src != NULL) {
@@ -1321,18 +1326,23 @@ static void sync_collect_pending_block_events_before_start(void)
         esp_err_t data_len_err = i2c_read_reg(entry->i2c_address, REG_DATA_LEN, &raw_data_len, 1);
         if (data_len_err != ESP_OK || raw_data_len < 2U || raw_data_len > sizeof(payload)) {
             ESP_LOGW(TAG,
-                     "REG_DATA_LEN fallback: addr=0x%02X type=%u err=%s raw=%u -> using 2",
+                     "START sync: REG_DATA_LEN invalid addr=0x%02X type=%u err=%s raw=%u — skip pull, reset child",
                      entry->i2c_address, (unsigned)entry->block_type,
                      esp_err_to_name(data_len_err), (unsigned)raw_data_len);
-            data_len = 2U;
-        } else {
-            data_len = raw_data_len;
+            (void)i2c_reset(entry->i2c_address);
+            continue;
         }
-        if (data_len < 2U) {
+        data_len = raw_data_len;
+
+        if (i2c_get_data(entry->i2c_address, payload, data_len) != ESP_OK) {
             continue;
         }
 
-        if (i2c_get_data(entry->i2c_address, payload, data_len) != ESP_OK) {
+        if (!brain_child_block_event_id_is_valid(payload[0])) {
+            ESP_LOGW(TAG,
+                     "START sync: bogus CMD_GET_DATA id=0x%02X addr=0x%02X len=%u — reset child",
+                     (unsigned)payload[0], entry->i2c_address, (unsigned)data_len);
+            (void)i2c_reset(entry->i2c_address);
             continue;
         }
 
@@ -1528,6 +1538,13 @@ static bool process_block_event(uint8_t block_addr,
         uint16_t loop_count = 1;
         if (payload && payload_len >= 1) {
             loop_count = (payload[0] == 0) ? 1 : payload[0];
+        }
+        if (loop_count > BRAIN_LOOP_ITERATION_CAP) {
+            ESP_LOGW(TAG,
+                     "LOOP_COUNT_SUBMIT capping %u -> %u (brain executor max)",
+                     (unsigned)loop_count,
+                     (unsigned)BRAIN_LOOP_ITERATION_CAP);
+            loop_count = BRAIN_LOOP_ITERATION_CAP;
         }
         ESP_LOGI(TAG, "LOOP_COUNT_SUBMIT: addr=0x%02X payload_len=%u loop_count=%u", block_addr, (unsigned)payload_len, loop_count);
 
@@ -1850,6 +1867,10 @@ static esp_err_t brain_executor_start_nolock(void) {
     // per-pc params so immediate START uses current values instead of defaults.
     sync_collect_pending_block_events_before_start();
 
+    ESP_LOGI(TAG,
+             "LOOP UART capture: INFO lines below show REG_LOOP_COUNT per pc, any stash overrides, "
+             "then START bind summary; during run capture LOOP enter (iterations + src).");
+
     memset(s_loop_count_by_pc, 0, sizeof(s_loop_count_by_pc));
     memset(s_loop_count_valid_by_pc, 0, sizeof(s_loop_count_valid_by_pc));
     refresh_loop_iteration_counts_from_i2c_registers();
@@ -1857,6 +1878,19 @@ static esp_err_t brain_executor_start_nolock(void) {
     /* Stash was merged into s_loop_count_by_pc; clear validity so later runs do not
      * prefer stale addr-keyed submits in resolve_loop_iteration_count(). */
     memset(s_loop_count_stash_valid_by_addr, 0, sizeof(s_loop_count_stash_valid_by_addr));
+
+    for (int i = 0; i < s_executor_ctx.program_len && i < BRAIN_EXECUTOR_MAX_PROGRAM_BLOCKS; i++) {
+        if (s_executor_ctx.program[i] != BLOCK_TYPE_LOOP) {
+            continue;
+        }
+        ESP_LOGI(TAG,
+                 "LOOP START bind summary: pc=%u addr=0x%02X iterations=%u valid=%d "
+                 "(matches LOOP enter src=pc_snap when that path wins)",
+                 (unsigned)i,
+                 s_program_addr[i],
+                 (unsigned)s_loop_count_by_pc[i],
+                 (int)s_loop_count_valid_by_pc[i]);
+    }
 
     memset(s_delay_ms_by_pc, 0, sizeof(s_delay_ms_by_pc));
     memset(s_delay_ms_valid_by_pc, 0, sizeof(s_delay_ms_valid_by_pc));
@@ -2129,6 +2163,29 @@ static void brain_executor_tick_nolock(void) {
                      (unsigned)loop_count,
                      lc_src != NULL ? lc_src : "?",
                      resolve_exec_child_addr_for_pc(frame->loop_start_pc));
+            if (lc_src != NULL && (strcmp(lc_src, "reg") == 0 || strcmp(lc_src, "pc_snap") == 0)) {
+                uint8_t snap_addr = s_program_addr[frame->loop_start_pc];
+                uint8_t who = 0xFFu;
+                uint8_t reg_n = 0U;
+                esp_err_t e_who = i2c_read_reg(snap_addr, REG_WHOAMI, &who, 1);
+                esp_err_t e_reg = i2c_read_reg(snap_addr, REG_LOOP_COUNT, &reg_n, 1);
+                if (reg_n == 0U) {
+                    reg_n = 1U;
+                }
+                ESP_LOGI(TAG,
+                         "LOOP verify I2C vs child: pc=%u START_addr=0x%02X live REG_LOOP_COUNT=%u "
+                         "WHOAMI=0x%02X(%s) read %s/%s | pc_snap table N=%u valid=%d "
+                         "(on loop UART confirm g_config_valid + same REG)",
+                         (unsigned)frame->loop_start_pc,
+                         snap_addr,
+                         (unsigned)reg_n,
+                         (unsigned)who,
+                         block_type_to_string((block_type_t)who),
+                         e_who == ESP_OK ? "ok" : esp_err_to_name(e_who),
+                         e_reg == ESP_OK ? "ok" : esp_err_to_name(e_reg),
+                         (unsigned)s_loop_count_by_pc[frame->loop_start_pc],
+                         (int)s_loop_count_valid_by_pc[frame->loop_start_pc]);
+            }
             s_executor_ctx.pc++;
             return;
         }

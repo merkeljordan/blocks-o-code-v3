@@ -52,7 +52,7 @@ static const status_strip_config_t kStatusStripConfig = {
 // CONFIG (payload: loop_count)
 // ============================================================================
 typedef struct {
-    uint8_t loop_count; // TODO: 1-99 typical
+    uint8_t loop_count; // 1 .. BRAIN_LOOP_ITERATION_CAP (brain clamps runs to this max)
 } block_config_t;
 
 static block_config_t g_config;
@@ -69,6 +69,17 @@ static struct {
 static bool config_is_valid(void);
 static void config_reset(void);
 static void publish_loop_count_event(uint8_t loop_count);
+
+static uint8_t clamp_loop_count_for_brain(uint8_t n)
+{
+    if (n == 0U) {
+        return 1U;
+    }
+    if (n > (uint8_t)BRAIN_LOOP_ITERATION_CAP) {
+        return (uint8_t)BRAIN_LOOP_ITERATION_CAP;
+    }
+    return n;
+}
 
 static void render_status_strip(uint8_t status_flags)
 {
@@ -123,11 +134,42 @@ static void publish_loop_count_event(uint8_t loop_count)
     set_status_flags((uint8_t)(g_status_flags | STATUS_DATA_READY));
 }
 
-void loop_block_set_loop_count_from_ui(uint8_t loop_count)
+/* Sets iteration for REG_LOOP_COUNT + START snapshot; does NOT queue CMD_GET_DATA / DATA_READY.
+ * Use at boot so the Brain does not poll GET_DATA before the user taps Submit. */
+static void loop_block_seed_default_no_publish(uint8_t loop_count)
 {
-    g_config.loop_count = (loop_count == 0U) ? 1U : loop_count;
+    uint8_t capped = clamp_loop_count_for_brain(loop_count);
+    if (capped != loop_count && loop_count != 0U) {
+        ESP_LOGW(TAG,
+                 "loop_count seed %u capped to %u (brain executor max)",
+                 (unsigned)loop_count,
+                 (unsigned)capped);
+    }
+    g_config.loop_count = capped;
     g_config_valid = true;
     set_status_flags(STATUS_READY);
+    ESP_LOGI(TAG,
+             "Boot seed loop_count=%u g_config_valid=1 (REG only; DATA_READY after Submit; cap=%u)",
+             (unsigned)g_config.loop_count,
+             (unsigned)BRAIN_LOOP_ITERATION_CAP);
+}
+
+void loop_block_set_loop_count_from_ui(uint8_t loop_count)
+{
+    uint8_t capped = clamp_loop_count_for_brain(loop_count);
+    if (capped != loop_count && loop_count != 0U) {
+        ESP_LOGW(TAG,
+                 "loop_count UI %u capped to %u (brain executor max)",
+                 (unsigned)loop_count,
+                 (unsigned)capped);
+    }
+    g_config.loop_count = capped;
+    g_config_valid = true;
+    set_status_flags(STATUS_READY);
+    ESP_LOGI(TAG,
+             "loop_count set=%u g_config_valid=1 (REG_LOOP_COUNT for brain; cap=%u)",
+             (unsigned)g_config.loop_count,
+             (unsigned)BRAIN_LOOP_ITERATION_CAP);
     publish_loop_count_event(g_config.loop_count);
 }
 
@@ -166,6 +208,11 @@ static void peripherals_show_running(void)
 // ============================================================================
 uint8_t loop_block_get_status_flags(void)
 {
+    /* Never report DATA_READY without a queued event: REG_DATA_LEN would be 0 and the Brain
+     * could run the 2-byte GET_DATA fallback and mis-read stale TX (e.g. UID 0xCE…) as event id. */
+    if (!g_pending_event.has_event && (g_status_flags & STATUS_DATA_READY) != 0U) {
+        g_status_flags &= (uint8_t)~STATUS_DATA_READY;
+    }
     return g_status_flags;
 }
 
@@ -227,9 +274,21 @@ void command_handle(i2c_command_t cmd,
 
         case CMD_SET_LOOP:
             if (rx_len >= 1) {
-                g_config.loop_count = (rx[0] == 0) ? 1 : rx[0];
+                uint8_t req = rx[0];
+                uint8_t capped = clamp_loop_count_for_brain(req);
+                if (capped != req && req != 0U) {
+                    ESP_LOGW(TAG,
+                             "CMD_SET_LOOP value %u capped to %u (brain executor max)",
+                             (unsigned)req,
+                             (unsigned)capped);
+                }
+                g_config.loop_count = capped;
                 g_config_valid = true;
                 set_status_flags(STATUS_READY);
+                ESP_LOGI(TAG,
+                         "CMD_SET_LOOP loop_count=%u g_config_valid=1 (REG_LOOP_COUNT cap=%u)",
+                         (unsigned)g_config.loop_count,
+                         (unsigned)BRAIN_LOOP_ITERATION_CAP);
                 publish_loop_count_event(g_config.loop_count);
             }
             break;
@@ -322,8 +381,9 @@ void app_main(void) {
     tft_ui_start();
     tft_ui_set_idle();
     /* UI default is visible on screen but control_flow does not call submit_cb until the user
-     * taps Submit — without this, g_config_valid stays false and Brain always sees REG_LOOP_COUNT=1. */
-    loop_block_set_loop_count_from_ui((uint8_t)LOOP_DEFAULT_ITERATIONS);
+     * taps Submit — seed REG_LOOP_COUNT without DATA_READY so the Brain does not run GET_DATA
+     * on attach (REG_DATA_LEN 0 vs DATA_READY caused reset / bogus id loops). */
+    loop_block_seed_default_no_publish((uint8_t)LOOP_DEFAULT_ITERATIONS);
     set_status_flags(g_status_flags);
 
     battery_monitor_start();

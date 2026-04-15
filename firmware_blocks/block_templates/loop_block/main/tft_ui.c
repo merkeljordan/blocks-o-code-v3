@@ -29,7 +29,8 @@ void tft_ui_start(void)
         .accent_color = 0x60A5FAu,
         .supports_value = true,
         .min_value = 1,
-        .max_value = 99,
+        /* Must not exceed BRAIN_LOOP_ITERATION_CAP (brain executor clamps LOOP body). */
+        .max_value = 64,
         .step = 1,
         /* Keep in sync with LOOP_DEFAULT_ITERATIONS in main.c (applied on boot). */
         .default_value = 1,

@@ -212,18 +212,26 @@ static void block_event_poll_task(void *arg) {
                 data_len = 0;
                 vTaskDelay(pdMS_TO_TICKS(2));
             }
-            // For LOOP blocks we rely on REG_DATA_LEN being accurate.
-            // If it's invalid (0/too small/too big), fall back to 2-byte event frame:
-            // [event_id, payload0]
+            /* Do not guess a 2-byte frame when REG_DATA_LEN is invalid: CMD_GET_DATA can return
+             * stale FIFO bytes (seen as bogus ids like 0xCE from UID) and confuse the executor. */
             if (data_len < 2 || data_len > sizeof(payload)) {
                 ESP_LOGW(TAG,
-                         "REG_DATA_LEN invalid after retries: addr=0x%02X type=%u raw=%u — %s",
-                         entry->address, (unsigned)entry->type, (unsigned)data_len,
-                         "falling back to 2-byte read");
-                data_len = 2;
+                         "REG_DATA_LEN invalid after retries: addr=0x%02X type=%u raw=%u — skipping GET_DATA, resetting child",
+                         entry->address, (unsigned)entry->type, (unsigned)data_len);
+                (void)i2c_reset(entry->address);
+                continue;
             }
 
             if (i2c_get_data(entry->address, payload, data_len) == ESP_OK) {
+                if (!brain_child_block_event_id_is_valid(payload[0])) {
+                    ESP_LOGW(TAG,
+                             "CMD_GET_DATA bogus event id 0x%02X from 0x%02X (len=%u) — resetting child",
+                             (unsigned)payload[0],
+                             entry->address,
+                             (unsigned)data_len);
+                    (void)i2c_reset(entry->address);
+                    continue;
+                }
                 // payload[0] = event_id, remaining bytes are event payload.
                 size_t event_payload_len = (data_len >= 1) ? (size_t)(data_len - 1) : 0U;
                 bool queued = brain_event_handle_block_event(entry->address,

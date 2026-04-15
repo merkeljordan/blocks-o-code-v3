@@ -42,10 +42,13 @@
 #define REG_UID2 0x08
 #define REG_UID3 0x09
 #define REG_ASSIGNED_ADDR 0x0A // 1 byte: currently active child I2C address
-// Loop block: configured iteration count for Brain executor (1..255; 0 treated
-// as 1). Other block templates may leave this register at 0; Brain reads it
-// only for BLOCK_TYPE_LOOP.
+// Loop block: configured iteration count for Brain executor (1..255 on the
+// wire; 0 treated as 1). Other block templates may leave this register at 0;
+// Brain reads it only for BLOCK_TYPE_LOOP. The executor clamps runs to
+// BRAIN_LOOP_ITERATION_CAP; loop UI/firmware should not exceed it.
 #define REG_LOOP_COUNT 0x0B
+/** Max LOOP body iterations the brain executor will run (REG/payload may still hold higher until clamped). */
+#define BRAIN_LOOP_ITERATION_CAP 64U
 // Delay block: configured wait time in milliseconds (uint32_t little-endian,
 // regs 0x0C..0x0F). Brain reads these only for BLOCK_TYPE_DELAY.
 #define REG_DELAY_MS0 0x0C
@@ -268,6 +271,14 @@ typedef enum {
 #define BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT_PAYLOAD_LEN 1
 #define BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT_PAYLOAD_LEN 4
 #define BRAIN_BLOCK_EVENT_BUTTON_PRESS_PAYLOAD_LEN 1
+
+/** True if `id` is a defined BRAIN_BLOCK_EVENT_* from CMD_GET_DATA byte0. */
+static inline bool brain_child_block_event_id_is_valid(uint8_t id) {
+  return (id == BRAIN_BLOCK_EVENT_SELECTION_SUBMIT ||
+          id == BRAIN_BLOCK_EVENT_LOOP_COUNT_SUBMIT ||
+          id == BRAIN_BLOCK_EVENT_DELAY_MS_SUBMIT ||
+          id == BRAIN_BLOCK_EVENT_BUTTON_PRESS);
+}
 
 // ============================================================================
 // OPTIONAL UTILITY FUNCTIONS (safe to keep in header)
