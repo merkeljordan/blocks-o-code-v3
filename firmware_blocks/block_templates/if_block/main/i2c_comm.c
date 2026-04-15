@@ -138,7 +138,8 @@ void i2c_task(void *arg) {
     uint8_t tx_buf[16];
 
     while (1) {
-        int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(100));
+        // Keep this short so register polls are handled before the master's read phase.
+        int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(5));
 
         if (len > 0) {
             ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
@@ -153,11 +154,24 @@ void i2c_task(void *arg) {
             }
 
             refresh_dynamic_registers();
-            if (len == 1 && buffer[0] < 0x10) {
-                uint8_t reg = buffer[0];
-                uint8_t response = registers[reg];
-                (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-                ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
+            // Register polls can be coalesced into one RX read (multiple 1-byte writes).
+            // Queue one response byte per register so the master can drain them cleanly.
+            bool is_reg_read = true;
+            for (int i = 0; i < len; i++) {
+                if (buffer[i] >= 0x10) {
+                    is_reg_read = false;
+                    break;
+                }
+            }
+            if (is_reg_read) {
+                for (int i = 0; i < len; i++) {
+                    uint8_t reg = buffer[i];
+                    uint8_t response = registers[reg];
+                    (void)i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(20));
+                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X%s",
+                             reg, response,
+                             (len > 1) ? " (batched RX)" : "");
+                }
                 continue;
             }
 
@@ -168,7 +182,7 @@ void i2c_task(void *arg) {
 
             command_handle(cmd, payload, payload_len, tx_buf, &tx_len);
             if (tx_len > 0U) {
-                (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
+                (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(20));
                 ESP_LOGI(TAG, "Sent %u response bytes", (unsigned)tx_len);
             }
         }

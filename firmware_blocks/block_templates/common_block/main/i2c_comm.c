@@ -123,7 +123,8 @@ void i2c_task(void *arg) {
     uint8_t buffer[128];
 
     while (1) {
-        int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(100));
+        // Keep this short so register polls are handled before the master's read phase.
+        int len = i2c_slave_read_buffer(I2C_NUM_0, buffer, 128, pdMS_TO_TICKS(5));
 
         if (len > 0) {
             ESP_LOGI(TAG, "Received %d bytes: [0]=0x%02X", len, buffer[0]);
@@ -137,12 +138,24 @@ void i2c_task(void *arg) {
                 continue;
             }
 
-            // Single byte < 0x10 = register read request
-            if (len == 1 && buffer[0] < 0x10) {
-                uint8_t reg = buffer[0];
-                uint8_t response = registers[reg];
-                i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
-                ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X", reg, response);
+            // Register polls can be coalesced into one RX read (multiple 1-byte writes).
+            // Queue one response byte per register so the master can drain them cleanly.
+            bool is_reg_read = true;
+            for (int i = 0; i < len; i++) {
+                if (buffer[i] >= 0x10) {
+                    is_reg_read = false;
+                    break;
+                }
+            }
+            if (is_reg_read) {
+                for (int i = 0; i < len; i++) {
+                    uint8_t reg = buffer[i];
+                    uint8_t response = registers[reg];
+                    i2c_slave_write_buffer(I2C_NUM_0, &response, 1, pdMS_TO_TICKS(100));
+                    ESP_LOGI(TAG, "Register 0x%02X -> 0x%02X%s",
+                             reg, response,
+                             (len > 1) ? " (batched RX)" : "");
+                }
             } else {
                 // Command
                 handle_command(buffer, len);

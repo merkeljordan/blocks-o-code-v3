@@ -52,13 +52,13 @@ Enhancement:
 #include "cJSON.h"
 #include "tft_ui.h"
 
-#define WIFI_SSID "iPhone"      // <-- Set your Wi‑Fi SSID here
+#define WIFI_SSID "Jordan"      // <-- Set your Wi‑Fi SSID here
 #define WIFI_PASS "blocksocode" // <-- Set your Wi‑Fi password here
 
 /* Desktop server IP and port to connect to (set to your desktop listening
  * server) */
 #define SERVER_IP                                                              \
-  "172.20.10.5" // <-- Set your server's IP address here (ipconfig)
+  "172.20.10.4" // <-- Set your server's IP address here (ipconfig)
 #define SERVER_PORT 41233
 
 /* reconnect / timing settings */
