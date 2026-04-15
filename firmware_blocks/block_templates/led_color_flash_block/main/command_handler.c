@@ -182,7 +182,11 @@ static void command_action_task(void *arg) {
                 break;
             case ACTION_EXECUTE:
                 ESP_LOGI(TAG, "Worker starting execute color=%u", (unsigned)action.value);
+                int64_t exec_start_us = esp_timer_get_time();
                 led_flash_play_execute(action.value);
+                ESP_LOGI(TAG, "Worker execute returned color=%u elapsed=%lu ms",
+                         (unsigned)action.value,
+                         (unsigned long)((esp_timer_get_time() - exec_start_us) / 1000LL));
                 break;
             case ACTION_PLAY_NOTE: {
                 static const uint32_t k_note_freq_hz[7] = {
@@ -462,7 +466,6 @@ void handle_command(uint8_t *buffer, int len) {
             ESP_LOGI(TAG, "  → EXECUTE color_id=%d (%s)", color_id, led_pattern_name(color_id));
             if (command_handler_enqueue_execute_digit(color_id)) {
                 ESP_LOGI(TAG, "Queued EXECUTE color=%u", (unsigned)color_id);
-                set_current_status(STATUS_BUSY);
             } else {
                 ESP_LOGW(TAG, "Action queue full/unavailable, dropping EXECUTE");
                 set_current_status(STATUS_ERROR);

@@ -116,7 +116,9 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
 
     while (now_ms() < start + timeout_ms) {
         poll_idx++;
+#if LED_WAIT_VERBOSE_POLLS
         uint32_t elapsed = (uint32_t)(now_ms() - start);
+#endif
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
 #if LED_WAIT_VERBOSE_POLLS
             ESP_LOGI(TAG, "LED_WAIT busy poll=%lu addr=0x%02X elapsed=%lu ms status=0x%02X",
@@ -192,7 +194,9 @@ static esp_err_t wait_for_status_idle(uint8_t addr,
 
     while (now_ms() < start + timeout_ms) {
         poll_idx++;
+#if LED_WAIT_VERBOSE_POLLS
         uint32_t elapsed = (uint32_t)(now_ms() - start);
+#endif
         if (i2c_read_reg(addr, REG_STATUS, &status, 1) == ESP_OK) {
 #if LED_WAIT_VERBOSE_POLLS
             ESP_LOGI(TAG, "LED_WAIT idle poll=%lu addr=0x%02X elapsed=%lu ms status=0x%02X idle_run=%lu",
@@ -1236,7 +1240,7 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
             } else {
-                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) — best-effort continuing",
+                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) - best-effort continuing",
                          addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
             }
             dispatch_result = ESP_OK;
@@ -2327,3 +2331,4 @@ bool brain_event_handle_block_event(uint8_t block_addr,
 
     return xQueueSend(s_event_queue, &evt, pdMS_TO_TICKS(50)) == pdTRUE;
 }
+
