@@ -238,6 +238,12 @@ void app_main(void) {
         speaker_play_boot_sound();
     }
 
+    /* Start battery sampling early so TFT gets a percent quickly. */
+    esp_err_t bat_err = battery_monitor_start();
+    if (bat_err != ESP_OK) {
+        ESP_LOGW(TAG, "battery_monitor_start failed: %s", esp_err_to_name(bat_err));
+    }
+
     // Initialize LED Matrix
     ret = led_matrix_init();
     if (ret != ESP_OK) {
@@ -247,8 +253,6 @@ void app_main(void) {
     }
     tft_ui_start();
     tft_ui_set_idle();
-
-    battery_monitor_start();
 
     // Initialize I²C slave
     ret = i2c_slave_init();

@@ -252,6 +252,10 @@ void i2c_task(void *arg) {
         while (offset < total_len) {
             uint8_t head = work_buf[offset];
 
+            // Always guarantee a clean TX queue for the current transaction's reply.
+            // This prevents stale response bytes from poisoning subsequent register reads.
+            (void)i2c_reset_tx_fifo(I2C_NUM_0);
+
             if (is_register_index_byte(head)) {
                 refresh_dynamic_registers();
                 uint8_t value = registers[head];
@@ -270,21 +274,21 @@ void i2c_task(void *arg) {
             i2c_command_t cmd = (i2c_command_t)head;
             if (!is_command_byte(head)) {
                 ESP_LOGW(TAG,
-                         "RX frame off=%u unknown byte 0x%02X; dropping %u trailing bytes",
+                         "RX frame off=%u unknown byte 0x%02X; skipping",
                          (unsigned)offset,
-                         (unsigned)head,
-                         (unsigned)(total_len - offset));
-                break;
+                         (unsigned)head);
+                offset += 1U;
+                continue;
             }
 
             size_t frame_len = command_frame_len(cmd);
             if (frame_len == 0U) {
                 ESP_LOGW(TAG,
-                         "RX frame off=%u unsupported cmd 0x%02X; dropping %u trailing bytes",
+                         "RX frame off=%u unsupported cmd 0x%02X; skipping",
                          (unsigned)offset,
-                         (unsigned)head,
-                         (unsigned)(total_len - offset));
-                break;
+                         (unsigned)head);
+                offset += 1U;
+                continue;
             }
             if (offset + frame_len > total_len) {
                 size_t remain = total_len - offset;
@@ -323,13 +327,10 @@ void i2c_task(void *arg) {
             if (tx_len > 0U) {
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
                 (void)i2c_slave_write_buffer(I2C_NUM_0, tx_buf, tx_len, pdMS_TO_TICKS(100));
-<<<<<<< Updated upstream
 
-                /* CMD_GET_DATA responses are multi-byte (up to 5). If the master
-                 * clocks fewer bytes than we wrote, the leftovers sit in the TX
-                 * FIFO and poison the next register read (the master sees
-                 * stale payload bytes instead of the requested register).
-                 * Give the master time to finish reading, then flush residuals. */
+                /* CMD_GET_DATA responses are multi-byte. If the master clocks fewer
+                 * bytes than we wrote, leftovers can sit in the TX FIFO and poison
+                 * the next read. Give it a moment, then flush residuals. */
                 if (cmd == CMD_GET_DATA) {
                     vTaskDelay(pdMS_TO_TICKS(5));
                     (void)i2c_reset_tx_fifo(I2C_NUM_0);
@@ -337,8 +338,6 @@ void i2c_task(void *arg) {
                 }
             } else {
                 (void)i2c_reset_tx_fifo(I2C_NUM_0);
-=======
->>>>>>> Stashed changes
             }
 
             offset += frame_len;
