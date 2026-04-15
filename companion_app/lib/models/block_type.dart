@@ -78,13 +78,13 @@ enum BlockType {
       case BlockType.endIfBlock:
       case BlockType.loopBlock:
       case BlockType.endLoopBlock:
-      case BlockType.delayBlock:
         return BlockCategory.controlFlow;
       case BlockType.buttonPress:
         return BlockCategory.input;
       case BlockType.noteBlock:
       case BlockType.musicSequenceBlock:
       case BlockType.ledColorFlashBlock:
+      case BlockType.delayBlock:
         return BlockCategory.output;
     }
   }
@@ -215,7 +215,7 @@ class BlockTypeDefinition {
       BlockTypeDefinition(
         type: BlockType.delayBlock,
         displayName: 'Delay Block',
-        category: BlockCategory.controlFlow,
+        category: BlockCategory.output,
         capabilities: ['timing_control', 'execution_pause'],
         iconName: 'delay',
       ),

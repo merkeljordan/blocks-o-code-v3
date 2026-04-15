@@ -316,7 +316,7 @@ class ConfigurationRules {
             ));
           }
         }
-      } else if (type?.isOutput ?? false || type == BlockType.delayBlock) {
+      } else if (type?.isOutput ?? false) {
         for (var frame in stack) {
           frame.contentCount++;
         }
