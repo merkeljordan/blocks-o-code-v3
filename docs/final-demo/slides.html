@@ -1,739 +1,1257 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<title>Blocks o' Code v3 — Midterm Demo</title>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
+  <meta charset="UTF-8">
+  <title>Blocks o' Code v3 — Midterm Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-:root {
-  --pink:   #FF1F7A;
-  --blue:   #00AAFF;
-  --purple: #C044FF;
-  --green:  #00DD6A;
-  --orange: #FF7A00;
-  --cyan:   #00E5FF;
-  --yellow: #FFD600;
-  --red:    #FF3D57;
-  --bg:     #07071a;
-  --card:   #0e0e28;
-  --border: #1e1e45;
-  --text:   #f0f2ff;
-  --muted:  #8b9de8;
-  --dim:    #4a5490;
-}
+    :root {
+      --pink: #FF1F7A;
+      --blue: #00AAFF;
+      --purple: #C044FF;
+      --green: #00DD6A;
+      --orange: #FF7A00;
+      --cyan: #00E5FF;
+      --yellow: #FFD600;
+      --red: #FF3D57;
+      --bg: #07071a;
+      --card: #0e0e28;
+      --border: #1e1e45;
+      --text: #f0f2ff;
+      --muted: #8b9de8;
+      --dim: #4a5490;
+    }
 
-body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #000;
-  color: var(--text);
-  width: 100vw; height: 100vh;
-  overflow: hidden;
-  user-select: none;
-  font-size: 38px;
-}
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #000;
+      color: var(--text);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      font-size: 38px;
+    }
 
-/* ── Slide container ─────────────────────────────────────── */
-#deck { position: relative; width: 100vw; height: 100vh; }
+    /* ── Slide container ─────────────────────────────────────── */
+    #deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
 
-.slide {
-  position: absolute; inset: 0;
-  display: none; flex-direction: column;
-  background: var(--bg);
-  padding: 52px 72px 52px 72px;
-}
-.slide.active { display: flex; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      background: var(--bg);
+      padding: 52px 72px 52px 72px;
+    }
 
-/* Per-section tinted background splashes */
-#slide-2, #slide-3 {
-  background:
-    radial-gradient(ellipse 60% 50% at 5% 10%,  rgba(0,170,255,.13) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 95% 90%, rgba(0,229,255,.08) 0%, transparent 70%),
-    var(--bg);
-}
-#slide-4, #slide-5, #slide-6, #slide-7 {
-  background:
-    radial-gradient(ellipse 55% 45% at 95% 5%,  rgba(192,68,255,.14) 0%, transparent 70%),
-    radial-gradient(ellipse 35% 35% at 5% 95%,  rgba(0,170,255,.08) 0%, transparent 70%),
-    var(--bg);
-}
-#slide-8, #slide-9, #slide-10, #slide-11 {
-  background:
-    radial-gradient(ellipse 60% 50% at 5% 5%,   rgba(255,31,122,.14) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 95% 95%, rgba(192,68,255,.09) 0%, transparent 70%),
-    var(--bg);
-}
-#slide-10, #slide-11, #slide-12, #slide-13 {
-  background:
-    radial-gradient(ellipse 55% 45% at 95% 10%, rgba(255,122,0,.13)  0%, transparent 70%),
-    radial-gradient(ellipse 35% 35% at 5% 90%,  rgba(255,214,0,.07)  0%, transparent 70%),
-    var(--bg);
-}
-#slide-14 {
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 0%,  rgba(0,221,106,.12) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 10% 100%,rgba(0,170,255,.08) 0%, transparent 70%),
-    var(--bg);
-}
+    .slide.active {
+      display: flex;
+    }
 
-/* ── Header stripe ───────────────────────────────────────── */
-.slide-header {
-  display: flex; align-items: flex-end; gap: 16px;
-  margin-bottom: 28px;
-}
-.slide-header .section-tag {
-  font-size: 11px; font-weight: 800; letter-spacing: .14em;
-  text-transform: uppercase; padding: 5px 12px; border-radius: 6px;
-  white-space: nowrap; flex-shrink: 0;
-}
-.tag-intro   { background: linear-gradient(135deg,rgba(0,170,255,.3),rgba(0,229,255,.2));  color: var(--cyan);   border: 1px solid rgba(0,229,255,.35); }
-.tag-arch    { background: linear-gradient(135deg,rgba(192,68,255,.3),rgba(0,170,255,.15)); color: var(--purple); border: 1px solid rgba(192,68,255,.4); }
-.tag-demo    { background: linear-gradient(135deg,rgba(255,31,122,.3),rgba(192,68,255,.2)); color: #ff80b0;       border: 1px solid rgba(255,31,122,.4); }
-.tag-specs   { background: linear-gradient(135deg,rgba(255,122,0,.3),rgba(255,214,0,.15)); color: var(--yellow); border: 1px solid rgba(255,214,0,.35); }
-.tag-close   { background: linear-gradient(135deg,rgba(0,221,106,.3),rgba(0,229,255,.15)); color: var(--green);  border: 1px solid rgba(0,221,106,.4); }
+    /* Per-section tinted background splashes */
+    #slide-2,
+    #slide-3 {
+      background:
+        radial-gradient(ellipse 60% 50% at 5% 10%, rgba(0, 170, 255, .13) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 95% 90%, rgba(0, 229, 255, .08) 0%, transparent 70%),
+        var(--bg);
+    }
 
-.slide-title {
-  font-size: 72px; font-weight: 800; line-height: 1.15;
-  background: linear-gradient(90deg, #f0f2ff 0%, #c8d0ff 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.slide-title span {
-  background: linear-gradient(90deg, var(--pink), var(--purple));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+    #slide-4,
+    #slide-5,
+    #slide-6,
+    #slide-7 {
+      background:
+        radial-gradient(ellipse 55% 45% at 95% 5%, rgba(192, 68, 255, .14) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 35% at 5% 95%, rgba(0, 170, 255, .08) 0%, transparent 70%),
+        var(--bg);
+    }
 
-/* ── Body helpers ────────────────────────────────────────── */
-.content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-.row { display: flex; gap: 32px; align-items: flex-start; }
-.col { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+    #slide-8,
+    #slide-9,
+    #slide-10,
+    #slide-11 {
+      background:
+        radial-gradient(ellipse 60% 50% at 5% 5%, rgba(255, 31, 122, .14) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 95% 95%, rgba(192, 68, 255, .09) 0%, transparent 70%),
+        var(--bg);
+    }
 
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px; padding: 22px 26px;
-  position: relative; overflow: hidden;
-}
-.card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--pink), var(--purple), var(--blue));
-  border-radius: 14px 14px 0 0;
-}
-.card[style*="--pink"]::before,
-.card[style*="border-color:var(--pink)"]::before   { background: linear-gradient(90deg, var(--pink), var(--purple)); }
-.card[style*="border-color:var(--blue)"]::before   { background: linear-gradient(90deg, var(--blue), var(--cyan)); }
-.card[style*="border-color:var(--orange)"]::before { background: linear-gradient(90deg, var(--orange), var(--yellow)); }
-.card[style*="border-color:var(--green)"]::before  { background: linear-gradient(90deg, var(--green), var(--cyan)); }
-.card[style*="border-color:var(--purple)"]::before { background: linear-gradient(90deg, var(--purple), var(--pink)); }
-.card[style*="border-color:var(--border)"]::before { background: linear-gradient(90deg, var(--muted), var(--dim)); }
+    #slide-10,
+    #slide-11,
+    #slide-12,
+    #slide-13 {
+      background:
+        radial-gradient(ellipse 55% 45% at 95% 10%, rgba(255, 122, 0, .13) 0%, transparent 70%),
+        radial-gradient(ellipse 35% 35% at 5% 90%, rgba(255, 214, 0, .07) 0%, transparent 70%),
+        var(--bg);
+    }
 
-.card-title {
-  font-size: 26px; font-weight: 800; letter-spacing: .1em;
-  text-transform: uppercase; margin-bottom: 14px;
-}
+    #slide-14 {
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 221, 106, .12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 10% 100%, rgba(0, 170, 255, .08) 0%, transparent 70%),
+        var(--bg);
+    }
 
-ul.checklist { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-ul.checklist li {
-  font-size: 32px; color: #cdd4ff; padding-left: 26px; position: relative; line-height: 1.7;
-}
-ul.checklist li::before {
-  content: '◆'; position: absolute; left: 0; font-size: 9px; top: 4px;
-  background: linear-gradient(135deg, var(--pink), var(--purple));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+    /* ── Header stripe ───────────────────────────────────────── */
+    .slide-header {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
 
-table.spec-table {
-  width: 100%; border-collapse: collapse; font-size: 26px;
-}
-table.spec-table th {
-  background: rgba(139,157,232,.08); color: var(--muted);
-  font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .09em;
-  padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--border);
-}
-table.spec-table td {
-  padding: 9px 14px; border-bottom: 1px solid var(--border);
-  color: var(--text); vertical-align: top; line-height: 1.45;
-}
-table.spec-table tr:last-child td { border-bottom: none; }
-table.spec-table tr:hover td { background: rgba(139,157,232,.05); }
-table.spec-table td.num { font-variant-numeric: tabular-nums; font-family: 'Consolas', monospace; font-size: 24px; }
-table.spec-table td.accent-pink   { color: var(--pink);   font-weight: 700; }
-table.spec-table td.accent-blue   { color: var(--cyan);   font-weight: 700; }
-table.spec-table td.accent-orange { color: var(--yellow); font-weight: 700; }
-table.spec-table td.accent-green  { color: var(--green);  font-weight: 700; }
+    .slide-header .section-tag {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
 
-.pill {
-  display: inline-block; padding: 5px 13px; border-radius: 20px;
-  font-size: 22px; font-weight: 700; line-height: 1.5;
-}
-.pill-pink   { background: rgba(255,31,122,.22);  color: #ff80b0; border: 1px solid rgba(255,31,122,.4); }
-.pill-blue   { background: rgba(0,170,255,.20);   color: var(--cyan);   border: 1px solid rgba(0,229,255,.4); }
-.pill-purple { background: rgba(192,68,255,.22);  color: #d580ff; border: 1px solid rgba(192,68,255,.45); }
-.pill-green  { background: rgba(0,221,106,.18);   color: var(--green);  border: 1px solid rgba(0,221,106,.4); }
-.pill-orange { background: rgba(255,122,0,.20);   color: var(--yellow); border: 1px solid rgba(255,214,0,.4); }
+    .tag-intro {
+      background: linear-gradient(135deg, rgba(0, 170, 255, .3), rgba(0, 229, 255, .2));
+      color: var(--cyan);
+      border: 1px solid rgba(0, 229, 255, .35);
+    }
 
-.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 22px; color: var(--muted); }
+    .tag-arch {
+      background: linear-gradient(135deg, rgba(192, 68, 255, .3), rgba(0, 170, 255, .15));
+      color: var(--purple);
+      border: 1px solid rgba(192, 68, 255, .4);
+    }
 
-/* ── Execution Flow progressive reveal (Slide 11) ─────────── */
-#slide-11 .flow-step {
-  opacity: 0;
-  transition: opacity .35s ease-out;
-}
-#slide-11 .flow-step.visible {
-  opacity: 1;
-}
+    .tag-demo {
+      background: linear-gradient(135deg, rgba(255, 31, 122, .3), rgba(192, 68, 255, .2));
+      color: #ff80b0;
+      border: 1px solid rgba(255, 31, 122, .4);
+    }
 
-/* ── Navigation ──────────────────────────────────────────── */
-#nav {
-  display: none; /* hidden; use keyboard ← → or click elsewhere to advance */
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-  align-items: center; gap: 16px; z-index: 100;
-  background: rgba(7,7,26,.7); backdrop-filter: blur(12px);
-  padding: 8px 16px; border-radius: 32px; border: 1px solid var(--border);
-}
-#slide-counter { font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 48px; text-align: center; font-weight: 600; }
-.nav-btn {
-  width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 8px;
-  background: rgba(255,255,255,.05); color: var(--muted); cursor: pointer; font-size: 24px;
-  display: flex; align-items: center; justify-content: center; transition: all .15s;
-}
-.nav-btn:hover {
-  border-color: var(--pink); color: var(--pink);
-  background: rgba(255,31,122,.12); box-shadow: 0 0 12px rgba(255,31,122,.3);
-}
+    .tag-specs {
+      background: linear-gradient(135deg, rgba(255, 122, 0, .3), rgba(255, 214, 0, .15));
+      color: var(--yellow);
+      border: 1px solid rgba(255, 214, 0, .35);
+    }
 
-/* ── Slide 1: Title ──────────────────────────────────────── */
-#slide-1 {
-  background:
-    radial-gradient(ellipse 70% 60% at 15% 50%,  rgba(255,31,122,.18) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 55% at 85% 20%,  rgba(0,170,255,.16)  0%, transparent 65%),
-    radial-gradient(ellipse 50% 50% at 70% 85%,  rgba(192,68,255,.14) 0%, transparent 65%),
-    radial-gradient(ellipse 30% 30% at 90% 60%,  rgba(0,221,106,.09)  0%, transparent 60%),
-    var(--bg);
-  justify-content: center; align-items: flex-start; gap: 0;
-}
-/* floating decorative orbs */
-#slide-1::before {
-  content: '';
-  position: absolute; top: -120px; right: -120px;
-  width: 500px; height: 500px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,170,255,.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-#slide-1::after {
-  content: '';
-  position: absolute; bottom: -80px; left: 40%;
-  width: 300px; height: 300px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,31,122,.10) 0%, transparent 70%);
-  pointer-events: none;
-}
-.title-eyebrow {
-  font-size: 26px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase;
-  color: var(--cyan); margin-bottom: 20px; opacity: .85;
-}
-.title-main {
-  font-size: 120px; font-weight: 900; line-height: 1.0; margin-bottom: 12px;
-  background: linear-gradient(100deg, #ffffff 0%, #e0e8ff 40%, #c8b0ff 80%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.title-main .v3 {
-  background: linear-gradient(90deg, var(--pink) 0%, var(--purple) 50%, var(--blue) 100%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.title-tagline {
-  font-size: 36px; color: #b0bcff; max-width: 760px; line-height: 1.6; margin-bottom: 48px;
-}
-.title-divider {
-  width: 80px; height: 4px; border-radius: 2px; margin-bottom: 44px;
-  background: linear-gradient(90deg, var(--pink), var(--purple), var(--blue));
-}
-.team-grid { display: flex; gap: 32px; }
-.team-member {
-  padding: 14px 20px; border-radius: 12px;
-  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
-}
-.team-member .role { font-size: 20px; color: var(--cyan); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 6px; font-weight: 700; }
-.team-member .name { font-size: 32px; font-weight: 700; color: var(--text); }
-.course-tag { margin-top: 36px; font-size: 16px; color: var(--dim); }
+    .tag-close {
+      background: linear-gradient(135deg, rgba(0, 221, 106, .3), rgba(0, 229, 255, .15));
+      color: var(--green);
+      border: 1px solid rgba(0, 221, 106, .4);
+    }
 
-/* ── Slide 2: Problem ────────────────────────────────────── */
-.problem-vs {
-  display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: stretch;
-  border-radius: 18px; overflow: hidden;
-  box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,.4);
-}
-.problem-side { padding: 36px 40px; background: var(--card); }
-.problem-side:first-child {
-  border-right: 1px solid var(--border);
-  background: linear-gradient(145deg, rgba(255,61,87,.07), var(--card));
-}
-.problem-side:last-child {
-  background: linear-gradient(145deg, rgba(0,221,106,.07), var(--card));
-}
-.vs-divider {
-  display: flex; align-items: center; justify-content: center;
-  padding: 0 20px; font-size: 22px; font-weight: 900; color: var(--muted);
-  background: var(--card); border-left: 1px solid var(--border);
-}
-.problem-side .label { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 14px; }
-.problem-side h3 { font-size: 36px; font-weight: 800; margin-bottom: 16px; line-height: 1.3; }
-.problem-side p { font-size: 28px; color: #b0bcff; line-height: 1.65; }
-.label-bad  { color: var(--red); }
-.label-good { color: var(--green); }
-h3.bad  { color: #ff9eb0; }
-h3.good { color: #80ffb0; }
+    .slide-title {
+      font-size: 72px;
+      font-weight: 800;
+      line-height: 1.15;
+      background: linear-gradient(90deg, #f0f2ff 0%, #c8d0ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
 
-.goal-banner {
-  margin-top: 28px; padding: 18px 28px;
-  background: linear-gradient(90deg, rgba(255,31,122,.14), rgba(192,68,255,.12), rgba(0,170,255,.10));
-  border: 1px solid rgba(255,31,122,.35); border-radius: 12px;
-  font-size: 17px; color: var(--text); line-height: 1.55; text-align: center;
-}
-.goal-banner strong { color: var(--pink); }
+    .slide-title span {
+      background: linear-gradient(90deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
 
-/* ── Arch SVG (slide 5) ───────────────────────────────────── */
-.arch-svg-wrap { width: 100%; flex: 1; min-height: 0; }
-.arch-svg-wrap svg { width: 100%; height: 100%; }
+    /* ── Body helpers ────────────────────────────────────────── */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
 
-/* ── Slide 4 layout tuning (15 blocks) ────────────────────── */
-#slide-4 .card {
-  font-size: 18px;
-}
-#slide-4 .card .card-title {
-  font-size: 18px;
-}
-#slide-4 .card ul.checklist li {
-  font-size: 18px;
-  line-height: 1.6;
-}
-#slide-4 .card p {
-  font-size: 18px;
-  line-height: 1.6;
-}
-#slide-4 .pill {
-  font-size: 15px;
-}
-</style>
+    .row {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+    }
+
+    .col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--pink), var(--purple), var(--blue));
+      border-radius: 14px 14px 0 0;
+    }
+
+    .card[style*="--pink"]::before,
+    .card[style*="border-color:var(--pink)"]::before {
+      background: linear-gradient(90deg, var(--pink), var(--purple));
+    }
+
+    .card[style*="border-color:var(--blue)"]::before {
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .card[style*="border-color:var(--orange)"]::before {
+      background: linear-gradient(90deg, var(--orange), var(--yellow));
+    }
+
+    .card[style*="border-color:var(--green)"]::before {
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+    }
+
+    .card[style*="border-color:var(--purple)"]::before {
+      background: linear-gradient(90deg, var(--purple), var(--pink));
+    }
+
+    .card[style*="border-color:var(--border)"]::before {
+      background: linear-gradient(90deg, var(--muted), var(--dim));
+    }
+
+    .card-title {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    ul.checklist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    ul.checklist li {
+      font-size: 34px;
+      color: #cdd4ff;
+      padding-left: 36px;
+      position: relative;
+      line-height: 1.6;
+      margin-bottom: 6px;
+    }
+
+    ul.checklist li::before {
+      content: '◆';
+      position: absolute;
+      left: 0;
+      font-size: 9px;
+      top: 4px;
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 30px;
+    }
+
+    table.spec-table th {
+      background: rgba(139, 157, 232, .08);
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      padding: 14px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table.spec-table td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    table.spec-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.spec-table tr:hover td {
+      background: rgba(139, 157, 232, .05);
+    }
+
+    table.spec-table td.num {
+      font-variant-numeric: tabular-nums;
+      font-family: 'Consolas', monospace;
+      font-size: 24px;
+    }
+
+    table.spec-table td.accent-pink {
+      color: var(--pink);
+      font-weight: 700;
+    }
+
+    table.spec-table td.accent-blue {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    table.spec-table td.accent-orange {
+      color: var(--yellow);
+      font-weight: 700;
+    }
+
+    table.spec-table td.accent-green {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 5px 13px;
+      border-radius: 20px;
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .pill-pink {
+      background: rgba(255, 31, 122, .22);
+      color: #ff80b0;
+      border: 1px solid rgba(255, 31, 122, .4);
+    }
+
+    .pill-blue {
+      background: rgba(0, 170, 255, .20);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 229, 255, .4);
+    }
+
+    .pill-purple {
+      background: rgba(192, 68, 255, .22);
+      color: #d580ff;
+      border: 1px solid rgba(192, 68, 255, .45);
+    }
+
+    .pill-green {
+      background: rgba(0, 221, 106, .18);
+      color: var(--green);
+      border: 1px solid rgba(0, 221, 106, .4);
+    }
+
+    .pill-orange {
+      background: rgba(255, 122, 0, .20);
+      color: var(--yellow);
+      border: 1px solid rgba(255, 214, 0, .4);
+    }
+
+    .mono {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 22px;
+      color: var(--muted);
+    }
+
+    /* ── Execution Flow progressive reveal (Slide 11) ─────────── */
+    #slide-11 .flow-step {
+      opacity: 0;
+      transition: opacity .35s ease-out;
+    }
+
+    #slide-11 .flow-step.visible {
+      opacity: 1;
+    }
+
+    /* ── Navigation ──────────────────────────────────────────── */
+    #nav {
+      display: none;
+      /* hidden; use keyboard ← → or click elsewhere to advance */
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      align-items: center;
+      gap: 16px;
+      z-index: 100;
+      background: rgba(7, 7, 26, .7);
+      backdrop-filter: blur(12px);
+      padding: 8px 16px;
+      border-radius: 32px;
+      border: 1px solid var(--border);
+    }
+
+    #slide-counter {
+      font-size: 20px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 48px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .nav-btn {
+      width: 48px;
+      height: 48px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .05);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+
+    .nav-btn:hover {
+      border-color: var(--pink);
+      color: var(--pink);
+      background: rgba(255, 31, 122, .12);
+      box-shadow: 0 0 12px rgba(255, 31, 122, .3);
+    }
+
+    /* ── Slide 1: Title ──────────────────────────────────────── */
+    #slide-1 {
+      background:
+        radial-gradient(ellipse 70% 60% at 15% 50%, rgba(255, 31, 122, .18) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 55% at 85% 20%, rgba(0, 170, 255, .16) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 50% at 70% 85%, rgba(192, 68, 255, .14) 0%, transparent 65%),
+        radial-gradient(ellipse 30% 30% at 90% 60%, rgba(0, 221, 106, .09) 0%, transparent 60%),
+        var(--bg);
+      justify-content: center;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    /* floating decorative orbs */
+    #slide-1::before {
+      content: '';
+      position: absolute;
+      top: -120px;
+      right: -120px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 170, 255, .12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    #slide-1::after {
+      content: '';
+      position: absolute;
+      bottom: -80px;
+      left: 40%;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 31, 122, .10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .title-eyebrow {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 20px;
+      opacity: .85;
+    }
+
+    .title-main {
+      font-size: 120px;
+      font-weight: 900;
+      line-height: 1.0;
+      margin-bottom: 12px;
+      background: linear-gradient(100deg, #ffffff 0%, #e0e8ff 40%, #c8b0ff 80%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .title-main .v3 {
+      background: linear-gradient(90deg, var(--pink) 0%, var(--purple) 50%, var(--blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .title-tagline {
+      font-size: 36px;
+      color: #b0bcff;
+      max-width: 760px;
+      line-height: 1.6;
+      margin-bottom: 48px;
+    }
+
+    .title-divider {
+      width: 80px;
+      height: 4px;
+      border-radius: 2px;
+      margin-bottom: 44px;
+      background: linear-gradient(90deg, var(--pink), var(--purple), var(--blue));
+    }
+
+    .team-grid {
+      display: flex;
+      gap: 32px;
+    }
+
+    .team-member {
+      padding: 14px 20px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(255, 255, 255, .1);
+    }
+
+    .team-member .role {
+      font-size: 20px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .team-member .name {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .course-tag {
+      margin-top: 36px;
+      font-size: 16px;
+      color: var(--dim);
+    }
+
+    /* ── Slide 2: Problem ────────────────────────────────────── */
+    .problem-vs {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+      align-items: stretch;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0, 0, 0, .4);
+    }
+
+    .problem-side {
+      padding: 48px 56px;
+      background: var(--card);
+    }
+
+    .problem-side:first-child {
+      border-right: 1px solid var(--border);
+      background: linear-gradient(145deg, rgba(255, 61, 87, .12), var(--card));
+    }
+
+    .problem-side:last-child {
+      background: linear-gradient(145deg, rgba(0, 221, 106, .12), var(--card));
+    }
+
+    .vs-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 30px;
+      font-size: 84px;
+      font-weight: 900;
+      color: var(--muted);
+      background: var(--card);
+      border-left: 1px solid var(--border);
+    }
+
+    .problem-side .label {
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 14px;
+    }
+
+    .problem-side h3 {
+      font-size: 44px;
+      font-weight: 800;
+      margin-bottom: 22px;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+
+    .problem-side p {
+      font-size: 32px;
+      color: #b0bcff;
+      line-height: 1.6;
+    }
+
+    .label-bad {
+      color: var(--red);
+    }
+
+    .label-good {
+      color: var(--green);
+    }
+
+    h3.bad {
+      color: #ff9eb0;
+    }
+
+    h3.good {
+      color: #80ffb0;
+    }
+
+    .goal-banner {
+      margin-top: 36px;
+      padding: 24px 36px;
+      background: linear-gradient(90deg, rgba(255, 31, 122, .18), rgba(192, 68, 255, .15), rgba(0, 170, 255, .12));
+      border: 1px solid rgba(255, 31, 122, .45);
+      border-radius: 14px;
+      font-size: 34px;
+      color: var(--text);
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .goal-banner strong {
+      color: var(--pink);
+    }
+
+    /* ── Arch SVG (slide 5) ───────────────────────────────────── */
+    .arch-svg-wrap {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .arch-svg-wrap svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Slide 4 layout tuning (15 blocks) ────────────────────── */
+    #slide-4 .card {
+      font-size: 18px;
+    }
+
+    #slide-4 .card .card-title {
+      font-size: 18px;
+    }
+
+    #slide-4 .card ul.checklist li {
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    #slide-4 .card p {
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    #slide-4 .pill {
+      font-size: 15px;
+    }
+
+    .content-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .spec-card-hero {
+      width: 800px;
+      padding: 60px !important;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 2px solid;
+    }
+
+    .spec-card-hero::before {
+      content: '⚙';
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      font-size: 300px;
+      opacity: 0.03;
+      pointer-events: none;
+    }
+
+    .demo-roadmap {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 40px;
+      margin-top: 40px;
+      flex: 1;
+      width: 100%;
+    }
+
+    .demo-step-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 30px;
+      position: relative;
+      text-align: center;
+      transition: transform 0.3s ease, border-color 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .demo-step-card:hover {
+      transform: translateY(-10px);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .demo-visual-block {
+      width: 140px;
+      height: 90px;
+      margin: 0 auto 20px;
+      border: 4px solid;
+      border-radius: 14px;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 50px;
+      position: relative;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .demo-visual-block::after {
+      content: '';
+      position: absolute;
+      width: 80%;
+      height: 65%;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: 4px;
+    }
+
+    .demo-step-num {
+      position: absolute;
+      top: -20px;
+      left: -20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 24px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .demo-step-title {
+      font-weight: 700;
+      font-size: 34px;
+      margin-bottom: 12px;
+    }
+
+    .demo-step-desc {
+      font-size: 22px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Results certification badge */
+    .cert-badge {
+      margin-top: 30px;
+      padding: 30px 50px;
+      background: linear-gradient(135deg, #0d1a0d, #1a331a);
+      border: 2px solid var(--green);
+      box-shadow: 0 0 30px rgba(0, 221, 106, 0.2);
+      border-radius: 16px;
+      text-align: center;
+    }
+  </style>
 </head>
+
 <body>
 
-<div id="deck">
+  <div id="deck">
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 1 — TITLE
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-1">
-  <p class="title-eyebrow">Midterm Demo &nbsp;·&nbsp; Senior Design 2 &nbsp;·&nbsp; Spring 2026</p>
-  <h1 class="title-main">Blocks o' Code <span class="v3">v3</span></h1>
-  <p class="title-tagline">A physical, block-based programming system — snap magnetic blocks together to build real programs.</p>
-  <div class="title-divider"></div>
-  <div class="team-grid">
-    <div class="team-member">
-      <div class="role">Computer Engineering</div>
-      <div class="name">Destiny Ellenwood</div>
+    <div class="slide" id="slide-1">
+      <p class="title-eyebrow">Midterm Demo &nbsp;·&nbsp; Senior Design 2 &nbsp;·&nbsp; Spring 2026</p>
+      <h1 class="title-main">Blocks o' Code <span class="v3">v3</span></h1>
+      <p class="title-tagline">A physical, block-based programming system — snap magnetic blocks together to build real
+        programs.</p>
+      <div class="title-divider"></div>
+      <div class="team-grid">
+        <div class="team-member">
+          <div class="role">Computer Engineering</div>
+          <div class="name">Destiny Ellenwood</div>
+        </div>
+        <div class="team-member">
+          <div class="role">Computer Engineering</div>
+          <div class="name">Jordan Merkel</div>
+        </div>
+        <div class="team-member">
+          <div class="role">Electrical Engineering</div>
+          <div class="name">Annesley Kolb</div>
+        </div>
+        <div class="team-member">
+          <div class="role">Electrical Engineering</div>
+          <div class="name">Camilla Torres</div>
+        </div>
+      </div>
     </div>
-    <div class="team-member">
-      <div class="role">Computer Engineering</div>
-      <div class="name">Jordan Merkel</div>
-    </div>
-    <div class="team-member">
-      <div class="role">Electrical Engineering</div>
-      <div class="name">Annesley Kolb</div>
-    </div>
-    <div class="team-member">
-      <div class="role">Electrical Engineering</div>
-      <div class="name">Camilla Torres</div>
-    </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 2 — THE PROBLEM
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-2">
-  <div class="slide-header">
-    <span class="section-tag tag-intro">1 of 4 · Introduction</span>
-    <h2 class="slide-title">The <span>Problem</span></h2>
-  </div>
-  <div class="content">
-    <div class="problem-vs">
-      <div class="problem-side">
-        <div class="label label-bad">❌ The Problem</div>
-        <h3 class="bad">Programming is abstract and inaccessible.</h3>
-        <p>Beginners face an invisible barrier — a blank text editor with zero feedback. There's no physical intuition for loops, branches, or sequences. Most give up before writing a single meaningful program.</p>
+    <div class="slide" id="slide-2">
+      <div class="slide-header">
+        <span class="section-tag tag-intro">1 of 4 · Introduction</span>
+        <h2 class="slide-title">The <span>Problem</span></h2>
       </div>
-      <div class="vs-divider">→</div>
-      <div class="problem-side">
-        <div class="label label-good">✅ Our Solution</div>
-        <h3 class="good">Make programming tangible, immediate, and fun.</h3>
-        <p>Users snap together magnetic hardware blocks to build a program. No keyboard. No screen. The physical arrangement <em>is</em> the code — and it executes with real LEDs, real audio, and real interactivity.</p>
+      <div class="content">
+        <div class="problem-vs">
+          <div class="problem-side">
+            <div class="label label-bad">❌ The Problem</div>
+            <h3 class="bad">Programming is abstract and inaccessible.</h3>
+            <p>Beginners face an invisible barrier — a blank text editor with zero feedback. There's no physical
+              intuition for loops, branches, or sequences. Most give up before writing a single meaningful program.</p>
+          </div>
+          <div class="vs-divider">→</div>
+          <div class="problem-side">
+            <div class="label label-good">✅ Our Solution</div>
+            <h3 class="good">Make programming tangible, immediate, and fun.</h3>
+            <p>Users snap together magnetic hardware blocks to build a program. No keyboard. No screen. The physical
+              arrangement <em>is</em> the code — and it executes with real LEDs, real audio, and real interactivity.</p>
+          </div>
+        </div>
+        <div class="goal-banner">
+          <strong>Goal:</strong> A working end-to-end system where 15 physical blocks snap together, a Brain reads the
+          arrangement, validates it as a legal program, and executes it — all in real time.
+        </div>
       </div>
     </div>
-    <div class="goal-banner">
-      <strong>Goal:</strong> A working end-to-end system where 15 physical blocks snap together, a Brain reads the arrangement, validates it as a legal program, and executes it — all in real time.
-    </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 3 — REQUIREMENTS
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-3">
-  <div class="slide-header">
-    <span class="section-tag tag-intro">1 of 4 · Introduction</span>
-    <h2 class="slide-title">Key <span>Requirements</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
-        <div class="card">
-          <div class="card-title" style="color:var(--blue)">Functional Requirements</div>
-          <ul class="checklist">
-            <li>Detect which blocks are physically connected and in what order</li>
-            <li>Validate the block sequence against program grammar rules</li>
-            <li>Execute the program on command (LEDs, audio, display)</li>
-            <li>Provide real-time feedback: app updates within scan interval</li>
-            <li>Support control flow (If/Loop), input (Button), and output blocks</li>
-            <li>Preview block configuration on-block before execution</li>
-          </ul>
-        </div>
+    <div class="slide" id="slide-3">
+      <div class="slide-header">
+        <span class="section-tag tag-intro">1 of 4 · Introduction</span>
+        <h2 class="slide-title">Key <span>Requirements</span></h2>
       </div>
-      <div class="col">
-        <div class="card">
-          <div class="card-title" style="color:var(--orange)">Engineering Specifications</div>
-          <table class="spec-table">
-            <thead><tr><th>#</th><th>Metric</th><th>Target</th></tr></thead>
-            <tbody>
-              <tr>
-                <td class="num accent-pink">1</td>
-                <td>LED color select → preview latency</td>
-                <td class="accent-pink">Mean ≤ 50 ms</td>
-              </tr>
-              <tr>
-                <td class="num accent-blue">2</td>
-                <td>Config-change-to-app latency</td>
-                <td class="accent-blue">Mean ≤ 2000 ms</td>
-              </tr>
-              <tr>
-                <td class="num accent-orange">3</td>
-                <td>I2C SCL/SDA rise time</td>
-                <td class="accent-orange">≤ 1000 ns (standard mode)</td>
-              </tr>
-            </tbody>
-          </table>
-          <p style="font-size:13px;color:var(--dim);margin-top:14px">Each spec demonstrated with 10-run data + 3 live runs in Part 3.</p>
+      <div class="content">
+        <div class="row">
+          <div class="col">
+            <div class="card">
+              <div class="card-title" style="color:var(--blue)">Functional Requirements</div>
+              <ul class="checklist">
+                <li>Detect which blocks are physically connected and in what order</li>
+                <li>Validate the block sequence against program grammar rules</li>
+                <li>Execute the program on command (LEDs, audio, display)</li>
+                <li>Provide real-time feedback: app updates within scan interval</li>
+                <li>Support control flow (If/Loop), input (Button), and output blocks</li>
+                <li>Preview block configuration on-block before execution</li>
+              </ul>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <div class="card-title" style="color:var(--orange)">Engineering Specifications</div>
+              <table class="spec-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Metric</th>
+                    <th>Target</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="num accent-pink">1</td>
+                    <td>LED color select → preview latency</td>
+                    <td class="accent-pink">Mean ≤ 50 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num accent-blue">2</td>
+                    <td>Config-change-to-app latency</td>
+                    <td class="accent-blue">Mean ≤ 2000 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num accent-orange">3</td>
+                    <td>I2C SCL/SDA rise time</td>
+                    <td class="accent-orange">≤ 1000 ns (standard mode)</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p style="font-size:13px;color:var(--dim);margin-top:14px">Each spec demonstrated with 10-run data + 3
+                live runs in Part 3.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 4 — SYSTEM OVERVIEW (15 blocks)
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-4">
-  <div class="slide-header">
-    <span class="section-tag tag-arch">2 of 4 · Architecture</span>
-    <h2 class="slide-title">The <span>15 Blocks</span></h2>
-  </div>
-  <div class="content">
+    <div class="slide" id="slide-4">
+      <div class="slide-header">
+        <span class="section-tag tag-arch">2 of 4 · Architecture</span>
+        <h2 class="slide-title">The <span>15 Blocks</span></h2>
+      </div>
+      <div class="content">
 
-    <!-- Shared hardware banner -->
-    <div style="padding:16px 28px;margin-bottom:20px;border-radius:14px;
-                background:linear-gradient(90deg,rgba(0,170,255,.10),rgba(192,68,255,.10),rgba(255,31,122,.08));
-                border:1px solid rgba(0,229,255,.3);position:relative;overflow:hidden">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-                  color:var(--cyan);margin-bottom:10px">⚡ Shared Hardware Platform — All 15 Blocks</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">🧠</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">MCU</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">ESP32-WROOM32</div>
+        <!-- Shared hardware banner -->
+        <div style="padding:32px 48px;margin-bottom:40px;border-radius:18px;
+                background:linear-gradient(90deg,rgba(0,170,255,.12),rgba(192,68,255,.12),rgba(255,31,122,.10));
+                border:1px solid rgba(0,229,255,.4);position:relative;overflow:hidden">
+          <div style="font-size:20px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+                  color:var(--cyan);margin-bottom:24px">⚡ Shared Hardware Platform — All 15 Blocks</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">🧠</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">MCU</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">ESP32-WROOM32</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">🖥️</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">User Input</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">TFT 2.8" Touch Display</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">🔋</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">Power</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">Rechargeable USB-C</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">💡</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">Display</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">4×4 WS2812B Matrix</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">🌈</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">Lighting</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">Addressable WS2812B LEDs</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;background:rgba(255,255,255,.07);
+                    border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:16px 28px">
+              <span style="font-size:38px">🔊</span>
+              <div>
+                <div style="font-size:18px;color:var(--cyan);font-weight:700">Audio</div>
+                <div style="font-size:22px;color:var(--text);font-weight:600">LM386 Amplifier + Speaker</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">🖥️</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">User Input</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">TFT 2.8" Touch Display</div>
+
+        <!-- Block type cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:stretch">
+          <!-- Brain -->
+          <div class="card" style="border-color:var(--orange);">
+            <div class="card-title" style="color:var(--orange)">🧠 Brain (×1)</div>
+            <ul class="checklist" style="gap:20px;padding-top:12px">
+              <li style="font-size:32px">I2C Master</li>
+              <li style="font-size:32px">Wi-Fi + TCP client</li>
+              <li style="font-size:32px">Runs program executor</li>
+            </ul>
+          </div>
+          <!-- Control Flow -->
+          <div class="card" style="border-color:var(--blue);">
+            <div class="card-title" style="color:var(--blue)">🔀 Control Flow (×6)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px">
+              <span class="pill pill-blue" style="font-size:28px">If</span>
+              <span class="pill pill-blue" style="font-size:28px">Then</span>
+              <span class="pill pill-blue" style="font-size:28px">End If</span>
+              <span class="pill pill-blue" style="font-size:28px">Loop</span>
+              <span class="pill pill-blue" style="font-size:28px">End Loop</span>
+              <span class="pill pill-blue" style="font-size:28px">Delay</span>
+            </div>
+            <p style="font-size:28px;color:#b0bcff;line-height:1.5">Define program structure. TFT shows block type. No
+              program output produced — they tell the Brain how to route execution.</p>
+          </div>
+          <!-- Input -->
+          <div class="card" style="border-color:var(--green);">
+            <div class="card-title" style="color:var(--green)">👆 Input (×1)</div>
+            <div style="margin-bottom:20px"><span class="pill pill-green" style="font-size:28px">Button Press</span>
+            </div>
+            <p style="font-size:28px;color:#b0bcff;line-height:1.5">Waits for a physical press to enable conditional
+              statements execution. Enables interactive programs.</p>
+          </div>
+          <!-- Output -->
+          <div class="card" style="border-color:var(--pink);">
+            <div class="card-title" style="color:var(--pink)">✨ Output (×7 blocks)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px">
+              <span class="pill pill-pink" style="font-size:28px">LED Color Flash</span>
+              <span class="pill pill-pink" style="font-size:28px">Note</span>
+              <span class="pill pill-pink" style="font-size:28px">Music Sequence</span>
+            </div>
+            <p style="font-size:28px;color:#b0bcff;line-height:1.5">User picks setting via TFT touch display. LED matrix
+              + addressable LEDs + speaker preview it immediately.</p>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">🔋</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">Power</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">Rechargeable USB-C</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">💡</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">Display</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">4×4 WS2812B Matrix</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">🌈</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">Lighting</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">Addressable WS2812B LEDs</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);
-                    border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 14px">
-          <span style="font-size:18px">🔊</span>
-          <div>
-            <div style="font-size:11px;color:var(--cyan);font-weight:700">Audio</div>
-            <div style="font-size:13px;color:var(--text);font-weight:600">LM386 Amplifier + Speaker</div>
-          </div>
+
+        <!-- I2C footnote -->
+        <div style="margin-top:28px">
+          <p style="font-size:24px;color:var(--dim);text-align:center">All child blocks share a single I2C bus
+            &nbsp;·&nbsp; Addresses
+            <span class="mono" style="font-size:28px;color:var(--cyan)">0x08 – 0x16</span> &nbsp;·&nbsp; 100 kHz
+            standard mode &nbsp;·&nbsp; SDA = GPIO21, SCL =
+            GPIO22
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- Block type cards -->
-    <div class="row" style="align-items:stretch">
-      <!-- Brain -->
-      <div class="card" style="flex:0 0 230px;border-color:var(--orange);">
-        <div class="card-title" style="color:var(--orange)">🧠 Brain (×1)</div>
-        <ul class="checklist">
-          <li>I2C Master</li>
-          <li>Wi-Fi + TCP client</li>
-          <li>Runs program executor</li>
-        </ul>
-      </div>
-      <!-- Control Flow -->
-      <div class="card" style="flex:1;border-color:var(--blue);">
-        <div class="card-title" style="color:var(--blue)">🔀 Control Flow (×6)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px">
-          <span class="pill pill-blue">If</span>
-          <span class="pill pill-blue">Then</span>
-          <span class="pill pill-blue">End If</span>
-          <span class="pill pill-blue">Loop</span>
-          <span class="pill pill-blue">End Loop</span>
-          <span class="pill pill-blue">Delay</span>
-        </div>
-        <p style="font-size:20px;color:#b0bcff;line-height:1.5">Define program structure. TFT shows block type. No program output produced — they tell the Brain how to route execution.</p>
-      </div>
-      <!-- Input -->
-      <div class="card" style="flex:0 0 230px;border-color:var(--green);">
-        <div class="card-title" style="color:var(--green)">👆 Input (×1)</div>
-        <div style="margin-bottom:10px"><span class="pill pill-green">Button Press</span></div>
-        <p style="font-size:16px;color:#b0bcff;line-height:1.5">Waits for a physical press to enable conditional statements execution. Enables interactive programs.</p>
-      </div>
-      <!-- Output -->
-      <div class="card" style="flex:1;border-color:var(--pink);">
-        <div class="card-title" style="color:var(--pink)">✨ Output (×7 blocks)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px">
-          <span class="pill pill-pink">LED Color Flash</span>
-          <span class="pill pill-pink">Note</span>
-          <span class="pill pill-pink">Music Sequence</span>
-        </div>
-        <p style="font-size:20px;color:#b0bcff;line-height:1.5">User picks setting via TFT touch display. LED matrix + addressable LEDs + speaker preview it immediately.</p>
-      </div>
-    </div>
-
-    <!-- I2C footnote -->
-    <div style="margin-top:14px">
-      <p style="font-size:13px;color:var(--dim)">All child blocks share a single I2C bus &nbsp;·&nbsp; Addresses <span class="mono">0x08 – 0x16</span> &nbsp;·&nbsp; 100 kHz standard mode &nbsp;·&nbsp; SDA = GPIO21, SCL = GPIO22</p>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 5 — SYSTEM ARCHITECTURE DIAGRAM
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-5">
-  <div class="slide-header">
-    <span class="section-tag tag-arch">2 of 4 · Architecture</span>
-    <h2 class="slide-title">System <span>Architecture</span></h2>
-  </div>
-  <div class="content arch-svg-wrap">
-    <svg viewBox="0 0 1100 460" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',system-ui,sans-serif">
-      <defs>
-        <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-          <polygon points="0 0,8 3,0 6" fill="#00E5FF"/>
-        </marker>
-        <marker id="arr-rev" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto">
-          <polygon points="8 0,0 3,8 6" fill="#8b9de8"/>
-        </marker>
-        <linearGradient id="gPurple" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#C044FF"/>
-          <stop offset="100%" stop-color="#00AAFF"/>
-        </linearGradient>
-        <linearGradient id="gOrange" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#FF7A00"/>
-          <stop offset="100%" stop-color="#FFD600"/>
-        </linearGradient>
-        <linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#00AAFF"/>
-          <stop offset="100%" stop-color="#00E5FF"/>
-        </linearGradient>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="blur"/>
-          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-        </filter>
-      </defs>
+    <div class="slide" id="slide-5">
+      <div class="slide-header">
+        <span class="section-tag tag-arch">2 of 4 · Architecture</span>
+        <h2 class="slide-title">System <span>Architecture</span></h2>
+      </div>
+      <div class="content arch-svg-wrap">
+        <svg viewBox="0 0 1100 460" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',system-ui,sans-serif">
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+              <polygon points="0 0,8 3,0 6" fill="#00E5FF" />
+            </marker>
+            <marker id="arr-rev" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+              <polygon points="0 0,8 3,0 6" fill="#8b9de8" />
+            </marker>
+            <marker id="arrow-double" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"
+              orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b9de8" />
+            </marker>
+            <linearGradient id="gPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#C044FF" />
+              <stop offset="100%" stop-color="#00AAFF" />
+            </linearGradient>
+            <linearGradient id="gOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF7A00" />
+              <stop offset="100%" stop-color="#FFD600" />
+            </linearGradient>
+            <linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00AAFF" />
+              <stop offset="100%" stop-color="#00E5FF" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
 
-      <!-- ── Child Blocks ── -->
-      <rect x="20" y="30" width="240" height="380" rx="14" fill="#0d0d22" stroke="url(#gPurple)" stroke-width="2"/>
-      <text x="140" y="58" text-anchor="middle" fill="#d580ff" font-size="13" font-weight="800">CHILD BLOCKS ×14</text>
+          <!-- ── Child Blocks ── -->
+          <rect x="20" y="30" width="240" height="380" rx="14" fill="#0d0d22" stroke="url(#gPurple)" stroke-width="2" />
+          <text x="140" y="58" text-anchor="middle" fill="#d580ff" font-size="13" font-weight="800">CHILD BLOCKS
+            ×14</text>
 
-      <!-- Control Flow -->
-      <rect x="35" y="70" width="210" height="80" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5"/>
-      <text x="140" y="95" text-anchor="middle" fill="#00AAFF" font-size="12" font-weight="700">Control Flow</text>
-      <text x="140" y="113" text-anchor="middle" fill="#8b9de8" font-size="10.5">If · Then · End If</text>
-      <text x="140" y="130" text-anchor="middle" fill="#8b9de8" font-size="10.5">Loop · End Loop · Delay</text>
+          <!-- Control Flow -->
+          <rect x="35" y="70" width="210" height="80" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5" />
+          <text x="140" y="95" text-anchor="middle" fill="#00AAFF" font-size="12" font-weight="700">Control Flow</text>
+          <text x="140" y="113" text-anchor="middle" fill="#8b9de8" font-size="10.5">If · Then · End If</text>
+          <text x="140" y="130" text-anchor="middle" fill="#8b9de8" font-size="10.5">Loop · End Loop · Delay</text>
 
-      <!-- Output -->
-      <rect x="35" y="162" width="210" height="80" rx="9" fill="#0a0a1e" stroke="#FF1F7A" stroke-width="1.5"/>
-      <text x="140" y="187" text-anchor="middle" fill="#ff80b0" font-size="12" font-weight="700">Output</text>
-      <text x="140" y="205" text-anchor="middle" fill="#8b9de8" font-size="10.5">LED Flash</text>
-      <text x="140" y="222" text-anchor="middle" fill="#8b9de8" font-size="10.5">Note · Music Sequence</text>
+          <!-- Output -->
+          <rect x="35" y="162" width="210" height="80" rx="9" fill="#0a0a1e" stroke="#FF1F7A" stroke-width="1.5" />
+          <text x="140" y="187" text-anchor="middle" fill="#ff80b0" font-size="12" font-weight="700">Output</text>
+          <text x="140" y="205" text-anchor="middle" fill="#8b9de8" font-size="10.5">LED Flash</text>
+          <text x="140" y="222" text-anchor="middle" fill="#8b9de8" font-size="10.5">Note · Music Sequence</text>
 
-      <!-- Input -->
-      <rect x="35" y="254" width="210" height="58" rx="9" fill="#0a0a1e" stroke="#00DD6A" stroke-width="1.5"/>
-      <text x="140" y="279" text-anchor="middle" fill="#00DD6A" font-size="12" font-weight="700">Input</text>
-      <text x="140" y="298" text-anchor="middle" fill="#8b9de8" font-size="10.5">Button Press</text>
+          <!-- Input -->
+          <rect x="35" y="254" width="210" height="58" rx="9" fill="#0a0a1e" stroke="#00DD6A" stroke-width="1.5" />
+          <text x="140" y="279" text-anchor="middle" fill="#00DD6A" font-size="12" font-weight="700">Input</text>
+          <text x="140" y="298" text-anchor="middle" fill="#8b9de8" font-size="10.5">Button Press</text>
 
-      <!-- Hardware note -->
-      <rect x="35" y="325" width="210" height="80" rx="9" fill="#0a0a1e" stroke="rgba(0,229,255,.25)" stroke-width="1"/>
-      <text x="140" y="345" text-anchor="middle" fill="#00E5FF" font-size="9.5" font-weight="800">ALL BLOCKS — SAME HW</text>
-      <text x="140" y="361" text-anchor="middle" fill="#4a5490" font-size="9.5">ESP32-WROOM32 · TFT Touch</text>
-      <text x="140" y="376" text-anchor="middle" fill="#4a5490" font-size="9.5">4×4 LED Matrix · Addr. LEDs</text>
-      <text x="140" y="391" text-anchor="middle" fill="#4a5490" font-size="9.5">Amp + Speaker · USB-C</text>
+          <!-- Hardware note -->
+          <rect x="35" y="325" width="210" height="80" rx="9" fill="#0a0a1e" stroke="rgba(0,229,255,.25)"
+            stroke-width="1" />
+          <text x="140" y="345" text-anchor="middle" fill="#00E5FF" font-size="9.5" font-weight="800">ALL BLOCKS — SAME
+            HW</text>
+          <text x="140" y="361" text-anchor="middle" fill="#4a5490" font-size="9.5">ESP32-WROOM32 · TFT Touch</text>
+          <text x="140" y="376" text-anchor="middle" fill="#4a5490" font-size="9.5">4×4 LED Matrix · Addr. LEDs</text>
+          <text x="140" y="391" text-anchor="middle" fill="#4a5490" font-size="9.5">Amp + Speaker · USB-C</text>
 
-      <!-- ── I2C Bus arrow ── -->
-      <line x1="260" y1="220" x2="342" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)"/>
-      <line x1="342" y1="228" x2="260" y2="228" stroke="#8b9de8" stroke-width="1" marker-end="url(#arr-rev)" stroke-dasharray="4 3" opacity=".6"/>
-      <text x="301" y="207" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">I2C BUS</text>
-      <text x="301" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">100 kHz · 0x08–0x16</text>
+          <!-- ── I2C Bus arrow ── -->
+          <line x1="260" y1="220" x2="342" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)" />
+          <line x1="262" y1="228" x2="334" y2="228" stroke="#8b9de8" stroke-width="1" marker-start="url(#arr-rev)"
+            marker-end="url(#arr-rev)" stroke-dasharray="4 3" opacity=".6" />
+          <text x="301" y="207" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">I2C BUS</text>
+          <text x="301" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">100 kHz · 0x08–0x16</text>
 
-      <!-- ── Brain Block ── -->
-      <rect x="345" y="30" width="390" height="380" rx="14" fill="#0d0d22" stroke="url(#gOrange)" stroke-width="2"/>
-      <text x="540" y="58" text-anchor="middle" fill="#FFD600" font-size="13" font-weight="800">BRAIN BLOCK — ESP32</text>
+          <!-- ── Brain Block ── -->
+          <rect x="345" y="30" width="390" height="380" rx="14" fill="#0d0d22" stroke="url(#gOrange)"
+            stroke-width="2" />
+          <text x="540" y="58" text-anchor="middle" fill="#FFD600" font-size="13" font-weight="800">BRAIN BLOCK —
+            ESP32</text>
 
-      <!-- I2C Master -->
-      <rect x="362" y="72" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5"/>
-      <text x="447" y="96" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">I2C Master</text>
-      <text x="447" y="114" text-anchor="middle" fill="#4a5490" font-size="10">GPIO 21/22</text>
+          <!-- I2C Master -->
+          <rect x="362" y="72" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5" />
+          <text x="447" y="96" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">I2C Master</text>
+          <text x="447" y="114" text-anchor="middle" fill="#4a5490" font-size="10">GPIO 21/22</text>
 
-      <!-- Config Manager -->
-      <rect x="362" y="136" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5"/>
-      <text x="447" y="157" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Config Manager</text>
-      <text x="447" y="175" text-anchor="middle" fill="#4a5490" font-size="10">Scan · Diff · JSON</text>
+          <!-- Config Manager -->
+          <rect x="362" y="136" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5" />
+          <text x="447" y="157" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Config
+            Manager</text>
+          <text x="447" y="175" text-anchor="middle" fill="#4a5490" font-size="10">Scan · Diff · JSON</text>
 
-      <!-- Executor -->
-      <rect x="362" y="200" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5"/>
-      <text x="447" y="221" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Executor</text>
-      <text x="447" y="239" text-anchor="middle" fill="#4a5490" font-size="10">FreeRTOS task</text>
+          <!-- Executor -->
+          <rect x="362" y="200" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5" />
+          <text x="447" y="221" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Executor</text>
+          <text x="447" y="239" text-anchor="middle" fill="#4a5490" font-size="10">FreeRTOS task</text>
 
-      <!-- TCP Client -->
-      <rect x="362" y="264" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5"/>
-      <text x="447" y="285" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">TCP Client</text>
-      <text x="447" y="303" text-anchor="middle" fill="#4a5490" font-size="10">Wi-Fi STA · Port 41233</text>
+          <!-- TCP Client -->
+          <rect x="362" y="264" width="170" height="52" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5" />
+          <text x="447" y="285" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">TCP Client</text>
+          <text x="447" y="303" text-anchor="middle" fill="#4a5490" font-size="10">Wi-Fi STA · Port 41233</text>
 
-      <!-- TFT Display -->
-      <rect x="544" y="72" width="170" height="244" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5"/>
-      <text x="629" y="100" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">TFT Touch</text>
-      <text x="629" y="118" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Display</text>
-      <text x="629" y="148" text-anchor="middle" fill="#4a5490" font-size="10">LVGL GUI</text>
-      <text x="629" y="165" text-anchor="middle" fill="#4a5490" font-size="10">Status + Control</text>
-      <text x="629" y="195" text-anchor="middle" fill="#4a5490" font-size="10">Start / Stop</text>
-      <text x="629" y="212" text-anchor="middle" fill="#4a5490" font-size="10">Exec Progress</text>
-      <!-- little screen mockup -->
-      <rect x="570" y="228" width="118" height="72" rx="5" fill="#040410" stroke="#1e1e45"/>
-      <rect x="578" y="236" width="102" height="10" rx="3" fill="#001a0a"/>
-      <text x="629" y="245" text-anchor="middle" fill="#00DD6A" font-size="8">● CONNECTED</text>
-      <rect x="578" y="252" width="60" height="8" rx="2" fill="#0a0a22"/>
-      <text x="608" y="260" text-anchor="middle" fill="#8b9de8" font-size="7">Blocks: 4</text>
-      <rect x="578" y="268" width="80" height="8" rx="2" fill="#1a0516"/>
-      <text x="618" y="276" text-anchor="middle" fill="#FF1F7A" font-size="7">▶ RUNNING</text>
+          <!-- TFT Display -->
+          <rect x="544" y="72" width="170" height="244" rx="9" fill="#0a0a1e" stroke="#FF7A00" stroke-width="1.5" />
+          <text x="629" y="100" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">TFT Touch</text>
+          <text x="629" y="118" text-anchor="middle" fill="#FFD600" font-size="12" font-weight="700">Display</text>
+          <text x="629" y="148" text-anchor="middle" fill="#4a5490" font-size="10">LVGL GUI</text>
+          <text x="629" y="165" text-anchor="middle" fill="#4a5490" font-size="10">Status + Control</text>
+          <text x="629" y="195" text-anchor="middle" fill="#4a5490" font-size="10">Start / Stop</text>
+          <text x="629" y="212" text-anchor="middle" fill="#4a5490" font-size="10">Exec Progress</text>
+          <!-- little screen mockup -->
+          <rect x="570" y="228" width="118" height="72" rx="5" fill="#040410" stroke="#1e1e45" />
+          <rect x="578" y="236" width="102" height="10" rx="3" fill="#001a0a" />
+          <text x="629" y="245" text-anchor="middle" fill="#00DD6A" font-size="8">● CONNECTED</text>
+          <rect x="578" y="252" width="60" height="8" rx="2" fill="#0a0a22" />
+          <text x="608" y="260" text-anchor="middle" fill="#8b9de8" font-size="7">Blocks: 4</text>
+          <rect x="578" y="268" width="80" height="8" rx="2" fill="#1a0516" />
+          <text x="618" y="276" text-anchor="middle" fill="#FF1F7A" font-size="7">▶ RUNNING</text>
 
-      <!-- FreeRTOS badge -->
-      <rect x="362" y="330" width="352" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1"/>
-      <text x="538" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">ESP-IDF v5.5.1 · FreeRTOS · cJSON</text>
-      <text x="538" y="374" text-anchor="middle" fill="#4a5490" font-size="10">block_cfg_scan · tcp_client_task · brain_executor · lvgl_task</text>
+          <!-- FreeRTOS badge -->
+          <rect x="362" y="330" width="352" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1" />
+          <text x="538" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">ESP-IDF v5.5.1 ·
+            FreeRTOS · cJSON</text>
+          <text x="538" y="374" text-anchor="middle" fill="#4a5490" font-size="10">block_cfg_scan · tcp_client_task ·
+            brain_executor · lvgl_task</text>
 
-      <!-- ── TCP arrow ── -->
-      <line x1="735" y1="220" x2="820" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)"/>
-      <line x1="820" y1="228" x2="735" y2="228" stroke="#8b9de8" stroke-width="1" marker-end="url(#arr-rev)" stroke-dasharray="4 3" opacity=".6"/>
-      <text x="777" y="207" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">TCP / Wi-Fi</text>
-      <text x="777" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">JSON · Port 41233</text>
+          <!-- ── TCP arrow ── -->
+          <line x1="735" y1="220" x2="820" y2="220" stroke="#00E5FF" stroke-width="2" marker-end="url(#arr)" />
+          <line x1="738" y1="228" x2="815" y2="228" stroke="#8b9de8" stroke-width="1" marker-start="url(#arrow-double)"
+            marker-end="url(#arrow-double)" stroke-dasharray="4 3" opacity=".6" />
+          <text x="777" y="207" text-anchor="middle" fill="#00E5FF" font-size="10" font-weight="700">TCP / Wi-Fi</text>
+          <text x="777" y="244" text-anchor="middle" fill="#4a5490" font-size="9.5">JSON · Port 41233</text>
 
-      <!-- ── Flutter App ── -->
-      <rect x="823" y="30" width="257" height="380" rx="14" fill="#0d0d22" stroke="url(#gBlue)" stroke-width="2"/>
-      <text x="951" y="58" text-anchor="middle" fill="#00E5FF" font-size="13" font-weight="800">FLUTTER APP</text>
+          <!-- ── Flutter App ── -->
+          <rect x="823" y="30" width="257" height="380" rx="14" fill="#0d0d22" stroke="url(#gBlue)" stroke-width="2" />
+          <text x="951" y="58" text-anchor="middle" fill="#00E5FF" font-size="13" font-weight="800">FLUTTER APP</text>
 
-      <rect x="838" y="72" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5"/>
-      <text x="951" y="96" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">TCP Server</text>
-      <text x="951" y="114" text-anchor="middle" fill="#4a5490" font-size="10">Heartbeat · Reconnect</text>
+          <rect x="838" y="72" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5" />
+          <text x="951" y="96" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">TCP Server</text>
+          <text x="951" y="114" text-anchor="middle" fill="#4a5490" font-size="10">Heartbeat · Reconnect</text>
 
-      <rect x="838" y="136" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5"/>
-      <text x="951" y="157" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">JSON Parser</text>
-      <text x="951" y="175" text-anchor="middle" fill="#4a5490" font-size="10">BlockConfiguration model</text>
+          <rect x="838" y="136" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5" />
+          <text x="951" y="157" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">JSON Parser</text>
+          <text x="951" y="175" text-anchor="middle" fill="#4a5490" font-size="10">BlockConfiguration model</text>
 
-      <rect x="838" y="200" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#FF1F7A" stroke-width="1.5"/>
-      <text x="951" y="221" text-anchor="middle" fill="#ff80b0" font-size="12" font-weight="700">Validator</text>
-      <text x="951" y="239" text-anchor="middle" fill="#4a5490" font-size="10">If / Loop grammar rules</text>
+          <rect x="838" y="200" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#FF1F7A" stroke-width="1.5" />
+          <text x="951" y="221" text-anchor="middle" fill="#ff80b0" font-size="12" font-weight="700">Validator</text>
+          <text x="951" y="239" text-anchor="middle" fill="#4a5490" font-size="10">If / Loop grammar rules</text>
 
-      <rect x="838" y="264" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5"/>
-      <text x="951" y="285" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">Real-Time UI</text>
-      <text x="951" y="303" text-anchor="middle" fill="#4a5490" font-size="10">Block list · Errors · 3D View</text>
+          <rect x="838" y="264" width="227" height="52" rx="9" fill="#0a0a1e" stroke="#00AAFF" stroke-width="1.5" />
+          <text x="951" y="285" text-anchor="middle" fill="#00E5FF" font-size="12" font-weight="700">Real-Time UI</text>
+          <text x="951" y="303" text-anchor="middle" fill="#4a5490" font-size="10">Block list · Errors · 3D View</text>
 
-      <!-- Platform badge -->
-      <rect x="838" y="330" width="227" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1"/>
-      <text x="951" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">Flutter · Dart · Material 3</text>
-      <text x="951" y="374" text-anchor="middle" fill="#4a5490" font-size="10">Windows · macOS · Linux </text>
-    </svg>
-  </div>
-</div>
+          <!-- Platform badge -->
+          <rect x="838" y="330" width="227" height="62" rx="9" fill="#0a0a1e" stroke="#1e1e45" stroke-width="1" />
+          <text x="951" y="356" text-anchor="middle" fill="#4a5490" font-size="10" font-weight="700">Flutter · Dart ·
+            Material 3</text>
+          <text x="951" y="374" text-anchor="middle" fill="#4a5490" font-size="10">Windows · macOS · Linux </text>
+        </svg>
+      </div>
+    </div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 6 — BRAIN BLOCK DEEP DIVE
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-6">
-  <div class="slide-header">
-    <span class="section-tag tag-arch">2 of 4 · Architecture</span>
-    <h2 class="slide-title">Brain Block — <span>Deep Dive</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
-        <div class="card" style="border-color:var(--orange)">
-          <div class="card-title" style="color:var(--orange)">Adaptive Scan + Event Handler</div>
-          <ul class="checklist">
-            <li>Dedicated <span class="mono">block_cfg_scan</span> task walks I2C addresses <span class="mono">0x08 – 0x16</span> with fast re-scan after adds/removals</li>
-            <li>Config Manager compares to previous state, smoothing unstable <span class="mono">REG_WHOAMI</span> results with last-known-good type</li>
-            <li>On change → JSON config cached under a mutex and <span class="mono">BLOCK_CONFIG_CHANGED</span> event bit set</li>
-            <li><span class="mono">tcp_client_task</span> wakes on that event and streams the latest JSON to the app</li>
-          </ul>
-        </div>
+    <div class="slide" id="slide-6">
+      <div class="slide-header">
+        <span class="section-tag tag-arch">2 of 4 · Architecture</span>
+        <h2 class="slide-title">Brain Block — <span>Deep Dive</span></h2>
       </div>
-      <div class="col">
-        <div class="card" style="border-color:var(--orange)">
-          <div class="card-title" style="color:var(--orange)">I2C Commands (sent to child blocks)</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px">
-            <span class="pill pill-orange">CMD_PING</span>
-            <span class="pill pill-orange">CMD_SET_LED</span>
-            <span class="pill pill-orange">CMD_EXECUTE</span>
-            <span class="pill pill-orange">CMD_RESET</span>
-            <span class="pill pill-orange">CMD_GET_DATA</span>
-            <span class="pill pill-orange">CMD_MATRIX_BRIGHTNESS</span>
+      <div class="content">
+        <div class="row">
+          <div class="col">
+            <div class="card" style="border-color:var(--orange)">
+              <div class="card-title" style="color:var(--orange)">Adaptive Scan + Event Handler</div>
+              <ul class="checklist">
+                <li>Dedicated <span class="mono">block_cfg_scan</span> task walks I2C addresses <span class="mono">0x08
+                    – 0x16</span> with fast re-scan after adds/removals</li>
+                <li>Config Manager compares to previous state, smoothing unstable <span class="mono">REG_WHOAMI</span>
+                  results with last-known-good type</li>
+                <li>On change → JSON config cached under a mutex and <span class="mono">BLOCK_CONFIG_CHANGED</span>
+                  event bit set</li>
+                <li><span class="mono">tcp_client_task</span> wakes on that event and streams the latest JSON to the app
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-title" style="color:var(--muted)">JSON Config Message (sent to app)</div>
-          <pre style="font-size:12px;color:#9fa8da;line-height:1.6;overflow:hidden">{
+          <div class="col">
+            <div class="card" style="border-color:var(--orange)">
+              <div class="card-title" style="color:var(--orange)">I2C Commands (sent to child blocks)</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <span class="pill pill-orange">CMD_PING</span>
+                <span class="pill pill-orange">CMD_SET_LED</span>
+                <span class="pill pill-orange">CMD_EXECUTE</span>
+                <span class="pill pill-orange">CMD_RESET</span>
+                <span class="pill pill-orange">CMD_GET_DATA</span>
+                <span class="pill pill-orange">CMD_MATRIX_BRIGHTNESS</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="color:var(--muted)">JSON Config Message (sent to app)</div>
+              <pre style="font-size:16px;color:#9fa8da;line-height:1.6;overflow:hidden">{
   "type": "block_config",
   "timestamp": 1740000000,
   "config": {
@@ -748,551 +1266,820 @@ h3.good { color: #80ffb0; }
     "errors": []
   }
 }</pre>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 7 — FLUTTER APP DEEP DIVE
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-7">
-  <div class="slide-header">
-    <span class="section-tag tag-arch">2 of 4 · Architecture</span>
-    <h2 class="slide-title">Flutter App — <span>Validation Engine</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
-        <div class="card" style="border-color:var(--blue)">
-          <div class="card-title" style="color:var(--blue)">4 Enforced Grammar Rules</div>
-          <ul class="checklist">
-            <li><strong>Rule 1</strong> — Brain Block must exist and be at index 0</li>
-            <li><strong>Rule 2</strong> — If sequences: <span class="mono">If → ButtonPress → Then → [Output+] → End If</span></li>
-            <li><strong>Rule 3</strong> — Loop sequences: <span class="mono">Loop → [Output+] → End Loop</span></li>
-            <li><strong>Rule 4</strong> — Interleaved sequences trigger a warning</li>
-          </ul>
-        </div>
-        <div class="card">
-          <div class="card-title" style="color:var(--muted)">App Features</div>
-          <ul class="checklist">
-            <li>TCP server on port 41233, heartbeat with 60s timeout</li>
-            <li>Exponential backoff reconnect (max 5 attempts)</li>
-            <li>Offline testing via fake JSON asset loading</li>
-            <li>3D isometric block-chain visualizer (Windows)</li>
-            <li>Telemetry log (last 100 entries)</li>
-          </ul>
-        </div>
+    <div class="slide" id="slide-7">
+      <div class="slide-header">
+        <span class="section-tag tag-arch">2 of 4 · Architecture</span>
+        <h2 class="slide-title">Flutter App — <span>Validation Engine</span></h2>
       </div>
-      <div class="col">
-        <div class="card" style="border-color:var(--pink)">
-          <div class="card-title" style="color:var(--pink)">Valid vs. Invalid — Examples</div>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <div style="background:#001a0d;border:1px solid rgba(0,221,106,.4);border-radius:8px;padding:12px 16px">
-              <div style="font-size:11px;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:.09em">✅ VALID — Loop with LED + Note</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span class="pill pill-orange">Brain</span>
-                <span class="pill pill-blue">Loop</span>
-                <span class="pill pill-pink">LED Flash</span>
-                <span class="pill pill-pink">Note</span>
-                <span class="pill pill-blue">End Loop</span>
-              </div>
+      <div class="content">
+        <div class="row">
+          <div class="col">
+            <div class="card" style="border-color:var(--blue)">
+              <div class="card-title" style="color:var(--blue)">4 Enforced Grammar Rules</div>
+              <ul class="checklist">
+                <li><strong>Rule 1</strong> — Brain Block must exist and be at index 0</li>
+                <li><strong>Rule 2</strong> — If sequences: <span class="mono">If → ButtonPress → Then → [Output+] → End
+                    If</span></li>
+                <li><strong>Rule 3</strong> — Loop sequences: <span class="mono">Loop → [Output+] → End Loop</span></li>
+                <li><strong>Rule 4</strong> — Interleaved sequences trigger a warning</li>
+              </ul>
             </div>
-            <div style="background:#1a0508;border:1px solid rgba(255,61,87,.4);border-radius:8px;padding:12px 16px">
-              <div style="font-size:11px;font-weight:800;color:var(--red);margin-bottom:8px;letter-spacing:.09em">❌ ERROR — If with no End If</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span class="pill pill-orange">Brain</span>
-                <span class="pill pill-blue">If</span>
-                <span class="pill pill-green">Button</span>
-                <span class="pill pill-pink">LED Flash</span>
-                <span style="background:rgba(244,67,54,.18);color:#f44336" class="pill">← missing Then &amp; End If</span>
-              </div>
+            <div class="card">
+              <div class="card-title" style="color:var(--muted)">App Features</div>
+              <ul class="checklist">
+                <li>TCP server on port 41233, heartbeat with 60s timeout</li>
+                <li>Exponential backoff reconnect (max 5 attempts)</li>
+                <li>Offline testing via fake JSON asset loading</li>
+                <li>3D isometric block-chain visualizer (Windows)</li>
+                <li>Telemetry log (last 100 entries)</li>
+              </ul>
             </div>
-            <div style="background:#001a0d;border:1px solid rgba(0,221,106,.4);border-radius:8px;padding:12px 16px">
-              <div style="font-size:11px;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:.09em">✅ VALID — If executed correctly</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <span class="pill pill-orange">Brain</span>
-                <span class="pill pill-blue">If</span>
-                <span class="pill pill-green">Button</span>
-                <span class="pill pill-blue">Then</span>
-                <span class="pill pill-pink">LED Flash</span>
-                <span class="pill pill-blue">End If</span>
+          </div>
+          <div class="col">
+            <div class="card" style="border-color:var(--pink)">
+              <div class="card-title" style="color:var(--pink)">Valid vs. Invalid — Examples</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="background:#001a0d;border:1px solid rgba(0,221,106,.4);border-radius:8px;padding:12px 16px">
+                  <div style="font-size:11px;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:.09em">
+                    ✅ VALID — Loop with LED + Note</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <span class="pill pill-orange">Brain</span>
+                    <span class="pill pill-blue">Loop</span>
+                    <span class="pill pill-pink">LED Flash</span>
+                    <span class="pill pill-pink">Note</span>
+                    <span class="pill pill-blue">End Loop</span>
+                  </div>
+                </div>
+                <div style="background:#1a0508;border:1px solid rgba(255,61,87,.4);border-radius:8px;padding:12px 16px">
+                  <div style="font-size:11px;font-weight:800;color:var(--red);margin-bottom:8px;letter-spacing:.09em">❌
+                    ERROR — If with no End If</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <span class="pill pill-orange">Brain</span>
+                    <span class="pill pill-blue">If</span>
+                    <span class="pill pill-green">Button</span>
+                    <span class="pill pill-pink">LED Flash</span>
+                    <span style="background:rgba(244,67,54,.18);color:#f44336" class="pill">← missing Then &amp; End
+                      If</span>
+                  </div>
+                </div>
+                <div style="background:#001a0d;border:1px solid rgba(0,221,106,.4);border-radius:8px;padding:12px 16px">
+                  <div style="font-size:11px;font-weight:800;color:var(--green);margin-bottom:8px;letter-spacing:.09em">
+                    ✅ VALID — If executed correctly</div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <span class="pill pill-orange">Brain</span>
+                    <span class="pill pill-blue">If</span>
+                    <span class="pill pill-green">Button</span>
+                    <span class="pill pill-blue">Then</span>
+                    <span class="pill pill-pink">LED Flash</span>
+                    <span class="pill pill-blue">End If</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 8 — DEMO INTRO
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-8">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Live Demos &amp; <span>Scenarios</span></h2>
-  </div>
-  <div class="content">
-    <div class="row" style="gap:32px;align-items:stretch">
-      <div class="col" style="flex:1">
-        <div class="card">
-          <div class="card-title" style="color:var(--pink)">What We'll Show</div>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(0,170,255,.15);border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--blue)">1</div>
-              <div><strong style="color:var(--text)">Interactive Walkthrough</strong><br><span style="font-size:24px;color:#9fa8da">Flutter app tutorial mode.</span></div>
-            </div>
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(255,122,0,.15);border:1px solid var(--orange);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--orange)">2</div>
-              <div><strong style="color:var(--text)">Output Blocks</strong><br><span style="font-size:24px;color:#9fa8da">LED, Note, Music Sequence.</span></div>
-            </div>
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(0,221,106,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--green)">3</div>
-              <div><strong style="color:var(--text)">Loop Sequence</strong><br><span style="font-size:24px;color:#9fa8da">Repeating sequences.</span></div>
-            </div>
-          </div>
-        </div>
+    <div class="slide" id="slide-8">
+      <div class="slide-header">
+        <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+        <h2 class="slide-title">Live Demos &amp; <span>Scenarios</span></h2>
       </div>
-      <div class="col" style="flex:1">
-        <div class="card" style="height:100%">
-          <div class="card-title" style="color:var(--pink)">...continued</div>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(255,31,122,.15);border:1px solid var(--pink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pink)">4</div>
-              <div><strong style="color:var(--text)">If Sequence</strong><br><span style="font-size:24px;color:#9fa8da">Handling conditional logic.</span></div>
-            </div>
-            <div style="display:flex;align-items:flex-start;gap:14px">
-              <div style="min-width:28px;height:28px;border-radius:50%;background:rgba(255,214,0,.15);border:1px solid var(--yellow);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--yellow)">5</div>
-              <div><strong style="color:var(--text)">15 Block System Stress Test</strong><br><span style="font-size:24px;color:#9fa8da">Proving total system capacity.</span></div>
-            </div>
+      <div class="content">
+        <div class="demo-roadmap">
+          <div class="demo-step-card">
+            <div class="demo-step-num" style="background:var(--blue); color:white">1</div>
+            <div class="demo-visual-block" style="border-color:var(--blue)"><span style="z-index:1">📱</span></div>
+            <div class="demo-step-title">Tutorial Mode</div>
+            <div class="demo-step-desc">Interactive If-Sequence walkthrough.</div>
+          </div>
+          <div class="demo-step-card">
+            <div class="demo-step-num" style="background:var(--purple); color:white">2</div>
+            <div class="demo-visual-block" style="border-color:var(--purple)"><span style="z-index:1">🔊</span></div>
+            <div class="demo-step-title">Output Blocks</div>
+            <div class="demo-step-desc">LED, Note, and Music Seq testing.</div>
+          </div>
+          <div class="demo-step-card">
+            <div class="demo-step-num" style="background:var(--green); color:white">3</div>
+            <div class="demo-visual-block" style="border-color:var(--green)"><span style="z-index:1">🔄</span></div>
+            <div class="demo-step-title">Loop Logic</div>
+            <div class="demo-step-desc">Control flow repeat structures.</div>
+          </div>
+          <div class="demo-step-card">
+            <div class="demo-step-num" style="background:var(--pink); color:white">4</div>
+            <div class="demo-visual-block" style="border-color:var(--pink)"><span style="z-index:1">🚀</span></div>
+            <div class="demo-step-title">15-Block Stress Test</div>
+            <div class="demo-step-desc">Maximum bus load stress test.</div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════════════
      SLIDE 9 — DEMO 1: WALKTHROUGH TUTORIAL
 ════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-9">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo 1 — <span>Walkthrough Tutorial</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="border-color:var(--blue)">
-      <div class="card-title" style="color:var(--blue)">The Scenario</div>
-      <ul class="checklist">
-        <li><strong>Introduce:</strong> Flutter App guided tutorial mode for an <code>If</code> sequence.</li>
-        <li><strong>Show:</strong> App visually guides user to connect specific blocks. Real-time validation progresses tutorial forward via topology changes.</li>
-        <li><strong>Result:</strong> Reliable dynamic synchronization between physical hardware and educational app.</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 10 — DEMO 2: OUTPUT BLOCKS
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-10">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo 2 — <span>All Output Block Functionalities</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="border-color:var(--pink)">
-      <div class="card-title" style="color:var(--pink)">The Scenario</div>
-      <ul class="checklist">
-        <li><strong>Introduce:</strong> How users configure output features via TFT.</li>
-        <li><strong>Show:</strong> Testing the LED Color Flash, Note, and Music Sequence output blocks individually.</li>
-        <li><strong>Result:</strong> Correct I2C command dissemination from Brain to multiple output modules successfully driving hardware (WS2812, LM386).</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 11 — DEMO 3: LOOP SEQUENCE
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-11">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo 3 — <span>Loop Sequence</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="border-color:var(--green)">
-      <div class="card-title" style="color:var(--green)">The Scenario</div>
-      <ul class="checklist">
-        <li><strong>Introduce:</strong> Validating loop control flow in execution.</li>
-        <li><strong>Show:</strong> A program structured with <code>Loop { 3 times } -> Output -> End Loop</code>. Execution triggers 3 output cycles.</li>
-        <li><strong>Result:</strong> Brain firmware correctly caches instruction pointers for looping sequences and bounds conditions.</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 12 — DEMO 4: IF SEQUENCE
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-12">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo 4 — <span>If Sequence</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="border-color:var(--purple)">
-      <div class="card-title" style="color:var(--purple)">The Scenario</div>
-      <ul class="checklist">
-        <li><strong>Introduce:</strong> Validating conditional logic.</li>
-        <li><strong>Show:</strong> A program structured with <code>If -> Button Press -> Then -> Output -> End If</code>. Execution halts on condition.</li>
-        <li><strong>Result:</strong> Hardware user-input seamlessly interrupts and continues code execution.</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 13 — DEMO 5: 15-BLOCK FULL STRESS TEST
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-13">
-  <div class="slide-header">
-    <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
-    <h2 class="slide-title">Demo 5 — <span>15 Block Stress Test</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="border-color:var(--orange)">
-      <div class="card-title" style="color:var(--orange)">The Scenario</div>
-      <div style="font-family:'Consolas',monospace;font-size:20px;color:white;margin-bottom:12px">
-        [Brain] -> [Loop] -> [Note] -> [LED Flash] -> [Endloop] -> [Delay] -> [Music Seq] -> [Music Seq] -> [If] -> [Button] -> [Then] -> [Note] -> [Note] -> [LED Flash] -> [End If]
+    <div class="slide" id="slide-9">
+      <div class="slide-header">
+        <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+        <h2 class="slide-title">Demo 1 — <span>Walkthrough Tutorial</span></h2>
       </div>
-      <ul class="checklist">
-        <li><strong>Introduce:</strong> Testing maximum design capacity (14 child blocks, 1 brain).</li>
-        <li><strong>Show:</strong> Complex multi-branch logic executed across the fully saturated I2C bus.</li>
-        <li><strong>Result:</strong> No crashes and robust performance across memory limitations, I2C routing, and visual interface representation.</li>
-      </ul>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 14 — ENGINEERING SPECS
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-14">
-  <div class="slide-header">
-    <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
-    <h2 class="slide-title">Three <span>Engineering Specifications</span></h2>
-  </div>
-  <div class="content">
-    <div class="card" style="margin-bottom:24px">
-      <table class="spec-table">
-        <thead>
-          <tr>
-            <th style="width:48px">#</th>
-            <th>Quantity Measured</th>
-            <th>Units</th>
-            <th>Target</th>
-            <th>Why it matters</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="num accent-pink">1</td>
-            <td><strong>LED color select → preview latency</strong><br><span style="font-size:16px;color:var(--dim)">On LED block: TFT touch selection → LED changes</span></td>
-            <td class="num">ms</td>
-            <td class="accent-pink">Mean ≤ 50 ms</td>
-            <td style="font-size:16px;color:#9fa8da">UX responsiveness</td>
-          </tr>
-          <tr>
-            <td class="num accent-blue">2</td>
-            <td><strong>Config-change-to-app latency</strong><br><span style="font-size:16px;color:var(--dim)">Physical block add/remove → UI shows topology</span></td>
-            <td class="num">ms</td>
-            <td class="accent-blue">Mean ≤ 2000 ms</td>
-            <td style="font-size:16px;color:#9fa8da">Validates full pipeline</td>
-          </tr>
-          <tr>
-            <td class="num accent-orange">3</td>
-            <td><strong>I2C SCL/SDA rise time</strong><br><span style="font-size:16px;color:var(--dim)">30%-70% Vdd transition on SCL at Brain header</span></td>
-            <td class="num">ns</td>
-            <td class="accent-orange">≤ 1000 ns</td>
-            <td style="font-size:16px;color:#9fa8da">Signal integrity</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="font-size:18px;color:var(--muted);text-align:center;font-weight:600">Each spec: 10 test runs &nbsp;·&nbsp; mean / std dev / min / max &nbsp;·&nbsp; Live demonstrations on video</p>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 15 — SPEC 1
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-15">
-  <div class="slide-header">
-    <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
-    <h2 class="slide-title">Spec 1 — <span>LED Color Preview Latency</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
-        <div class="card" style="border-color:var(--pink)">
-          <div class="card-title" style="color:var(--pink)">Definition</div>
-          <ul class="checklist" style="gap:8px">
-            <li><strong>Quantity:</strong> Time from TFT touch color selection → LED matrix color change</li>
-            <li><strong>Units:</strong> milliseconds (ms)</li>
-            <li><strong>Target:</strong> Mean ≤ 50 ms</li>
-          </ul>
-        </div>
-        <div class="card" style="border-color:var(--border)">
-          <div class="card-title" style="color:var(--muted)">Demo Video Placeholder</div>
-          <div style="width:100%;height:300px;background:#1a1a2e;border:1px dashed #4a5490;display:flex;align-items:center;justify-content:center;border-radius:12px">
-             <span style="color:#8b9de8;font-size:32px;font-weight:bold;">[ INSERT VIDEO HERE ]</span>
-          </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="card">
-          <div class="card-title" style="color:var(--pink)">10-Run Results</div>
-          <table class="spec-table">
-            <thead><tr><th>Run</th><th>Latency (ms)</th><th>Run</th><th>Latency (ms)</th></tr></thead>
-            <tbody>
-              <tr><td class="num">1</td><td class="num" style="color:var(--dim)">13.206</td><td class="num">6</td><td class="num" style="color:var(--dim)">13.129</td></tr>
-              <tr><td class="num">2</td><td class="num" style="color:var(--dim)">13.131</td><td class="num">7</td><td class="num" style="color:var(--dim)">13.133</td></tr>
-              <tr><td class="num">3</td><td class="num" style="color:var(--dim)">13.142</td><td class="num">8</td><td class="num" style="color:var(--dim)">13.138</td></tr>
-              <tr><td class="num">4</td><td class="num" style="color:var(--dim)">13.133</td><td class="num">9</td><td class="num" style="color:var(--dim)">13.133</td></tr>
-              <tr><td class="num">5</td><td class="num" style="color:var(--dim)">13.133</td><td class="num">10</td><td class="num" style="color:var(--dim)">13.128</td></tr>
-            </tbody>
-          </table>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MEAN</div>
-              <div style="font-size:36px;font-weight:700;color:var(--pink)">13.141 ms</div>
-            </div>
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MAX</div>
-              <div style="font-size:36px;font-weight:700;color:var(--orange)">13.206 ms</div>
-            </div>
-          </div>
-          <div style="margin-top:14px;padding:12px 14px;background:#0d1a0d;border:1px solid rgba(76,175,80,.25);border-radius:8px;font-size:24px;color:#9fa8da">
-            Target: Mean ≤ 50 ms &nbsp;·&nbsp; <strong style="color:var(--green)">Met: Yes</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 16 — SPEC 2
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-16">
-  <div class="slide-header">
-    <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
-    <h2 class="slide-title">Spec 2 — <span>Config-Change-to-App Latency</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
+      <div class="content">
         <div class="card" style="border-color:var(--blue)">
-          <div class="card-title" style="color:var(--blue)">Definition</div>
-          <ul class="checklist" style="gap:8px">
-            <li><strong>Quantity:</strong> Physical block add/remove → app UI reflects new topology</li>
-            <li><strong>Units:</strong> milliseconds (ms)</li>
-            <li><strong>Target:</strong> Mean ≤ 2000 ms</li>
+          <div class="card-title" style="color:var(--blue)">The Scenario</div>
+          <ul class="checklist">
+            <li><strong>Introduce:</strong> Flutter App guided tutorial mode for an <code>If</code> sequence.</li>
+            <li><strong>Show:</strong> App visually guides user to connect specific blocks. Real-time validation
+              progresses tutorial forward via topology changes.</li>
+            <li><strong>Result:</strong> Reliable dynamic synchronization between physical hardware and educational app.
+            </li>
           </ul>
-        </div>
-        <div class="card" style="border-color:var(--border)">
-          <div class="card-title" style="color:var(--muted)">Demo Video Placeholder</div>
-          <div style="width:100%;height:300px;background:#1a1a2e;border:1px dashed #4a5490;display:flex;align-items:center;justify-content:center;border-radius:12px">
-             <span style="color:#8b9de8;font-size:32px;font-weight:bold;">[ INSERT VIDEO HERE ]</span>
-          </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="card">
-          <div class="card-title" style="color:var(--blue)">10-Run Results</div>
-          <table class="spec-table">
-            <thead><tr><th>Run</th><th>Latency (ms)</th><th>Run</th><th>Latency (ms)</th></tr></thead>
-            <tbody>
-              <tr><td class="num">1</td><td class="num" style="color:var(--dim)">45</td><td class="num">6</td><td class="num" style="color:var(--dim)">62</td></tr>
-              <tr><td class="num">2</td><td class="num" style="color:var(--dim)">60</td><td class="num">7</td><td class="num" style="color:var(--dim)">63</td></tr>
-              <tr><td class="num">3</td><td class="num" style="color:var(--dim)">39</td><td class="num">8</td><td class="num" style="color:var(--dim)">70</td></tr>
-              <tr><td class="num">4</td><td class="num" style="color:var(--dim)">46</td><td class="num">9</td><td class="num" style="color:var(--dim)">33</td></tr>
-              <tr><td class="num">5</td><td class="num" style="color:var(--dim)">37</td><td class="num">10</td><td class="num" style="color:var(--dim)">41</td></tr>
-            </tbody>
-          </table>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MEAN</div>
-              <div style="font-size:36px;font-weight:700;color:var(--blue)">49.6 ms</div>
-            </div>
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MAX</div>
-              <div style="font-size:36px;font-weight:700;color:var(--orange)">70 ms</div>
-            </div>
-          </div>
-          <div style="margin-top:14px;padding:12px 14px;background:#0d1a0d;border:1px solid rgba(76,175,80,.25);border-radius:8px;font-size:24px;color:#9fa8da">
-            Target: Mean ≤ 2000 ms &nbsp;·&nbsp; <strong style="color:var(--green)">Met: Yes</strong>
-          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 17 — SPEC 3
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-17">
-  <div class="slide-header">
-    <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
-    <h2 class="slide-title">Spec 3 — <span>I2C Rise Time (15-Block Max Load)</span></h2>
-  </div>
-  <div class="content">
-    <div class="row">
-      <div class="col">
-        <div class="card" style="border-color:var(--orange)">
-          <div class="card-title" style="color:var(--orange)">Definition</div>
-          <ul class="checklist" style="gap:8px">
-            <li><strong>Quantity Sequence:</strong> ALL 15 blocks attached to common I2C bus line.</li>
-            <li><strong>Target:</strong> ≤ 1000 ns (I2C standard-mode)</li>
-            <li><strong>Measurement:</strong> Oscilloscope 10%–90% on SCL.</li>
-          </ul>
-        </div>
-        <div class="card" style="border-color:var(--border)">
-          <div class="card-title" style="color:var(--muted)">Demo Video Placeholder</div>
-          <div style="width:100%;height:300px;background:#1a1a2e;border:1px dashed #4a5490;display:flex;align-items:center;justify-content:center;border-radius:12px">
-             <span style="color:#8b9de8;font-size:32px;font-weight:bold;">[ INSERT VIDEO HERE ]</span>
-          </div>
-        </div>
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SLIDE 10 — DEMO 2: OUTPUT BLOCKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="slide" id="slide-10">
+      <div class="slide-header">
+        <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+        <h2 class="slide-title">Demo 2 — <span>All Output Block Functionalities</span></h2>
       </div>
-      <div class="col">
-        <div class="card">
-          <div class="card-title" style="color:var(--orange)">10-Run Results</div>
-          <table class="spec-table">
-            <thead><tr><th>Run</th><th>Rise time (ns)</th><th>Run</th><th>Rise time (ns)</th></tr></thead>
-            <tbody>
-              <tr><td class="num">1</td><td class="num" style="color:var(--dim)">280</td><td class="num">6</td><td class="num" style="color:var(--dim)">290</td></tr>
-              <tr><td class="num">2</td><td class="num" style="color:var(--dim)">300</td><td class="num">7</td><td class="num" style="color:var(--dim)">300</td></tr>
-              <tr><td class="num">3</td><td class="num" style="color:var(--dim)">270</td><td class="num">8</td><td class="num" style="color:var(--dim)">290</td></tr>
-              <tr><td class="num">4</td><td class="num" style="color:var(--dim)">270</td><td class="num">9</td><td class="num" style="color:var(--dim)">300</td></tr>
-              <tr><td class="num">5</td><td class="num" style="color:var(--dim)">300</td><td class="num">10</td><td class="num" style="color:var(--dim)">290</td></tr>
-            </tbody>
-          </table>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MEAN</div>
-              <div style="font-size:36px;font-weight:700;color:var(--orange)">289 ns</div>
-            </div>
-            <div style="background:#14142a;border-radius:8px;padding:12px;text-align:center">
-              <div style="font-size:20px;color:var(--dim);margin-bottom:4px">MAX</div>
-              <div style="font-size:36px;font-weight:700;color:var(--red)">300 ns</div>
-            </div>
-          </div>
-          <div style="margin-top:14px;padding:12px 14px;background:#0d1a0d;border:1px solid rgba(76,175,80,.25);border-radius:8px;font-size:24px;color:#9fa8da">
-            Target: ≤ 1000 ns &nbsp;·&nbsp; <strong style="color:var(--green)">Met: Yes</strong>
-          </div>
+      <div class="content">
+        <div class="card" style="border-color:var(--pink)">
+          <div class="card-title" style="color:var(--pink)">The Scenario</div>
+          <ul class="checklist">
+            <li><strong>Introduce:</strong> How users configure output features via TFT.</li>
+            <li><strong>Show:</strong> Testing the LED Color Flash, Note, and Music Sequence output blocks individually.
+            </li>
+            <li><strong>Result:</strong> Correct I2C command dissemination from Brain to multiple output modules
+              successfully driving hardware (WS2812, LM386).</li>
+          </ul>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SLIDE 18 — CLOSING
-════════════════════════════════════════════════════════════ -->
-<div class="slide" id="slide-18">
-  <div class="slide-header">
-    <span class="section-tag tag-close">Closing</span>
-    <h2 class="slide-title">What We Built &amp; <span>What's Next</span></h2>
-  </div>
-  <div class="content">
-    <div class="row" style="margin-bottom:24px">
-      <div class="col">
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SLIDE 11 — DEMO 3: LOOP SEQUENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="slide" id="slide-11">
+      <div class="slide-header">
+        <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+        <h2 class="slide-title">Demo 3 — <span>Loop Sequence</span></h2>
+      </div>
+      <div class="content">
         <div class="card" style="border-color:var(--green)">
-          <div class="card-title" style="color:var(--green)">The Delivery</div>
+          <div class="card-title" style="color:var(--green)">The Scenario</div>
           <ul class="checklist">
-            <li>15 functional identical hardware modules behaving dynamically.</li>
-            <li>Flutter companion app successfully modeling sequence state.</li>
-            <li>Safe, modular execution environment allowing abstract logic building.</li>
-            <li>Full adherence to strict standard electrical timing budgets.</li>
-          </ul>
-        </div>
-      </div>
-      <div class="col">
-        <div class="card" style="border-color:var(--purple)">
-          <div class="card-title" style="color:var(--purple)">What's Next</div>
-          <ul class="checklist">
-            <li>Refine PCB manufacturing constraints for mass array.</li>
-            <li>Polish internal mechanics.</li>
-            <li>Integrate app tutorials further.</li>
+            <li><strong>Introduce:</strong> Validating loop control flow in execution.</li>
+            <li><strong>Show:</strong> A program structured with <code>Loop { 3 times } -> Output -> End Loop</code>.
+              Execution triggers 3 output cycles.</li>
+            <li><strong>Result:</strong> Brain firmware correctly caches instruction pointers for looping sequences and
+              bounds conditions.</li>
           </ul>
         </div>
       </div>
     </div>
-    <div style="padding:24px 36px;background:linear-gradient(90deg,rgba(255,31,122,.12),rgba(192,68,255,.10),rgba(0,170,255,.09));border:1px solid rgba(255,31,122,.35);border-radius:14px;text-align:center;box-shadow:0 0 40px rgba(192,68,255,.12)">
-      <p style="font-size:36px;color:var(--text);line-height:1.6;margin-bottom:12px">
-        <strong>The core thesis, delivered:</strong> a physical arrangement of blocks <em>is</em> a program —
-        validated, executed, and felt in the hands.
-      </p>
-      <p style="font-size:24px;color:var(--dim)">We welcome any feedback!</p>
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     SLIDE 12 — DEMO 4: 15-BLOCK FULL STRESS TEST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="slide" id="slide-12">
+      <div class="slide-header">
+        <span class="section-tag tag-demo">3 of 4 · Live Demo</span>
+        <h2 class="slide-title">Demo 4 — <span>15 Block Stress Test</span></h2>
+      </div>
+      <div class="content">
+        <div class="card" style="border-color:var(--orange)">
+          <div class="card-title" style="color:var(--orange)">The Scenario</div>
+          <div style="font-family:'Consolas',monospace;font-size:20px;color:white;margin-bottom:12px">
+            [Brain] -> [Loop] -> [Note] -> [LED Flash] -> [Endloop] -> [Delay] -> [Music Seq] -> [Music Seq] -> [If] ->
+            [Button] -> [Then] -> [Note] -> [Note] -> [LED Flash] -> [End If]
+          </div>
+          <ul class="checklist">
+            <li><strong>Introduce:</strong> Testing maximum design capacity (14 child blocks, 1 brain).</li>
+            <li><strong>Show:</strong> Complex multi-branch logic executed across the fully saturated I2C bus.</li>
+            <li><strong>Result:</strong> No crashes and robust performance across memory limitations, I2C routing, and
+              visual interface representation.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 13 — SPEC 1 DEFINITION
+════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-13">
+      <div class="slide-header">
+        <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+        <h2 class="slide-title">Spec 1 — <span>LED Preview Latency</span></h2>
+      </div>
+      <div class="content">
+        <div class="card" style="border-color:var(--pink); max-width: 800px; margin: 40px auto;">
+          <div class="card-title" style="color:var(--pink)">Specification Definition</div>
+          <table class="spec-table" style="font-size: 24px;">
+            <tr>
+              <td style="color:var(--dim); width: 220px;"><strong>Quantity</strong></td>
+              <td>TFT touch color selection → LED color change</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Units</strong></td>
+              <td>Milliseconds (ms)</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Target</strong></td>
+              <td style="color:var(--pink); font-weight: 800;">Mean ≤ 50 ms</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Why it matters</strong></td>
+              <td>Ensures immediate visual feedback for educational UX</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 14 — SPEC 1 RESULTS
+════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-14">
+      <div class="slide-header">
+        <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+        <h2 class="slide-title">Spec 1 — <span>Results</span></h2>
+      </div>
+      <div class="content">
+        <div class="row">
+          <div class="col">
+            <div class="card" style="border-color:var(--border)">
+              <div class="card-title" style="color:var(--muted)">Performance Measurement</div>
+              <div
+                style="width:100%;height:350px;background:#0a0a1e;border:1px solid rgba(0,229,255,.1);display:flex;align-items:center;justify-content:center;border-radius:12px;position:relative;overflow:hidden">
+                <svg width="280" height="280" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#1a1a2e" stroke-width="8" />
+                  <path d="M 50 5 a 45 45 0 0 1 45 45" fill="none" stroke="rgba(255,31,122,.2)" stroke-width="8"
+                    stroke-dasharray="0.5 2" />
+                  <path d="M 50 50 L 50 10" stroke="var(--pink)" stroke-width="2" stroke-linecap="round"
+                    transform="rotate(-76 50 50)">
+                    <animateTransform attributeName="transform" type="rotate" from="-90 50 50" to="-76 50 50" dur="1s"
+                      fill="freeze" />
+                  </path>
+                  <circle cx="50" cy="50" r="3" fill="var(--pink)" />
+                  <text x="50" y="70" text-anchor="middle" fill="var(--pink)" font-size="8" font-weight="bold">13.14
+                    ms</text>
+                  <text x="50" y="82" text-anchor="middle" fill="var(--dim)" font-size="4">RESPONSE TIME</text>
+                  <path d="M 50 5 A 45 45 0 0 1 95 50" fill="none" stroke="var(--green)" stroke-width="2"
+                    opacity=".3" />
+                  <text x="65" y="30" text-anchor="middle" dominant-baseline="middle" fill="var(--green)" font-size="6"
+                    font-weight="bold" transform="rotate(0 65 30)">TARGET ZONE</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card">
+              <div class="card-title" style="color:var(--pink)">10-Run Data Set</div>
+              <table class="spec-table" style="font-size: 18px;">
+                <thead>
+                  <tr>
+                    <th>Run</th>
+                    <th>Latency</th>
+                    <th>Run</th>
+                    <th>Latency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="num">1</td>
+                    <td class="num" style="color:var(--dim)">13.20 ms</td>
+                    <td class="num">6</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num">2</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                    <td class="num">7</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num">3</td>
+                    <td class="num" style="color:var(--dim)">13.14 ms</td>
+                    <td class="num">8</td>
+                    <td class="num" style="color:var(--dim)">13.14 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num">4</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                    <td class="num">9</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                  </tr>
+                  <tr>
+                    <td class="num">5</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                    <td class="num">10</td>
+                    <td class="num" style="color:var(--dim)">13.13 ms</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+                <div
+                  style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(255,31,122,.1)">
+                  <div style="font-size:16px;color:var(--dim);margin-bottom:4px">MEAN</div>
+                  <div style="font-size:28px;font-weight:700;color:var(--pink)">13.14 ms</div>
+                </div>
+                <div
+                  style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(0,229,255,.1)">
+                  <div style="font-size:16px;color:var(--dim);margin-bottom:4px">TARGET</div>
+                  <div style="font-size:28px;font-weight:700;color:var(--green)">PASSED</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 15 — SPEC 2 DEFINITION
+════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-15">
+      <div class="slide-header">
+        <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+        <h2 class="slide-title">Spec 2 — <span>Topology Sync Latency</span></h2>
+      </div>
+      <div class="content">
+        <div class="card" style="border-color:var(--blue); max-width: 800px; margin: 40px auto;">
+          <div class="card-title" style="color:var(--blue)">Specification Definition</div>
+          <table class="spec-table" style="font-size: 24px;">
+            <tr>
+              <td style="color:var(--dim); width: 220px;"><strong>Quantity</strong></td>
+              <td>Physical add/remove → App UI topology reflect</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Units</strong></td>
+              <td>Milliseconds (ms)</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Target</strong></td>
+              <td style="color:var(--blue); font-weight: 800;">Mean ≤ 2000 ms</td>
+            </tr>
+            <tr>
+              <td style="color:var(--dim)"><strong>Why it matters</strong></td>
+              <td>Validates the entire hardware-to-cloud pipeline speed</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 16 — SPEC 2 RESULTS
+════════════════════════════════════════════════════════════ -->
+    <div class="slide" id="slide-16">
+      <div class="slide-header">
+        <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+        <h2 class="slide-title">Spec 2 — <span>Results</span></h2>
+      </div>
+      <div class="content">
+        <div class="row">
+        <div class="col">
+          <div class="card" style="border-color:var(--border)">
+            <div class="card-title" style="color:var(--muted)">Pipeline Validation</div>
+            <div
+              style="width:100%;height:450px;background:#050510;border:1px solid #1a1a2e;display:flex;align-items:center;justify-content:center;border-radius:12px;position:relative;background-image:linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.05) 1px, transparent 1px); background-size: 20px 20px; overflow: hidden;">
+              <svg width="580" height="340" viewBox="0 0 160 100">
+                <!-- Connection Line -->
+                <line x1="50" y1="50" x2="130" y2="50" stroke="#1a1a2e" stroke-width="4" stroke-linecap="round" />
+                <line x1="50" y1="50" x2="130" y2="50" stroke="var(--blue)" stroke-width="1.5" stroke-dasharray="3 5">
+                  <animate attributeName="stroke-dashoffset" from="32" to="0" dur="2s" repeatCount="indefinite" />
+                </line>
+
+                <!-- Snapped Block (Left) -->
+                <rect x="10" y="40" width="20" height="20" rx="4" fill="#0d0d22" stroke="var(--purple)"
+                  stroke-width="1.5" />
+                <circle cx="20" cy="50" r="3" fill="var(--purple)" opacity=".5">
+                  <animate attributeName="opacity" values="0.2;1;0.2" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <text x="20" y="72" text-anchor="middle" fill="var(--dim)" font-size="6" font-weight="bold">BLOCK</text>
+
+                <!-- Brain Block (Right of Block) -->
+                <rect x="30" y="40" width="20" height="20" rx="4" fill="#0d0d22" stroke="var(--green)"
+                  stroke-width="1.5" />
+                <rect x="37" y="44" width="6" height="12" rx="1" fill="var(--green)" opacity=".2" />
+                <text x="40" y="72" text-anchor="middle" fill="var(--dim)" font-size="6" font-weight="bold">BRAIN</text>
+
+                <!-- App UI -->
+                <rect x="130" y="32" width="22" height="36" rx="3" fill="#0d0d22" stroke="var(--blue)"
+                  stroke-width="1.5" />
+                <path d="M 135 45 L 147 45 M 135 52 L 147 52 M 135 59 L 142 59" stroke="rgba(0,170,255,.4)"
+                  stroke-width="1" />
+                <text x="141" y="80" text-anchor="middle" fill="var(--dim)" font-size="6" font-weight="bold">APP UI</text>
+
+                <!-- Status pulse -->
+                <circle cx="90" cy="50" r="3" fill="var(--green)">
+                  <animate attributeName="r" values="3;7;3" dur="1.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="1;0;1" dur="1.5s" repeatCount="indefinite" />
+                </circle>
+                <text x="90" y="40" text-anchor="middle" fill="var(--green)" font-size="9"
+                  font-weight="bold">SYNC</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <div class="card-title" style="color:var(--blue)">10-Run Data Set</div>
+            <table class="spec-table" style="font-size: 18px;">
+              <thead>
+                <tr>
+                  <th>Run</th>
+                  <th>Latency</th>
+                  <th>Run</th>
+                  <th>Latency</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">1</td>
+                  <td class="num" style="color:var(--dim)">45 ms</td>
+                  <td class="num">6</td>
+                  <td class="num" style="color:var(--dim)">62 ms</td>
+                </tr>
+                <tr>
+                  <td class="num">2</td>
+                  <td class="num" style="color:var(--dim)">60 ms</td>
+                  <td class="num">7</td>
+                  <td class="num" style="color:var(--dim)">63 ms</td>
+                </tr>
+                <tr>
+                  <td class="num">3</td>
+                  <td class="num" style="color:var(--dim)">39 ms</td>
+                  <td class="num">8</td>
+                  <td class="num" style="color:var(--dim)">70 ms</td>
+                </tr>
+                <tr>
+                  <td class="num">4</td>
+                  <td class="num" style="color:var(--dim)">46 ms</td>
+                  <td class="num">9</td>
+                  <td class="num" style="color:var(--dim)">33 ms</td>
+                </tr>
+                <tr>
+                  <td class="num">5</td>
+                  <td class="num" style="color:var(--dim)">37 ms</td>
+                  <td class="num">10</td>
+                  <td class="num" style="color:var(--dim)">41 ms</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+              <div
+                style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(0,170,255,.1)">
+                <div style="font-size:16px;color:var(--dim);margin-bottom:4px">MEAN</div>
+                <div style="font-size:28px;font-weight:700;color:var(--blue)">49.6 ms</div>
+              </div>
+              <div
+                style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(0,229,255,.1)">
+                <div style="font-size:16px;color:var(--dim);margin-bottom:4px">TARGET</div>
+                <div style="font-size:28px;font-weight:700;color:var(--green)">PASSED</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-</div><!-- #deck -->
+  <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 17 — SPEC 3 DEFINITION
+════════════════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-17">
+    <div class="slide-header">
+      <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+      <h2 class="slide-title">Spec 3 — <span>I2C Rise Time</span></h2>
+    </div>
+    <div class="content">
+      <div class="card" style="border-color:var(--orange); max-width: 800px; margin: 40px auto;">
+        <div class="card-title" style="color:var(--orange)">Specification Definition</div>
+        <table class="spec-table" style="font-size: 24px;">
+          <tr>
+            <td style="color:var(--dim); width: 220px;"><strong>Quantity</strong></td>
+            <td>10%–90% Vdd transition on SCL at Brain header</td>
+          </tr>
+          <tr>
+            <td style="color:var(--dim)"><strong>Units</strong></td>
+            <td>Nanoseconds (ns)</td>
+          </tr>
+          <tr>
+            <td style="color:var(--dim)"><strong>Target</strong></td>
+            <td style="color:var(--orange); font-weight: 800;">≤ 1000 ns</td>
+          </tr>
+          <tr>
+            <td style="color:var(--dim)"><strong>Setup</strong></td>
+            <td>Maximum Load: 15 Physical Blocks interconnected</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
 
-<!-- ── Navigation ──────────────────────────────────────────── -->
-<div id="nav">
-  <button class="nav-btn" id="btn-prev" title="Previous (←)">‹</button>
-  <div id="progress-bar"><div id="progress-fill"></div></div>
-  <span id="slide-counter">1 / 14</span>
-  <button class="nav-btn" id="btn-next" title="Next (→)">›</button>
-</div>
+  <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 18 — SPEC 3 RESULTS
+════════════════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-18">
+    <div class="slide-header">
+      <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+      <h2 class="slide-title">Spec 3 — <span>Results</span></h2>
+    </div>
+    <div class="content">
+      <div class="row">
+        <div class="col">
+          <div class="card" style="border-color:var(--border)">
+            <div class="card-title" style="color:var(--muted)">Signal Integrity Analysis</div>
+            <div
+              style="width:100%;height:450px;background:#050510;border:1px solid #1a1a2e;display:flex;align-items:center;justify-content:center;border-radius:12px;position:relative;background-image:linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.05) 1px, transparent 1px); background-size: 20px 20px;">
+              <svg width="580" height="340" viewBox="0 0 200 120">
+                <!-- Grid baseline -->
+                <line x1="0" y1="60" x2="200" y2="60" stroke="rgba(255,255,255,.05)" stroke-width="0.5" />
+                <!-- Scoped Signal -->
+                <path d="M 10 100 L 75 100 Q 83 100 85 60 T 93 20 L 190 20" fill="none" stroke="var(--orange)"
+                  stroke-width="2" stroke-linejoin="round" />
+                <!-- Measurement annotations -->
+                <line x1="84" y1="90" x2="84" y2="10" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 2" />
+                <line x1="96" y1="90" x2="96" y2="10" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 2" />
+                <path d="M 84 15 L 96 15" stroke="var(--green)" stroke-width="2" marker-start="url(#arr)"
+                  marker-end="url(#arr)" />
+                <text x="90" y="8" text-anchor="middle" fill="var(--green)" font-size="9" font-weight="bold">289
+                  ns</text>
+                <text x="20" y="112" fill="var(--dim)" font-size="6" font-weight="bold">10% Vdd</text>
+                <text x="20" y="25" fill="var(--dim)" font-size="6" font-weight="bold">90% Vdd</text>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card">
+            <div class="card-title" style="color:var(--orange)">10-Run Data Set</div>
+            <table class="spec-table" style="font-size: 18px;">
+              <thead>
+                <tr>
+                  <th>Run</th>
+                  <th>Rise Time</th>
+                  <th>Run</th>
+                  <th>Rise Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">1</td>
+                  <td class="num" style="color:var(--dim)">280 ns</td>
+                  <td class="num">6</td>
+                  <td class="num" style="color:var(--dim)">290 ns</td>
+                </tr>
+                <tr>
+                  <td class="num">2</td>
+                  <td class="num" style="color:var(--dim)">300 ns</td>
+                  <td class="num">7</td>
+                  <td class="num" style="color:var(--dim)">300 ns</td>
+                </tr>
+                <tr>
+                  <td class="num">3</td>
+                  <td class="num" style="color:var(--dim)">270 ns</td>
+                  <td class="num">8</td>
+                  <td class="num" style="color:var(--dim)">290 ns</td>
+                </tr>
+                <tr>
+                  <td class="num">4</td>
+                  <td class="num" style="color:var(--dim)">270 ns</td>
+                  <td class="num">9</td>
+                  <td class="num" style="color:var(--dim)">300 ns</td>
+                </tr>
+                <tr>
+                  <td class="num">5</td>
+                  <td class="num" style="color:var(--dim)">300 ns</td>
+                  <td class="num">10</td>
+                  <td class="num" style="color:var(--dim)">290 ns</td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">
+              <div
+                style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(255,122,0,.1)">
+                <div style="font-size:16px;color:var(--dim);margin-bottom:4px">MEAN</div>
+                <div style="font-size:28px;font-weight:700;color:var(--orange)">289 ns</div>
+              </div>
+              <div
+                style="background:#14142a;border-radius:8px;padding:12px;text-align:center; border: 1px solid rgba(0,229,255,.1)">
+                <div style="font-size:16px;color:var(--dim);margin-bottom:4px">TARGET</div>
+                <div style="font-size:28px;font-weight:700;color:var(--green)">PASSED</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<script>
-const TOTAL = 18;
-let current = 1;
+  <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 19 — ENGINEERING SPECS SUMMARY
+════════════════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-19">
+    <div class="slide-header">
+      <span class="section-tag tag-specs">4 of 4 · Engineering Specs</span>
+      <h2 class="slide-title">Three <span>Engineering Specifications</span></h2>
+    </div>
+    <div class="content">
+      <div class="card" style="margin-bottom:24px">
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Quantity Measured</th>
+              <th>Units</th>
+              <th>Target</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num accent-pink">1</td>
+              <td><strong>LED preview latency</strong></td>
+              <td class="num">ms</td>
+              <td class="accent-pink">≤ 50 ms</td>
+              <td style="color:var(--green); font-weight: 800;">13.14 ms (Met)</td>
+            </tr>
+            <tr>
+              <td class="num accent-blue">2</td>
+              <td><strong>Topology sync latency</strong></td>
+              <td class="num">ms</td>
+              <td class="accent-blue">≤ 2000 ms</td>
+              <td style="color:var(--green); font-weight: 800;">49.60 ms (Met)</td>
+            </tr>
+            <tr>
+              <td class="num accent-orange">3</td>
+              <td><strong>I2C Rise time (15-block)</strong></td>
+              <td class="num">ns</td>
+              <td class="accent-orange">≤ 1000 ns</td>
+              <td style="color:var(--green); font-weight: 800;">289 ns (Met)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:18px;color:var(--muted);text-align:center;font-weight:600">All design requirements
+        successfully validated across 10-run testing cycles.</p>
+    </div>
+  </div> <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 20 — CLOSING: THE DELIVERY
+════════════════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-20">
+    <div class="slide-header">
+      <span class="section-tag tag-close">Closing</span>
+      <h2 class="slide-title">The <span>Delivery</span></h2>
+    </div>
+    <div class="content">
+      <div class="card" style="border-color:var(--green); margin-bottom: 30px;">
+        <div class="card-title" style="color:var(--green)">Hardware & Software Proof</div>
+        <ul class="checklist" style="font-size: 22px; gap: 15px;">
+          <li><strong>15 Identical Modules</strong> — Scalable, consistent hardware performance</li>
+          <li><strong>Grammar-Correct App</strong> — Fully functional block-chain visualizer & modeler</li>
+          <li><strong>Stress-Tested Bus</strong> — Reliable electrical timing under maximum design load</li>
+          <li><strong>Educational UI</strong> — Guided tutorials bridge physical play and logic concepts</li>
+        </ul>
+      </div>
+      <div
+        style="padding:32px; background:linear-gradient(90deg,rgba(0,170,255,.05),rgba(0,229,255,.08)); border:1px solid rgba(0,229,255,.2); border-radius:14px; text-align:center;">
+        <p style="font-size:32px; color:var(--text); line-height:1.4;">
+          <strong>"A physical arrangement of blocks IS a program."</strong>
+        </p>
+      </div>
+    </div>
+  </div>
 
-function show(n) {
-  n = Math.max(1, Math.min(TOTAL, n));
-  document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
-  document.getElementById('slide-' + n).classList.add('active');
-  document.getElementById('slide-counter').textContent = n + ' / ' + TOTAL;
-  document.getElementById('progress-fill').style.width = (n / TOTAL * 100) + '%';
-  current = n;
-}
+  <!-- ═══════════════════════════════════════════════════════════
+     SLIDE 21 — WHAT'S NEXT
+════════════════════════════════════════════════════════════ -->
+  <div class="slide" id="slide-21">
+    <div class="slide-header">
+      <span class="section-tag tag-close">Closing</span>
+      <h2 class="slide-title">Future <span>Work</span></h2>
+    </div>
+    <div class="content">
+      <div class="row">
+        <div class="col">
+          <div class="card" style="border-color:var(--purple)">
+            <div class="card-title" style="color:var(--purple)">User & Education Focus</div>
+            <ul class="checklist">
+              <li><strong>Classroom Integration</strong> — Pilot tests in K-5 CS environments</li>
+              <li><strong>Deeper User Testing</strong> — Analyzing how children perceive grammar rules</li>
+              <li><strong>Expanded Tutorials</strong> — More complex logic puzzles in-app with new programming
+                concepts</li>
+              <li><strong>3D Educational Play</strong> — Vertical stacking and multi-edge rotation to teach spatial
+                logic</li>
+              <li><strong>Block Configurability</strong> — Blocks not specific to one function, but can be
+                configured to be any block type</li>
+            </ul>
+          </div>
+        </div>
+        <div class="col">
+          <div class="card" style="border-color:var(--blue)">
+            <div class="card-title" style="color:var(--blue)">Technical Refinements</div>
+            <ul class="checklist">
+              <li><strong>Mechanical Re-design</strong> — Lighter, smaller cube form factor with a perfectly square
+                display</li>
+              <li><strong>Wireless Charging Platform</strong> — Induction-based enclosure for simultaneous bulk
+                charging</li>
+              <li><strong>Integrated Connectivity</strong> — Seamless Bluetooth LE and Brain-configured WiFi mesh
+                networking</li>
+              <li><strong>Block Configurability</strong> — Universal blocks that can be software-configured to any
+                function</li>
+              <li><strong>Expandable System</strong> — Look into making the system expandable to more blocks,
+                and at a smaller cost per block</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top: 40px;">
+        <h3 style="font-size: 36px; color: var(--pink); letter-spacing: 2px;">THANK YOU!</h3>
+        <p style="color: var(--dim); font-size: 20px;">Questions & Feedback</p>
+      </div>
+    </div>
+  </div>
 
-function goNext() {
-  show(current + 1);
-}
+  </div><!-- #deck -->
 
-function goPrev() {
-  show(current - 1);
-}
+  <!-- ── Navigation ──────────────────────────────────────────── -->
+  <div id="nav">
+    <button class="nav-btn" id="btn-prev" title="Previous (←)">‹</button>
+    <div id="progress-bar">
+      <div id="progress-fill"></div>
+    </div>
+    <span id="slide-counter">1 / 21</span>
+    <button class="nav-btn" id="btn-next" title="Next (→)">›</button>
+  </div>
 
-document.getElementById('btn-prev').addEventListener('click', goPrev);
-document.getElementById('btn-next').addEventListener('click', goNext);
+  <script>
+    const TOTAL = 21;
+    let current = 1;
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); goNext(); }
-  if (e.key === 'ArrowLeft'  || e.key === 'PageUp')  { e.preventDefault(); goPrev(); }
-  if (e.key === 'Home') show(1);
-  if (e.key === 'End')  show(TOTAL);
-});
+    function show(n) {
+      n = Math.max(1, Math.min(TOTAL, n));
+      document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+      const target = document.getElementById('slide-' + n);
+      if (target) target.classList.add('active');
+      document.getElementById('slide-counter').textContent = n + ' / ' + TOTAL;
+      document.getElementById('progress-fill').style.width = (n / TOTAL * 100) + '%';
+      current = n;
+      // Update hash for deep linking
+      window.location.hash = 'slide-' + n;
+    }
 
-// Touch/swipe
-let tx = 0;
-document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true});
-document.addEventListener('touchend', e => {
-  const dx = e.changedTouches[0].clientX - tx;
-  if (Math.abs(dx) > 50) show(dx < 0 ? current + 1 : current - 1);
-}, {passive:true});
+    function goNext() {
+      show(current + 1);
+    }
 
-show(1);
-</script>
+    function goPrev() {
+      show(current - 1);
+    }
+
+    document.getElementById('btn-prev').addEventListener('click', goPrev);
+    document.getElementById('btn-next').addEventListener('click', goNext);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); goNext(); }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); goPrev(); }
+      if (e.key === 'Home') show(1);
+      if (e.key === 'End') show(TOTAL);
+    });
+
+    // Touch/swipe
+    let tx = 0;
+    document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - tx;
+      if (Math.abs(dx) > 50) show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
+
+    // Handle initial hash
+    if (window.location.hash) {
+      const h = window.location.hash.replace('#slide-', '');
+      const n = parseInt(h);
+      if (!isNaN(n)) show(n);
+      else show(1);
+    } else {
+      show(1);
+    }
+  </script>
 </body>
+
 </html>

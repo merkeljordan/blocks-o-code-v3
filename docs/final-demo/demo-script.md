@@ -101,21 +101,21 @@ You can see examples on this slide: a valid loop sequence, an If without End If 
 **Speaker: Jordan**
 
 **Script**
-“Now we will transition into our live demonstrations. We have several scenarios to show you to prove the varied features of the blocks and the app. First, before we get to the execution of code, we will show you our interactive walkthrough tutorial within the flutter app."
+“Now we will transition into our live demonstrations. We have four scenarios to show you to prove the varied features of the blocks and the app. First, we will show you our interactive walkthrough tutorial, which guides the user through building an `If-Then` sequence."
 
-### Demo 1: Walkthrough Tutorial (Slide 9)
+### Demo 1: Walkthrough & If Logic (Slide 9)
 
 **Speaker: Jordan**
 
 **[INTRODUCE]**
-"The Flutter App includes a guided Walkthrough Tutorial, which is vital for beginners. This tutorial guides the user through building an `If` statement sequence, step by step, validating their block connections in real-time."
+"The Flutter App includes a guided Walkthrough Tutorial, which is vital for beginners. This tutorial guides the user through building an `If` statement sequence—representing user interactivity—step by step, validating their block connections in real-time."
 
 **[SHOW]**
-**▶ PLAY: Walkthrough Tutorial — `demo-walkthrough-tutorial.mp4` (~1:00)**
-"Here in the app, the user enters the tutorial mode. It visually demonstrates which block they need to connect next. As we snap the physical Brain, If, Button, Then, an Output block, and End If blocks together, the app dynamically acknowledges the correct block placement and advances the tutorial."
+**▶ PLAY: Walkthrough & If Sequence — `demo-walkthrough-if.mp4` (~1:45)**
+"Here in the app, the user enters the tutorial mode. It visually demonstrates which block they need to connect next: Brain, If, and a Button Press block. As we snap the physical blocks together, the app dynamically acknowledges the placement. When we execute, the Brain pauses, waiting for that physical button press before proceeding to the Then-branch."
 
 **[RESULTS]**
-"This proves that our system can securely stream the network topology to the app to enforce interactive educational content, solving the core abstract programming problem we introduced at the start."
+"Once pressed, the conditional is met and execution resumes. This proves our system can securely stream topology to the app while simultaneously handling complex, blocking hardware input events."
 
 ---
 
@@ -151,23 +151,11 @@ You can see examples on this slide: a valid loop sequence, an If without End If 
 
 ---
 
-### Demo 4: If Sequence (Slide 12)
-
-**Speaker: Annie**
-
-**[INTRODUCE]**
-"Our next control flow demo is the conditional `If` statement, representing user interactivity."
-
-**[SHOW]**
-**▶ PLAY: If Sequence — `demo-if-sequence.mp4` (~0:45)**
-"We assemble the chain: Brain, Then an If block, followed by a Button Press block. Then the 'Then' block, an LED output block, and an End If block. When we execute this, the Brain pauses execution, waiting for the Button block to be physically pressed."
-
-**[RESULTS]**
-"Once we press the button, the conditional is met, and the Brain proceeds to trigger the LED output block. This proves the system can block execution safely and handle input events before resuming."
+---
 
 ---
 
-### Demo 5: 15-Block Full System Stress Test (Slide 13)
+### Demo 4: 15-Block Full System Stress Test (Slide 12)
 
 **Speaker: Camilla**
 
@@ -185,7 +173,7 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 
 ---
 
-## 9. Specs Overview (Slide 14)
+## 9. Specs Overview (Slide 13)
 
 **Speaker: Destiny**
 
@@ -194,7 +182,7 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 
 ---
 
-### Spec 1: LED Color Preview Latency (Slide 15)
+### Spec 1: LED Color Preview Latency (Slide 14)
 
 **[INTRODUCE]**
 "Spec 1 measured LED touch-to-preview latency, evaluating UX responsiveness. The target is under 50 milliseconds."
@@ -204,6 +192,10 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 **▶ PLAY: Spec 1 — Output Latency Run 2 — `spec1-run2.mp4` (~0:20)**
 **▶ PLAY: Spec 1 — Output Latency Run 3 — `spec1-run3.mp4` (~0:20)**
 "We use a logic analyzer to measure the time delta between the SPI touch event and the WS2812 output pin transition."
+
+---
+
+### Spec 1: Results (Slide 15)
 
 **[RESULTS]**
 "Our testing across 10 runs produced a mean of 13.1 milliseconds. We comfortably meet Spec 1."
@@ -220,12 +212,16 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 **▶ PLAY: Spec 2 — Sync Latency Run 2 — `spec2-run2.mp4` (~0:20)**
 **▶ PLAY: Spec 2 — Sync Latency Run 3 — `spec2-run3.mp4` (~0:20)**
 
+---
+
+### Spec 2: Results (Slide 17)
+
 **[RESULTS]**
 "Out of 10 runs, our mean latency was approximately 50 milliseconds, passing this requirement easily."
 
 ---
 
-### Spec 3: I2C Rise Time with 15 Blocks (Slide 17)
+### Spec 3: I2C Rise Time with 15 Blocks (Slide 18)
 
 **Speaker: Camilla**
 
@@ -238,19 +234,23 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 **▶ PLAY: Spec 3 — 15 Blocks Run 3 — `spec3-run3.mp4` (~0:20)**
 "We use an oscilloscope probing the I2C header at the Brain Block during a full standard scan sequence."
 
+---
+
+### Spec 3: Results (Slide 19)
+
 **[RESULTS]**
 "Our target, keeping within standard I2C operating mode safety margins, was under 1000 nanoseconds. Across 10 runs with 15 blocks attached, our mean rise time was 289ns. We met Spec 3 with plenty of margin, ensuring data stability even at max capacity."
 
 ---
 
-## 10. Closing (Slide 18) — ~0:45  
+## 10. Closing (Slide 20) — ~0:45  
 **Speakers: Annie + Jordan**
 
 **Annie (first ~0:25)**
 “To wrap up: we have successfully demonstrated the core of the Blocks O' Code system. The 15 magnetic blocks, the complex conditional logic, the interactive outputs, and the responsive cross-platform application integrate seamlessly.”
 
 **Jordan (last ~0:20)**
-“Our architecture safely handles massive configurations, the electrical buses operate within spec under full load, and beginners now have a tangible, immediate bridge to entering the programming world. Next steps mainly involve producing the finalized PCBs and enclosure polish. 
+“Our architecture safely handles massive configurations, the electrical buses operate within spec under full load, and beginners now have a tangible, immediate bridge to entering the programming world. As we look ahead, we’re focused on deeper user testing, introducing advanced programming concepts like variables and logic operators, and expanding the system with voice controls and new modular sensors. 
 
 Thanks for listening—we’re happy to take any questions.”
 
@@ -260,17 +260,10 @@ Thanks for listening—we’re happy to take any questions.”
 
 | # | Description | Suggested filename | Est. length | Status |
 |---|-------------|--------------------|-------------|--------|
-| 1 | Demo — Walkthrough Tutorial | `demo-walkthrough-tutorial.mp4` | ~1:00 | **NEW** |
-| 2 | Demo — Outut Blocks | `demo-output-blocks.mp4` | ~1:00 | **NEW** |
-| 3 | Demo — Loop Sequence | `demo-loop-sequence.mp4` | ~0:45 | **NEW** |
-| 4 | Demo — If Sequence | `demo-if-sequence.mp4` | ~0:45 | **NEW** |
-| 5 | Demo — 15 Block Test | `demo-15-block-sequence.mp4` | ~1:30 | **NEW** |
-| 6 | Spec 1 — Output Latency run 1 | `spec1-run1.mp4` | ~0:25 | **REUSED** |
-| 7 | Spec 1 — Output Latency run 2 | `spec1-run2.mp4` | ~0:25 | **REUSED** |
-| 8 | Spec 1 — Output Latency run 3 | `spec1-run3.mp4` | ~0:25 | **REUSED** |
-| 9 | Spec 2 — Sync Latency run 1 | `spec2-run1.mp4` | ~0:25 | **REUSED** |
-| 10 | Spec 2 — Sync Latency run 2 | `spec2-run2.mp4` | ~0:25 | **REUSED** |
-| 11 | Spec 2 — Sync Latency run 3 | `spec2-run3.mp4` | ~0:25 | **REUSED** |
-| 12 | Spec 3 — I2C rise time (15 blocks), run 1 | `spec3-run1.mp4` | ~0:25 | **NEW** |
-| 13 | Spec 3 — I2C rise time (15 blocks), run 2 | `spec3-run2.mp4` | ~0:25 | **NEW** |
-| 14 | Spec 3 — I2C rise time (15 blocks), run 3 | `spec3-run3.mp4` | ~0:25 | **NEW** |
+| 1 | Demo — Walkthrough & If Logic | `demo-walkthrough-if.mp4` | ~1:45 | **MERGED** |
+| 2 | Demo — Output Blocks | `demo-output-blocks.mp4` | ~1:00 | **REUSED** |
+| 3 | Demo — Loop Sequence | `demo-loop-sequence.mp4` | ~0:45 | **REUSED** |
+| 4 | Demo — 15 Block Test | `demo-15-block-sequence.mp4` | ~1:30 | **REUSED** |
+| 5 | Spec 1 — Output Latency Runs | `spec1-runs.mp4` | ~0:40 | **UPDATED** |
+| 6 | Spec 2 — Sync Latency Runs | `spec2-runs.mp4` | ~0:40 | **UPDATED** |
+| 7 | Spec 3 — I2C rise time (15 blocks) | `spec3-runs.mp4` | ~0:40 | **UPDATED** |
