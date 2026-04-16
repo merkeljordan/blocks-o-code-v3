@@ -1,0 +1,429 @@
+\documentclass[10pt, conference]{IEEEtran}
+
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx} % Enforces Times font
+\usepackage[top=1.125in, bottom=1.125in, left=0.85in, right=0.85in]{geometry} % Enforces strict margins
+\setlength{\columnsep}{0.25in} % Enforces column spacing
+\setlength{\parindent}{0.125in} % Enforces paragraph indent
+
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{float}
+
+
+
+\begin{document}
+
+% Dump the title block directly into the normal left column flow
+\begin{center}
+    % Title: 18pt font, single spaced (approx 22pt line height), 6pt before and 6pt after
+    \vspace*{6pt}
+    {\fontsize{18}{22}\selectfont Blocks o' Code (v3): A Modular Tangible Programming System for Interactive Learning\par}
+    \vspace{6pt}
+    
+    % Authors: 12pt font, 6pt after
+    {\fontsize{12}{14}\selectfont Jordan Merkel, Destiny Ellenwood, Annesley Kolb, Camilla Torres\par}
+    \vspace{6pt}
+    
+    % Affiliations: 12pt font, 12pt after
+    {\fontsize{12}{14}\selectfont Department of Electrical and Computer Engineering\\
+    University of Central Florida, Orlando, Florida, 32816-2450\par}
+    \vspace{12pt}
+\end{center}
+
+% Abstract forced to 9pt Bold, exactly 10pt line spacing
+{\fontsize{9}{10}\selectfont
+\noindent\hspace{0.125in}\textbf{\textit{Abstract}} --- \textbf{Blocks o' Code (v3) is a modular hands-on programming platform designed to introduce children to programming concepts through interactive physical blocks. The system uses ESP32-based processing, inter-block communication, display feedback, and audio output to create an engaging educational environment. Each block acts as part of a larger embedded system, allowing users to build logical sequences through physical interaction instead of relying only on screen-based coding. The project emphasizes modularity, ease of use, and classroom adaptability while addressing hardware integration challenges such as communication reliability, power distribution, and mechanical connectivity. Quantitative validation confirms strong system performance: LED selection latency averaged 13.1~ms against a 50~ms target, end-to-end communication latency averaged 49.6~ms against a 2000~ms target, and I\textsuperscript{2}C rise times averaged 289~ns, well within the 1000~ns standard-mode limit.}\par}
+\vspace{10pt} % Spacing before index terms
+
+% Keywords forced to 9pt Bold, exactly 10pt line spacing
+{\fontsize{9}{10}\selectfont
+\noindent\hspace{0.125in}\textbf{\textit{Index Terms}} --- \textbf{Educational technology, embedded systems, ESP32, I\textsuperscript{2}C communication, modular electronics, tangible programming.}\par}
+\vspace{12pt} % Spacing before Intro
+
+\section{Introduction}
+Teaching programming concepts to young learners can be challenging when traditional tools rely heavily on abstract syntax, text-based coding, and screen-based interaction. These approaches often create a barrier for beginners who benefit from more hands-on and interactive learning environments. As a result, many educational tools have been developed to introduce computational thinking through physical interaction and visual feedback~\cite{educational,tangible}. 
+
+The Blocks o’ Code (v3) system addresses this challenge by providing a modular, hands-on programming platform designed for classroom environments. The system allows users to construct simple programs by physically connecting electronic blocks, where each block represents a specific programming function or instruction. When connected together, the blocks communicate through embedded microcontrollers and shared communication protocols to execute programmed behavior such as showing visual feedback, generating sound, or controlling lighting effects. 
+
+The hardware architecture is built around the ESP32-WROOM-32 module, which provides 
+wireless connectivity, processing capability, and support for multiple peripheral interfaces. Each block contains its own electronics and connects to neighboring blocks through pogo-pin connectors, allowing rapid reconfiguration without cables or complex setup. Integrated peripherals, such as displays, speakers, and LEDs, provide immediate feedback, reinforcing the relationship between program structure and system output. This paper presents the design and implementation of the Blocks o’ Code (v3) platform, including system architecture, hardware design, communication methods, and peripheral subsystems. Experimental testing and system validation are also discussed to evaluate performance and reliability. 
+This paper details the following primary contributions to the Blocks o' Code platform: 
+\begin{itemize} 
+\item A highly modular hardware platform utilizing I\textsuperscript{2}C communication. 
+\item A FreeRTOS-based firmware architecture for real-time block detection. 
+\item A Flutter-based companion app with 3D visualization and syntax validation. 
+\item Quantitative latency and electrical validation of the interconnected system. 
+\end{itemize}
+
+\subsection{Goals \& Constraints}
+
+The project goals were organized into three levels. The basic goals were to build a modular set of physical programming blocks, support magnetic block-to-block connections carrying power and I\textsuperscript{2}C data, and allow a central Brain block to detect and interpret the connected configuration. The advanced goals focused on efficiency and scalability, including reducing per-block cost and limiting power consumption during active operation. The stretch direction aimed to expand the platform into a richer educational system through stronger multimedia interaction, improved app support, and future hardware enhancements. In the current prototype, the team achieved the core functional goals of the system: the Brain block can scan connected child blocks, communicate with the companion app, validate the detected 
+sequence through the app pipeline, and execute working LED and audio behaviors. Some of the longer-term goals, especially aggressive cost, power, and advanced hardware expansion targets, remain future work rather than fully validated outcomes in the present prototype. 
+
+Several high-level constraints shaped the design. Cost remained important because the system was intended for educational use and needed to stay practical for replication. The platform also had to be kid-friendly, which required blocks that were durable, easy to handle, and simple to connect correctly. In addition, latency was a major system constraint, since delayed feedback would weaken the connection between a user's action and the resulting system response. For that reason, the firmware and communication architecture also needed to support predictable, repeatable, and as much as practicable deterministic timing behavior in the local control path. Power limits further influenced the design because each block had to support embedded 
+processing, communication, display, lighting, and audio within realistic portable hardware constraints. Therefore, the final design balanced responsiveness, deterministic timing needs, usability, safety, and portability while preserving the modular goals of the platform. 
+
+\section{System Architecture}
+\label{sec:sysarch}
+The Blocks o' Code (v3) platform is organized as a distributed embedded system centered around a Brain block that coordinates a network of child blocks and a companion Flutter application. At the lowest level, each child block exposes a uniform I\textsuperscript{2}C interface for configuration and execution, while internally managing its own peripherals such as a TFT Display, LED strip and matrix, and audio hardware. Each cube connects to its neighbors through a four-pin magnetic pogo connector carrying VCC, GND, SDA, and SCL. The SDA and SCL lines form the shared 100~kHz I\textsuperscript{2}C bus, while the GND pin provides a common reference for all digital communication. The VCC line is used as a low-current reference supply for the bus and detection circuitry, but the primary power for each block remains local to its own battery and regulation stages. This four-wire interface allows the system to share a stable logic and communication reference across the chain without relying on a high-current shared power rail, preserving both modularity and fault isolation.
+
+From a system perspective, the Brain block acts as the primary controller on this bus. It periodically scans for active devices, discovers the physical order of the connected blocks, and builds a logical program representation from that configuration. This representation is serialized into a compact JSON structure that describes each block by type and position within the chain. The Brain then uses FreeRTOS tasks to separate three main responsibilities: continuous scanning and configuration management, local program execution, and network communication.
+
+Above the hardware layer, the Brain maintains a persistent Wi-Fi connection to a dedicated TCP server running on the local network. The server exposes a simple message relay interface between the embedded system and the Flutter companion application. Whenever the physical configuration changes, the Brain transmits an updated JSON configuration through the server to the app, which validates the sequence and provides real-time visualization. Validation results, execution commands, and heartbeat messages flow back down the same path to the Brain. This architecture cleanly decouples physical block assembly, embedded control, and user-facing visualization while still achieving low end-to-end latency from user action to on-screen and physical feedback.
+
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=1.0\linewidth]{sysarch.png}
+\caption{High-level system architecture for Blocks o' Code (v3).}
+\end{figure}
+
+\section{Hardware Design}
+
+\subsection{ESP32 Processing Core}
+
+The ESP32-WROOM-32 module~\cite{esp32} is used as the primary controller in the Brain block and serves as the central processing unit for the system. It was selected because it provides sufficient processing capability, integrated Wi-Fi, and support for multiple communication interfaces required by the design.
+
+The ESP32 manages communication with all connected child blocks over the I\textsuperscript{2}C bus. It continuously scans for active devices, maintains the current block configuration, and interprets the physical arrangement as a program sequence. Based on this configuration, the ESP32 controls system behavior by coordinating input handling, control flow, and output execution.
+
+In addition to local control, the ESP32 handles communication with the companion application over Wi-Fi. Configuration data is transmitted to the app for validation, and execution commands are received to control system operation.
+
+The ESP32 runs FreeRTOS~\cite{freertos} to separate scanning, execution, and communication tasks. This structure improves overall system responsiveness and helps maintain consistent timing behavior during operation.
+
+\subsection{Child Block Hardware \& I\textsuperscript{2}C Bus}
+
+Each child block uses a standardized hardware platform to ensure compatibility, simplify manufacturing, and maintain consistent electrical and mechanical interfaces across the system. Each block includes a 2.8-inch TFT touchscreen display, which serves as the primary user interface for visualizing program elements and interacting with block-specific functions.
+
+Additional peripherals provide multimodal feedback. A 4×4 LED matrix enables simple animations and visual outputs, while a programmable LED strip provides real-time system feedback, indicating valid or invalid block configurations and supporting interactive lighting effects during execution. Audio output is implemented using an integrated amplifier and speaker, allowing the system to generate tones, sound effects, and simple musical playback.
+
+Inter-block communication is achieved using a 100~kHz I\textsuperscript{2}C bus~\cite{i2c} routed through magnetic pogo-pin connectors. These connectors enable both mechanical attachment and electrical connectivity. The bus utilizes pull-up resistors and unique device addressing to ensure reliable communication and prevent contention across multiple connected blocks.
+
+Configuration data is transmitted from child blocks to a central Brain block, which processes the block sequence and interfaces with the companion app for validation. Upon successful validation, execution commands are issued to the blocks, enabling synchronized system behavior across the modular architecture.
+
+\subsection{Power \& Charging Architecture}
+Each block in the system (15 total) is designed with an identical, self-contained power architecture to ensure modularity and independent operation. Every block is powered by two 18650 lithium-ion batteries, providing a stable and rechargeable energy source.
+
+Charging is handled locally on each block using the TP5100 charging IC configured for 2-cell (2S) lithium-ion charging. USB-C input is used as the primary charging interface, paired with a PD trigger module to negotiate a 9~V input supply. This ensures compatibility with modern USB-C power sources while maintaining a simple and reliable charging profile.
+
+Voltage regulation is performed onboard to supply the required 3.3~V and 5~V rail for the ESP32-WROOM microcontroller, display, and communication circuitry. Power is distributed locally within each block, meaning there is no shared power bus between blocks. This prevents cascading failures and improves system robustness.
+
+Protection considerations include proper grounding, regulated voltage rails, and careful routing of power traces to minimize voltage drop and noise. Since each block is electrically independent, fault isolation is inherently achieved.
+ 
+\subsection{Audio Subsystem Architecture}
+The audio subsystem of the Blocks o’ Code (v3) platform provides auditory feedback to enhance the interactive learning experience. Audio output is generated by the ESP32 microcontroller using the I\textsuperscript{2}S digital audio interface, which allows digital audio data to be transmitted efficiently to the amplification stage. This interface provides improved signal quality compared to basic PWM or DAC-based audio methods and enables the system to generate clear tones and sound effects for user interaction. The audio system is designed to support interactive features within the learning platform, allowing users to trigger sounds through the physical programming blocks. For example, children can select preloaded songs or activate individual musical notes, enabling them to experiment with simple melodies while learning how block connections correspond to program behavior.
+
+To provide sufficient output power and improve sound quality, an LM386 low-voltage audio amplifier is used as the primary amplification stage. The LM386 was selected due to its low component count, ability to operate from a single supply, and suitability for battery-powered embedded systems. Because the audio signals generated by the ESP32 are low-level signals that cannot directly drive a speaker, the amplifier boosts the signal to a level capable of producing clearly audible sound. The amplifier is configured using the bass boost configuration, which incorporates a resistor-capacitor network connected between pins 1 and 5 of the LM386 to enhance the low-frequency response.
+
+The audio signal is AC-coupled into the amplifier input to remove any DC offset and stabilize the input stage. The LM386 amplifier is configured with a voltage gain greater than the default value of 20 through the use of external passive components connected to the gain control pins. The amplified output signal is then used to drive an 8-$\Omega$ speaker mounted inside the enclosure, allowing the system to produce audible tones, sound effects, and musical playback during operation.
+
+This design provides a compact and efficient audio solution capable of producing clear tones and sound effects while maintaining low power consumption. By allowing users to trigger songs or individual musical notes through block interactions, the audio subsystem reinforces the cause-and-effect relationship between physical programming inputs and system outputs.
+
+\subsection{Implementation - Power Details}
+Several key design decisions were made during schematic capture and PCB layout to improve reliability and thermal performance.
+
+For the charging circuit, an initial issue was identified with the TP5100 layout: a critical capacitor was placed too far from the IC, which affected stability. This was corrected in later revisions by relocating the capacitor closer to the IC pins, improving performance and reducing noise.
+
+For voltage regulation, thermal management was a primary concern. To address heat dissipation, stitching vias were added across the regulator footprint to distribute heat more effectively through the PCB. This significantly improved thermal performance under load.
+
+Mechanical constraints also influenced the design. 90-degree angle pin headers were used to mount modules in a way that meets the physical size requirements of each block while maintaining accessibility and structural integrity.
+
+\section{Software \& Firmware Design}
+
+\subsection{Firmware Architecture}
+The Brain block firmware is organized around several FreeRTOS tasks that separate scanning, execution, and communication. First, the \texttt{block\_cfg\_scan} task continuously scans the shared I\textsuperscript{2}C bus for connected child blocks and updates the current physical configuration. Within that scan path, the configuration manager compares each new scan against the previous state, detects topology changes, and generates a JSON description of the block chain. The Brain also runs an executor task, which steps through the detected block sequence as a simple program using a program counter, delay states, and loop handling. In parallel, a Wi-Fi/TCP client task sends configuration updates to the companion app and 
+receives validation messages, heartbeat traffic, and execution-related commands. This task separation improves timing predictability in the local firmware path because scanning, execution, and communication follow defined control paths instead of being combined in one large loop. 
+
+Child blocks use a shared register-and-command protocol so that the Brain can interact with each one in a consistent way. During scanning, the Brain reads \texttt{REG\_WHOAMI} from each responding device to determine its logical type. During runtime, child blocks handle commands such as \texttt{CMD\_SET\_LED}, \texttt{CMD\_GET\_DATA}, \texttt{CMD\_RESET}, and \texttt{CMD\_EXECUTE}. This allows the Brain to use one common interface across different block types while still allowing each child block to manage its own local peripherals and 
+behavior. 
+
+Invalid configurations are handled conservatively on the firmware side. When the physical topology changes, the Brain clears the previous validation state and requires the companion app to validate the new configuration before execution can begin. In addition, blocks that appear missing or return an unknown type are flagged during scanning and increase the configuration error count. If a configuration changes while execution is already in progress, the executor is stopped so the system does not continue running an outdated block arrangement. Therefore, the firmware helps maintain predictable and safe system behavior while the companion app performs the main structural validation of the block sequence. 
+
+\subsection{Block Behavior Logic}
+The firmware interprets the connected blocks by logical role rather than by their physical hardware alone. First, the Brain block acts as the central controller. It scans the I\textsuperscript{2}C bus, stores the detected configuration, communicates with the companion app, and starts or stops execution. In effect, the Brain converts the physical arrangement of blocks into an ordered program that the executor can step through. 
+
+Next, control-flow blocks define how that program should progress. Blocks such as \texttt{IF}, \texttt{THEN}, \texttt{END\_IF}, \texttt{LOOP}, \texttt{END\_LOOP}, and \texttt{DELAY} do not produce output directly. Instead, the Brain executor interprets them as structural instructions. For example, \texttt{IF} and \texttt{END\_IF} define a conditional region, \texttt{LOOP} and \texttt{END\_LOOP} define a repeated region using a loop stack, and \texttt{DELAY} places the executor into a timed wait state before continuing. 
+
+Input blocks provide events that affect execution. In the current design, the primary input block is the button block. The executor is structured to use button-driven input for conditional behavior and wait-for-input states, so input blocks represent runtime decisions rather than direct outputs. Therefore, input blocks do not simply display information. Instead, they provide runtime events that influence how the Brain moves through the program. 
+
+Finally, output blocks produce the visible or audible results of execution. These include the LED Color Flash, Note, and Music Sequence blocks. When the executor reaches one of these output block types, the Brain issues the required I\textsuperscript{2}C commands, such as configuration updates and \texttt{CMD\_EXECUTE}, so output-capable child blocks can perform their local actions. As a result, the full block chain behaves as one modular program in which 
+the Brain interprets structure, input blocks provide events, and output blocks present the final system response.
+
+\subsection{Flutter App Architecture}
+A companion Flutter application~\cite{flutter} provides the primary user interface for visualizing, validating, and monitoring the Blocks o' Code (v3) system. The app connects to a lightweight TCP server that relays messages between the Brain block and the mobile or desktop device. All communication is expressed in terms of a JSON \texttt{BlockConfiguration} model, which encodes the ordered list of detected blocks, their logical types, and associated metadata such as loop counts or delay parameters.
+
+Internally, the app is organized into three main layers: a networking layer that manages the TCP socket and heartbeat behavior, an application logic layer that performs grammar validation and state management, and a presentation layer that renders the live block list and 3D visualization. The networking layer implements robust reconnect behavior and periodic heartbeats to detect dropped connections and automatically restore communication without user intervention. Incoming JSON messages are parsed into strongly typed Dart models, which are then exposed to the rest of the app through a centralized state container.
+
+The grammar engine enforces four core syntactic rules, including proper pairing of \texttt{IF}/\texttt{END\_IF} and \texttt{LOOP}/\texttt{END\_LOOP} blocks, valid placement of \texttt{THEN} blocks, and the requirement that executable sequences begin with a Brain block and end with an output-capable block. When a configuration violates any of these rules, the app surfaces explicit error messages that highlight the offending block and describe the issue in child-friendly language. The app also provides both a textual list and a real-time 3D visualization of the physical assembly, allowing learners to see how their tangible program maps to a logical structure. Telemetry, such as connection status and execution state, is displayed alongside this view to help instructors and students monitor system health.
+
+
+\subsection{Implementation - Communication}
+Communication in the Blocks o' Code (v3) platform spans three layers: inter-block communication over I\textsuperscript{2}C, system-level control between the Brain and a TCP relay server, and application-level interaction with the Flutter companion app. As described in Section~\ref{sec:sysarch}, the four-pin pogo connectors carry the shared I\textsuperscript{2}C bus and common ground reference between blocks. The Brain block acts as the I\textsuperscript{2}C master, periodically scanning the bus to discover attached blocks, reading identification registers, and issuing commands such as configuration updates and \texttt{CMD\_EXECUTE} to drive local peripherals on the child cubes.
+
+Above this local bus, the Brain maintains a Wi-Fi connection to a lightweight TCP server on the local network. Whenever the physical configuration changes, the Brain converts the current block chain into a compact JSON \texttt{BlockConfiguration} structure and transmits it to the server. The server relays this message to the Flutter application, which parses the JSON, performs grammar validation, and updates its live block list and 3D visualization. Validation results and execution commands from the app follow the reverse path: the app sends a JSON message to the server, the server forwards it to the Brain, and the Brain routes the resulting actions back down to the child blocks over the I\textsuperscript{2}C bus.
+
+To keep the entire path responsive and robust, the communication protocol uses short, line-delimited JSON messages with explicit \texttt{type} fields (for example, \texttt{CONFIG\_UPDATE}, \texttt{VALIDATION\_RESULT}, and \texttt{EXECUTE\_COMMAND}) and periodic heartbeat traffic. A dedicated FreeRTOS communication task on the Brain manages the TCP socket, monitors heartbeat timeouts, and triggers automatic reconnect attempts when needed. This layered design allows button presses and other physical interactions on the child blocks to propagate through the Brain, relay server, and app, and then return as validated execution commands, while keeping latency and jitter low enough for the system to feel interactive in classroom use.
+
+
+\section{Mechanical Design}
+The mechanical enclosures were modeled in SolidWorks to create a durable cube-style housing for each block within the system. The enclosure design was developed to securely support the internal electronics while maintaining an intuitive and child-friendly form factor. Internal mounting features were integrated into the enclosure to precisely align the printed circuit boards, magnetic connectors, and pogo pin communication interfaces. These mounting points ensure consistent electrical contact between blocks while maintaining structural rigidity during repeated assembly and handling.
+
+Cutouts were incorporated into the enclosure to provide access to all external components and interfaces. These include openings for the power switch, USB-C charging port, TFT touchscreen display, LED matrix module, and pogo pin connection interfaces. The placement of these cutouts was carefully designed to ensure accessibility while protecting internal components from accidental contact or damage during normal use.
+
+Thermal venting was also incorporated into the enclosure design to allow passive airflow through the system. Ventilation holes located on the side panels help dissipate heat generated by the internal electronics, including the microcontroller, display, and audio amplifier. This passive cooling approach eliminates the need for active cooling components while maintaining safe operating temperatures.
+
+The cube geometry and hinged lid mechanism allow the enclosure to be easily opened for assembly, maintenance, and debugging during development. At the same time, the external design maintains smooth surfaces and rounded edges to ensure that the blocks remain comfortable and safe for children to handle. Overall, the enclosure design balances durability, thermal management, and ergonomics while supporting the modular architecture of the Blocks o’ Code system.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{cube_external.png}
+\caption{External SolidWorks model showing the TFT display, LED matrix, and pogo-pin interfaces.}
+\label{fig:cube_ext}
+\vspace{6pt}
+\includegraphics[width=\linewidth]{cube_internal.png}
+\caption{Internal layout showing PCB mounting, pogo-pin connector, and speaker placement.}
+\label{fig:cube_int}
+\end{figure}
+
+
+
+\section{Testing and Results}
+
+\subsection{Spec 1: LED Selection Latency}
+System responsiveness was verified by measuring the latency between an LED color selection on the companion app and the corresponding hardware response on the LED Color Flash block. This latency was measured using a logic analyzer by timestamping the I\textsuperscript{2}C transaction initiated by the user input event and the resulting LED update command issued to the child block. This metric captures the local firmware path from input handling to visible output, and the firmware processes the state change efficiently enough for the visual feedback to feel instantaneous to the user.
+
+Across ten runs, the measured latency had a mean of 13.1406 ms, with a minimum of 13.128 ms and a maximum of 13.206 ms. The design target was 50 ms or less. Therefore, the measured result remained well within specification. Just as important, the variation between runs was extremely small. That low spread indicates that the measured firmware path exhibits highly repeatable, deterministic timing behavior. In practice, this means the preview appears both immediate and consistent to the user.
+
+\begin{table}[htbp]
+\renewcommand{\arraystretch}{1.3}
+\caption{LED Selection Latency (10 Runs)}
+\label{tab:LED_latency}
+\centering
+\begin{tabular}{c c}
+\toprule
+\textbf{Run Number} & \textbf{Latency (ms)} \\
+\midrule
+1 & 13.206 \\
+2 & 13.131 \\
+3 & 13.142 \\
+4 & 13.133 \\
+5 & 13.133 \\
+6 & 13.129 \\
+7 & 13.133 \\
+8 & 13.138 \\
+9 & 13.133 \\
+10 & 13.128 \\
+\midrule
+\textbf{Mean} & 13.1406 \\
+\textbf{Std Dev} & 0.023 \\
+\textbf{Min / Max} & 13.128 / 13.206 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Spec 2: System Communication Latency}
+End-to-end communication latency was defined as the time from a physical configuration change in the block chain to the corresponding update that appears in the UI of the companion app. This path includes the Brain's I\textsuperscript{2}C rescan and JSON generation, Wi-Fi transmission to the TCP server, relay to the Flutter application, JSON parsing, grammar validation, and UI refresh. The design target for this metric was a maximum of 2000~ms to ensure that learners perceive the system as responsive and directly linked to their physical actions.
+
+Latency was measured across ten independent trials. At the embedded side, the Brain toggled a GPIO line immediately upon detecting a new configuration; at the application side, a timestamp was logged the moment the updated configuration was rendered in the UI. Both endpoints were captured on video and measured frame-by-frame to derive each trial's end-to-end elapsed time. Table~\ref{tab:COM_latency} summarizes the results. The observed latencies ranged from 33~ms to 70~ms, with a mean of 49.6~ms. All measurements were therefore more than an order of magnitude below the 2000~ms specification.
+
+The relatively narrow spread between the minimum and maximum values indicates that the communication path is not only fast but also consistent under typical operating conditions. Users experience this as an almost immediate change in the on-screen visualization after rearranging blocks, which reinforces the cause-and-effect relationship between physical programming and system behavior.
+
+\begin{table}[htbp]
+\renewcommand{\arraystretch}{1.3}
+\caption{System Communication Latency (10 Runs)}
+\label{tab:COM_latency}
+\centering
+\begin{tabular}{c c}
+\toprule
+\textbf{Run Number} & \textbf{Latency (ms)} \\
+\midrule
+1 & 45 \\
+2 & 60 \\
+3 & 39 \\
+4 & 46 \\
+5 & 37 \\
+6 & 62 \\
+7 & 63 \\
+8 & 70 \\
+9 & 33 \\
+10 & 41 \\
+\midrule
+\textbf{Mean} & 49.6 \\
+\textbf{Std Dev} & 13.0 \\
+\textbf{Min / Max} & 33 / 70 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Spec 3: Electrical \& I\textsuperscript{2}C Testing}
+
+Rise time measurements were used to evaluate I\textsuperscript{2}C performance under standard operating conditions. The measurement setup included:
+\begin{itemize}
+\item Oscilloscope probe connected to SDA/SCL test points (see Fig.~\ref{fig:i2c_rise})
+\item I\textsuperscript{2}C bus operating at 100~kHz
+\item Standard pull-up configuration (4.7~k$\Omega$)
+\end{itemize}
+
+Ten measurements were recorded, with rise times ranging from 270~ns to 300~ns and an average of 289~ns. These results are well below the 1000~ns maximum rise time specified for standard-mode I\textsuperscript{2}C operation. This confirms reliable communication across multiple connected blocks.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1.0\linewidth]{I2C.PNG}
+    \caption{Example of I\textsuperscript{2}C rise time on the oscilloscope.}
+    \label{fig:i2c_rise}
+\end{figure}
+
+\subsubsection*{Additional Electrical Validation}
+Additional electrical validation included:
+\begin{itemize}
+\item Verification of regulator output stability at 3.3~V and 5~V
+\item Functional testing under battery operation
+\item Basic runtime validation of the battery system under typical load conditions
+\end{itemize}
+Overall, the electrical system met all functional requirements, with stable power delivery and reliable I\textsuperscript{2}C communication across the modular architecture.
+
+\begin{table}[htbp]
+\renewcommand{\arraystretch}{1.3}
+\caption{I\textsuperscript{2}C Rise Time (10 Runs)}
+\label{tab:I2C_latency}
+\centering
+\begin{tabular}{c c}
+\toprule
+\textbf{Run Number} & \textbf{Rise Time (ns)} \\
+\midrule
+1 & 280 \\
+2 & 300 \\
+3 & 270 \\
+4 & 270 \\
+5 & 300 \\
+6 & 290 \\
+7 & 300 \\
+8 & 290 \\
+9 & 300 \\
+10 & 290 \\
+\midrule
+\textbf{Mean} & 289 \\
+\textbf{Std Dev} & 12.0 \\
+\textbf{Min / Max} & 270 / 300 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Audio \& Mechanical Testing}
+
+Mechanical and audio subsystems were tested to verify reliability under repeated use. Mechanical testing included repeated assembly cycles to evaluate enclosure durability, hinge performance, and magnetic connector alignment. The connectors maintained consistent electrical contact through the pogo-pin interface, and no structural degradation was observed.
+
+Thermal performance was evaluated during extended operation. Passive ventilation provided sufficient heat dissipation, and internal temperatures remained within safe operating limits without active cooling.
+
+Audio testing confirmed that the LM386 amplifier reliably drove the 8-$\Omega$ speaker with stable output and minimal distortion. Sound playback remained clear at maximum volume, and the bass boost configuration improved overall audio quality.
+
+Overall, both subsystems met durability and performance requirements for classroom use.
+
+\section{Discussion}
+Blocks o' Code (v3) successfully operates as a cohesive interactive system. From the user's perspective, the workflow is straightforward: blocks are physically connected to form a program, the Brain block scans the arrangement, the companion app displays the detected logic and reports whether the sequence is valid, and valid programs can then be executed with immediate physical feedback. Output blocks such as the LED Color Flash and Music Sequence blocks allow the user to see and hear the result of the program, reinforcing the connection between physical arrangement and system behavior. 
+
+These results show that the platform already supports the core experience it was designed to provide. Rather than functioning as isolated hardware subsystems, the blocks, firmware, and app work together as a single educational system. The current prototype can detect valid and invalid configurations, prevent incorrect execution, and deliver responsive visual and audio feedback during operation. Future iterations will focus on expanding the available block library, improving connector robustness, and refining the overall user experience, but the prototype already demonstrates the central value of the platform.
+
+\section{Conclusion}
+
+Blocks o' Code (v3) demonstrates the successful implementation of a modular embedded system~\cite{embedded} tailored for interactive programming education. By combining ESP32 control, I\textsuperscript{2}C communication, tactile hardware, and a responsive companion application, the project transforms abstract coding concepts into an intuitive, hands-on learning experience for beginners.
+
+The system integrates touchscreen displays, LED matrices, programmable lighting, audio feedback, and magnetic pogo-pin connectivity into one unified platform. The physical blocks provide the structure of the program, the firmware detects and interprets that structure, and the companion app validates and visualizes it for the user, creating a tangible programming workflow that bridges the gap between abstract logic and physical interaction.
+
+Future iterations will focus on expanding the block library, hardening connector reliability, and conducting structured classroom evaluations to measure learning outcomes. Blocks o' Code (v3) provides a strong foundation for that continued development and demonstrates a practical model for hands-on beginner programming education.
+
+\section*{Acknowledgment}
+The authors would like to sincerely thank Dr. Mike Borowczak, Dr. Arthur Weeks, and Dr. Sreeram Sundaresh for their invaluable guidance, mentorship, and continued support throughout the development of the Blocks o’ Code project. Their technical insight and feedback were instrumental in shaping the system architecture, hardware design, and overall direction of the project. The authors also appreciate their encouragement during the design, testing, and refinement stages of the system.
+
+The team would also like to acknowledge the support provided by the University of Central Florida’s Electrical and Computer Engineering program, which provided access to laboratory resources, development tools, and facilities necessary for building and testing the prototype system. These resources played an important role in enabling the successful implementation of the Blocks o’ Code platform.
+
+\section*{Biography}
+{\small
+% --- Student 1 ---
+\noindent
+\begin{minipage}[t]{0.25\linewidth}
+  \vspace{0pt}% force top alignment
+  \includegraphics[width=\linewidth]{jordan_photo.png}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.70\linewidth}
+  \vspace{0pt}% force top alignment
+  \raggedright
+  \textbf{Jordan Merkel} is a 21-year-old senior graduating as a Computer Engineering student at the University of Central Florida. She plans to start full-time at Advanced Micro Devices (AMD) after graduation as an AI-Graphics RTL Design Engineer, as well as start graduate education.
+\end{minipage}
+
+\vspace{8pt}
+
+% --- Student 2 ---
+\noindent
+\begin{minipage}[t]{0.25\linewidth}
+  \vspace{0pt}
+  \includegraphics[width=\linewidth]{destiny_photo.png}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.70\linewidth}
+  \vspace{0pt}
+  \raggedright
+  \textbf{Destiny Ellenwood} is a graduating as a Computer Engineering student at the University of Central Florida.
+\end{minipage}
+
+\vspace{8pt}
+
+% --- Student 3 ---
+\noindent
+\begin{minipage}[t]{0.25\linewidth}
+  \vspace{0pt}
+  \includegraphics[width=\linewidth]{annesley_photo.jpg}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.70\linewidth}
+  \vspace{0pt}
+  \raggedright
+  \textbf{Annesley Kolb} is a 23-year-old senior Electrical Engineering student at the University of Central Florida with industry experience at Turbine Technology Services, focusing on electrical schematics, control systems, and panel design. 
+\end{minipage}
+
+\vspace{8pt}
+
+% --- Student 4 ---
+\noindent
+\begin{minipage}[t]{0.25\linewidth}
+  \vspace{0pt}
+  \includegraphics[width=\linewidth]{camilla_photo.png}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.70\linewidth}
+  \vspace{0pt}
+  \raggedright
+  \textbf{Camilla Torres} is a graduating Electrical Engineering student at the University of Central Florida.
+\end{minipage}
+}
+\begin{thebibliography}{99} 
+
+\bibitem{esp32}
+Espressif Systems, ``ESP32 Series Datasheet,'' Espressif Systems, 2024.
+
+\bibitem{i2c}
+NXP Semiconductors, ``I\textsuperscript{2}C-bus specification and user manual,'' NXP, 2021.
+
+\bibitem{educational}
+M. Resnick et al., ``Scratch: Programming for all,'' \emph{Communications of the ACM}, vol. 52, no. 11, pp. 60--67, 2009.
+
+\bibitem{tangible}
+H. Ishii and B. Ullmer, ``Tangible bits: Towards seamless interfaces between people, bits and atoms,'' in \emph{Proc. SIGCHI Conf. Human Factors in Computing Systems}, 1997, pp. 234--241.
+
+\bibitem{embedded}
+F. Vahid and T. Givargis, \emph{Embedded System Design: A Unified Hardware/Software Introduction}. New York, NY, USA: Wiley, 2002.
+
+\bibitem{freertos}
+Amazon Web Services, ``FreeRTOS Real-Time Operating System,'' [Online]. Available: \url{https://www.freertos.org}, 2024.
+
+\bibitem{flutter}
+Google LLC, ``Flutter -- Build apps for any screen,'' [Online]. Available: \url{https://flutter.dev}, 2024.
+
+\end{thebibliography}
+
+\end{document}
