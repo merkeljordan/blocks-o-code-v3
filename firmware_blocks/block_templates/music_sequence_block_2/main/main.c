@@ -78,6 +78,7 @@ static int64_t g_busy_since_us = 0;
 static TaskHandle_t g_exec_task_handle = NULL;
 static TaskHandle_t g_i2c_task_handle = NULL;
 static QueueHandle_t g_playback_queue = NULL;
+static volatile bool g_playback_active = false;
 
 #define MUSIC_BLOCK_MIN_BUSY_HOLD_MS 35
 
@@ -104,6 +105,14 @@ static void render_status_strip(uint8_t status_flags)
 
 static void set_status_flags(uint8_t status_flags)
 {
+    // Guard: during active playback, BUSY must not be dropped by side-channel callers
+    // (UI events, CMD_RESET). Only clear_busy_and_refresh_ready_state() may clear it,
+    // and it writes g_status_flags directly, bypassing this function.
+    if (g_playback_active && (status_flags & STATUS_BUSY) == 0U) {
+        ESP_LOGW(TAG, "Ignoring set_status_flags(0x%02X) during active playback", status_flags);
+        return;
+    }
+
     uint8_t old_flags = g_status_flags;
     g_status_flags = status_flags;
 
@@ -215,6 +224,7 @@ static void clear_busy_and_refresh_ready_state(void)
     ensure_min_busy_visibility();
     g_status_flags &= (uint8_t)~STATUS_BUSY;
     g_status_flags |= STATUS_IDLE;
+    ESP_LOGI(TAG, "Status set to IDLE (BUSY cleared)");
     led_matrix_set_status_mirror(false);
     sync_selection_status_flag();
 }
@@ -373,9 +383,13 @@ void command_handle(i2c_command_t cmd,
             break;
 
         case CMD_RESET:
+            if (g_playback_active) {
+                ESP_LOGW(TAG, "CMD_RESET ignored during active playback");
+                break;
+            }
             g_selected_song = 0;
             g_config_valid = true;  // Keep active after reset
-            g_status_flags = STATUS_READY;
+            set_status_flags(STATUS_READY);
             if (g_leds_ready) {
                 music_leds_show_idle();
             }
@@ -404,6 +418,8 @@ static void playback_task(void *arg)
             esp_err_t err = ESP_OK;
 
             if (req.type == PLAYBACK_CMD_SONG) {
+                g_playback_active = true;
+                set_status_flags(STATUS_BUSY);
                 ESP_LOGI(TAG, "Playback task: playing song %u", (unsigned)req.id);
                 if (g_leds_ready) {
                     music_leds_start_song_pattern(req.id);
@@ -424,6 +440,7 @@ static void playback_task(void *arg)
             }
 
             clear_busy_and_refresh_ready_state();
+            g_playback_active = false;
             if (err != ESP_OK) {
                 set_status_flags(STATUS_ERROR);
             }

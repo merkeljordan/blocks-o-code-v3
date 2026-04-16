@@ -88,6 +88,7 @@ static uint32_t s_validation_block_attempts_since_last_log;
 #define BRAIN_DISPATCH_MUTEX_TIMEOUT_MS 2000U
 
 #define MUSIC_EXEC_BUSY_TIMEOUT_MS   1000U
+#define MUSIC_SEQ_IDLE_POLL_FLOOR_MS 2000U
 #define BRAIN_EXECUTOR_LOOP_COUNT_MAX BRAIN_LOOP_ITERATION_CAP
 #define LED_FLASH_MIN_BUSY_DWELL_MS 300U
 
@@ -111,7 +112,7 @@ static esp_err_t wait_for_status_busy(uint8_t addr, uint32_t timeout_ms, uint32_
     uint32_t poll_idx = 0;
     // BUSY can be very short on some child implementations; requiring two consecutive
     // polls can miss the transition entirely.
-    const uint32_t BUSY_CONFIRM_COUNT = 1;
+    const uint32_t BUSY_CONFIRM_COUNT = 3;
     uint32_t consecutive_busy = 0;
 
     while (now_ms() < start + timeout_ms) {
@@ -1213,6 +1214,11 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                                                       MUSIC_EXEC_BUSY_TIMEOUT_MS,
                                                       &elapsed_ms,
                                                       &status);
+            if (busy_ret == ESP_OK) {
+                // Quiet window: skip I2C status polls for the first MUSIC_SEQ_IDLE_POLL_FLOOR_MS
+                // so the music child's DAC feeder runs uncontended. No embedded song is shorter.
+                vTaskDelay(pdMS_TO_TICKS(MUSIC_SEQ_IDLE_POLL_FLOOR_MS));
+            }
             esp_err_t idle_ret = (busy_ret == ESP_OK)
                 ? wait_for_status_idle(addr, 60000U, &elapsed_ms, &status)
                 : ESP_ERR_TIMEOUT;
@@ -1239,11 +1245,13 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
 
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "MUSIC_SEQ finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
+                dispatch_result = ESP_OK;
             } else {
-                ESP_LOGW(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) - best-effort continuing",
+                ESP_LOGE(TAG, "MUSIC_SEQ idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) - halting",
                          addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
+                // Leave dispatch_result at its failure default so the executor halts
+                // instead of silently advancing while the child may still be BUSY.
             }
-            dispatch_result = ESP_OK;
             break;
         }
         case BLOCK_TYPE_DELAY: {
