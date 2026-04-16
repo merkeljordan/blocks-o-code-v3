@@ -1276,8 +1276,13 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
                                                       MUSIC_EXEC_BUSY_TIMEOUT_MS,
                                                       &elapsed_ms,
                                                       &status);
+            uint32_t delay_cfg = s_delay_ms_by_pc[pc];
+            uint32_t idle_timeout = delay_cfg + 3000U;
+            if (idle_timeout < 5000U)   idle_timeout = 5000U;
+            if (idle_timeout > 180000U) idle_timeout = 180000U;
+
             esp_err_t idle_ret = (busy_ret == ESP_OK)
-                ? wait_for_status_idle(addr, 60000U, &elapsed_ms, &status)
+                ? wait_for_status_idle(addr, idle_timeout, &elapsed_ms, &status)
                 : ESP_ERR_TIMEOUT;
 
             if (s_dispatch_mutex != NULL) { xSemaphoreTakeRecursive(s_dispatch_mutex, portMAX_DELAY); }
@@ -1294,11 +1299,11 @@ static esp_err_t dispatch_output_action(uint8_t pc, block_type_t step_type)
             }
             if (idle_ret == ESP_OK) {
                 ESP_LOGI(TAG, "DELAY finished (addr=0x%02X elapsed=%u ms)", addr, (unsigned)elapsed_ms);
+                dispatch_result = ESP_OK;
             } else {
-                ESP_LOGW(TAG, "DELAY idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X) — best-effort continuing",
+                ESP_LOGE(TAG, "DELAY idle wait failed (addr=0x%02X ret=%d elapsed=%u ms status=0x%02X)",
                          addr, (int)idle_ret, (unsigned)elapsed_ms, (unsigned)status);
             }
-            dispatch_result = ESP_OK;
             break;
         }
         default:
