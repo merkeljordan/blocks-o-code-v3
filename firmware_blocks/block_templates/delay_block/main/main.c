@@ -50,9 +50,9 @@ typedef struct {
 } block_config_t;
 
 static block_config_t g_config;
-static bool g_config_valid = false;
+static bool g_config_valid = true;
 
-static volatile uint8_t g_status_flags = STATUS_READY;
+static volatile uint8_t g_status_flags = STATUS_READY | STATUS_IDLE;
 
 static struct {
     volatile bool has_event;
@@ -107,8 +107,8 @@ void delay_block_set_delay_ms_from_ui(uint32_t delay_ms)
 
 static void config_reset(void)
 {
-    memset(&g_config, 0, sizeof(g_config));
-    g_config_valid = false;
+    g_config.delay_ms = 500U;
+    g_config_valid = true;
     portENTER_CRITICAL(&s_pending_event_spinlock);
     memset(&g_pending_event, 0, sizeof(g_pending_event));
     portEXIT_CRITICAL(&s_pending_event_spinlock);
@@ -349,7 +349,7 @@ void command_handle(i2c_command_t cmd,
             tft_ui_set_idle();
             matrix_clear();
             matrix_show();
-            set_status_flags(STATUS_READY);
+            set_status_flags(STATUS_READY | STATUS_IDLE);
             break;
 
         default:
