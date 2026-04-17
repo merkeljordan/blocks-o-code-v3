@@ -136,7 +136,7 @@ You can see examples on this slide: a valid loop sequence, an If without End If 
 
 ### Demo 3: Loop Sequence (Slide 11)
 
-**Speaker: Jordan**
+**Speaker: annie**
 
 **[INTRODUCE]**
 "For our next demo, we'll demonstrate a control flow loop structure. We want a sequence of lights and sounds to repeat based on a count."
