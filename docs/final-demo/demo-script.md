@@ -241,15 +241,17 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 **Speaker: Camilla**
 
 **[RESULTS]**  
-"Our target was to stay under 1000 nanoseconds. With all 15 blocks connected and operating in standard-mode I2C at 100 kilohertz, all three of our measured rise times are within this limit.
+"Our target, keeping within standard I2C operating mode safety margins, was under 1000 nanoseconds. With all 15 blocks connected and operating in standard-mode I2C at 100 kilohertz, our measurements comfortably meet this requirement.
 
-From these three measurements, two are around 380 to 390 nanoseconds, while one is higher at approximately 764 nanoseconds.
+Across 10 runs, we measured a mean rise time of 425.57 nanoseconds, ensuring reliable data integrity even at maximum system load.
 
-This higher value comes from address 10, which corresponds to the 14th block in the chain.
+Looking at the three representative captures shown, two measurements fall around 380 to 390 nanoseconds, while one is higher at approximately 764 nanoseconds.
 
-We attribute this to increased capacitance near the end of the shared I2C bus, which slows the rising edge of the signal.
+This higher value comes from address 10, which corresponds to the 14th block in the chain. We attribute this to increased capacitance near the end of the shared I2C bus, which slows the rising edge of the signal.
 
 Even in this worst-case condition, the rise time remains well within spec, so the system operates safely at full capacity."
+
+---
 
 ## 10. Closing (Slide 20) — ~0:45  
 **Speakers: Annie + Jordan**
