@@ -46,15 +46,15 @@ Second, on the engineering side, we defined three quantitative specs we’ll sho
 
 “All 15 blocks share a common hardware platform. Each one has an ESP32 microcontroller, a 2.8‑inch TFT touch display, a 4×4 LED matrix, addressable LEDs, and an audio path with an amplifier and speaker, all powered through rechargable lithium-ion batteries.  
 
-At the system level we have one Brain block and up to 14 child blocks. The Brain is the I2C master and runs the program executor; the child blocks are all identical from a hardware perspective, but they present themselves as different logical block types over I2C.”
+At the system level we have one Brain block and 14 child blocks. The Brain is the I2C master and runs the program executor; the child blocks are all identical from a hardware perspective, but they present themselves as different logical block types over I2C.”
 
 **Annie**
 
 “Those logical types fall into three main categories.  
 
-We have **control‑flow blocks**—If, Then, End If, Loop, End Loop, and Delay—which shape the structure of the program but don’t directly produce output. We have a single **input block**, a Button, which gives us user interaction for If statements. And we have **output blocks** like LED Color Flash, Note, and Music Sequence.  
+We have **control‑flow blocks**—If, Then, End If, Loop, End Loop, and Delay—which shape the structure of the program but don’t directly produce output. We have a single **input block**, a Button Press block, which gives us user interaction for If statements. And we have **output blocks** like LED Color Flash, Note, and Music Sequence.  
 
-From the user’s point of view, you snap a chain together, tap the TFT on each block to choose its behavior, and the LEDs and speaker give immediate visual and audio feedback.”
+From the user’s point of view, you snap a chain together, tap the TFT on each block to configure its behavior, and the LEDs and speaker give immediate visual and audio feedback.”
 
 ---
 
@@ -67,7 +67,6 @@ From the user’s point of view, you snap a chain together, tap the TFT on each 
 
 On the right is our Flutter companion app. It runs a TCP server on a fixed port, receives JSON ‘block_config’ messages from the Brain, parses those into a Dart model, validates the program according to our grammar rules, and then updates the UI in real time—showing the block list, any errors, and a 3D view of the configuration.”
 
-*(Optional, by Camilla, if you want)*  
 “Physically, all of this rides on one I2C bus running at 100 kHz, with addresses allocated across the Brain and child blocks.”
 
 ---
@@ -226,7 +225,7 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 **Speaker: Camilla**
 
 **[INTRODUCE]**
-"Spec 3 evaluates the electrical integrity of our shared communication bus. We measure the 10-to-90% rise time on the SCL line. Crucially, we are now measuring this under the absolute maximum bus load—with all 15 blocks connected, stressing the line capacitance."
+"Spec 3 evaluates the electrical integrity of our shared communication bus. We measure the 30-to-70% rise time on the SCL line. Crucially, we are now measuring this under the absolute maximum bus load—with all 15 blocks connected, stressing the line capacitance."
 
 **[SHOW]**
 **▶ PLAY: Spec 3 — 15 Blocks Run 1 — `spec3-run1.mp4` (~0:20)**
@@ -239,7 +238,7 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 ### Spec 3: Results (Slide 19)
 
 **[RESULTS]**
-"Our target, keeping within standard I2C operating mode safety margins, was under 1000 nanoseconds. Across 10 runs with 15 blocks attached, our mean rise time was 289ns. We met Spec 3 with plenty of margin, ensuring data stability even at max capacity."
+"Our target, keeping within standard I2C operating mode safety margins, was under 1000 nanoseconds. Across 10 runs with 15 blocks attached, our mean rise time was 425.57ns. We met Spec 3 with plenty of margin, ensuring data stability even at max capacity."
 
 ---
 
