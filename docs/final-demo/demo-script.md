@@ -11,7 +11,7 @@ Use this script with the slides (`slides.html`). Replace `[VIDEO: filename]` wit
 
 **Script**
 
-“Hi everyone, we’re the Blocks o’ Code v3 team. We’re the Blocks o’ Code v3 team. Our project is a physical, block-based programming system where you literally snap magnetic blocks together to build a program. There’s no keyboard, no traditional IDE—the physical arrangement of blocks *is* the code.”
+“Hi everyone, we’re the Blocks o’ Code v3 team. Our project is a physical, block-based programming system where you literally snap magnetic blocks together to build a program. There’s no keyboard, no traditional IDE—the physical arrangement of blocks *is* the code.”
 
 ---
 
