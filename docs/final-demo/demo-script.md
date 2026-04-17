@@ -220,27 +220,36 @@ Watch as the Flutter App correctly identifies all 15 blocks. We press execute, a
 
 ---
 
-### Spec 3: I2C Rise Time with 15 Blocks (Slide 18)
+### **Spec 3: I2C Rise Time with 15 Blocks (Slide 18)**
 
 **Speaker: Camilla**
 
-**[INTRODUCE]**
-"Spec 3 evaluates the electrical integrity of our shared communication bus. We measure the 30-to-70% rise time on the SCL line. Crucially, we are now measuring this under the absolute maximum bus load—with all 15 blocks connected, stressing the line capacitance."
+**[INTRODUCE]**  
+"Spec 3 evaluates the electrical integrity of our shared communication bus. We measure the 30-to-70% rise time on the SCL line. Crucially, we are measuring this under the absolute maximum bus load—with all 15 blocks connected, stressing the line capacitance."
 
-**[SHOW]**
-**▶ PLAY: Spec 3 — 15 Blocks Run 1 — `spec3-run1.mp4` (~0:20)**
-**▶ PLAY: Spec 3 — 15 Blocks Run 2 — `spec3-run2.mp4` (~0:20)**
-**▶ PLAY: Spec 3 — 15 Blocks Run 3 — `spec3-run3.mp4` (~0:20)**
-"We use an oscilloscope probing the I2C header at the Brain Block during a full standard scan sequence."
+**[SHOW]**  
+**▶ SHOW: Spec 3 — Capture 1 — `spec3-run1.png`**  
+**▶ SHOW: Spec 3 — Capture 2 — `spec3-run2.png`**  
+**▶ SHOW: Spec 3 — Capture 3 — `spec3-run3.png`**  
 
----
-
-### Spec 3: Results (Slide 19)
-
-**[RESULTS]**
-"Our target, keeping within standard I2C operating mode safety margins, was under 1000 nanoseconds. Across 10 runs with 15 blocks attached, our mean rise time was 425.57ns. We met Spec 3 with plenty of margin, ensuring data stability even at max capacity."
+"We use an oscilloscope probing the shared I2C bus during a full scan sequence. The cursors indicate the 30-to-70% rise time along the rising edge of the signal."
 
 ---
+
+### **Spec 3: Results (Slide 19)**
+
+**Speaker: Camilla**
+
+**[RESULTS]**  
+"Our target was to stay under 1000 nanoseconds. With all 15 blocks connected and operating in standard-mode I2C at 100 kilohertz, all three of our measured rise times are within this limit.
+
+From these three measurements, two are around 380 to 390 nanoseconds, while one is higher at approximately 764 nanoseconds.
+
+This higher value comes from address 10, which corresponds to the 14th block in the chain.
+
+We attribute this to increased capacitance near the end of the shared I2C bus, which slows the rising edge of the signal.
+
+Even in this worst-case condition, the rise time remains well within spec, so the system operates safely at full capacity."
 
 ## 10. Closing (Slide 20) — ~0:45  
 **Speakers: Annie + Jordan**
