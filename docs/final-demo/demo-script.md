@@ -42,13 +42,13 @@ Second, on the engineering side, we defined three quantitative specs we’ll sho
 ## 4. The 15 Blocks (Slide 4) — ~1:00  
 **Speakers: Annie + Camilla (split)**
 
-**Annie**
+**Camilla**
 
 “All 15 blocks share a common hardware platform. Each one has an ESP32 microcontroller, a 2.8‑inch TFT touch display, a 4×4 LED matrix, addressable LEDs, and an audio path with an amplifier and speaker, all powered through rechargable lithium-ion batteries.  
 
 At the system level we have one Brain block and up to 14 child blocks. The Brain is the I2C master and runs the program executor; the child blocks are all identical from a hardware perspective, but they present themselves as different logical block types over I2C.”
 
-**Camilla**
+**Annie**
 
 “Those logical types fall into three main categories.  
 
