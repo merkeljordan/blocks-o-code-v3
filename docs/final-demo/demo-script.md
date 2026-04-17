@@ -40,7 +40,7 @@ Second, on the engineering side, we defined three quantitative specs we’ll sho
 ---
 
 ## 4. The 15 Blocks (Slide 4) — ~1:00  
-**Speakers: Annie + Destiny (split)**
+**Speakers: Annie + Camilla (split)**
 
 **Annie**
 
@@ -48,7 +48,7 @@ Second, on the engineering side, we defined three quantitative specs we’ll sho
 
 At the system level we have one Brain block and up to 14 child blocks. The Brain is the I2C master and runs the program executor; the child blocks are all identical from a hardware perspective, but they present themselves as different logical block types over I2C.”
 
-**Destiny**
+**Camilla**
 
 “Those logical types fall into three main categories.  
 
@@ -73,7 +73,7 @@ On the right is our Flutter companion app. It runs a TCP server on a fixed port,
 ---
 
 ## 6. Brain Block Deep Dive (Slide 6) — ~0:45  
-**Speaker: Camilla**
+**Speaker: Destiny**
 
 **Script**
 
