@@ -3973,7 +3973,12 @@ class BlockConfigScreen extends StatelessWidget {
       return null;
     }
 
-    final activeIndex = runtime.pc + 1;
+    // Firmware `pc` is relative to the "program slots" it executes.
+    // Depending on whether the Brain is included in `config.blocks`, the UI list
+    // may be offset by 1 (Brain at index 0).
+    final bool hasBrainAtIndex0 =
+        config.blocks.isNotEmpty && config.blocks.first.blockType == BlockType.brainBlock;
+    final int activeIndex = runtime.pc + (hasBrainAtIndex0 ? 1 : 0);
     if (activeIndex < 0 || activeIndex >= config.blocks.length) {
       return null;
     }
