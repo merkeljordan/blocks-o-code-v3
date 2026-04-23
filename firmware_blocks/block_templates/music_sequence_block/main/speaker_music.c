@@ -39,8 +39,8 @@ extern const uint8_t little_einsteins_wav_start[] asm("_binary_little_einsteins_
 extern const uint8_t little_einsteins_wav_end[]   asm("_binary_little_einsteins_wav_end");
 extern const uint8_t lush_life_wav_start[] asm("_binary_lush_life_wav_start");
 extern const uint8_t lush_life_wav_end[]   asm("_binary_lush_life_wav_end");
-extern const uint8_t pink_pony_wav_start[] asm("_binary_pink_pony_wav_start");
-extern const uint8_t pink_pony_wav_end[]   asm("_binary_pink_pony_wav_end");
+extern const uint8_t teenage_dirtbag_wav_start[] asm("_binary_teenage_dirtbag_wav_start");
+extern const uint8_t teenage_dirtbag_wav_end[]   asm("_binary_teenage_dirtbag_wav_end");
 extern const uint8_t no_wav_start[] asm("_binary_no_wav_start");
 extern const uint8_t no_wav_end[]   asm("_binary_no_wav_end");
 extern const uint8_t sofia_the_first_wav_start[] asm("_binary_sofia_the_first_wav_start");
@@ -93,10 +93,10 @@ static const embedded_song_t k_song_catalog[] = {
         .embedded = true,
     },
     {
-        .name = "Pink Pony",
+        .name = "Teenage\nDirtbag",
         .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = pink_pony_wav_start,
-        .wav_end = pink_pony_wav_end,
+        .wav_start = teenage_dirtbag_wav_start,
+        .wav_end = teenage_dirtbag_wav_end,
         .embedded = true,
     },
     {
