@@ -29,7 +29,7 @@ idf_component_register(
     # Songs are embedded in flash and exposed as linker symbols.
     # The 4 MB hardware target embeds the final 5-song catalog here.
     EMBED_FILES
-       "audio/bubble_pop.wav"
+       "audio/super_mario.wav"
        "audio/hakuna_matata.wav"
        "audio/sunflower.wav"
        "audio/see_you_again.wav"

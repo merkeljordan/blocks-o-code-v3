@@ -33,7 +33,7 @@ idf_component_register(
         "audio/espresso.wav"
         "audio/little_einsteins.wav"
         "audio/lush_life.wav"
-        "audio/pink_pony.wav"
+        "audio/teenage_dirtbag.wav"
         "audio/no.wav"
         "audio/sofia_the_first.wav"
 )

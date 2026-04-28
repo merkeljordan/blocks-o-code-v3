@@ -29,8 +29,8 @@
 #define SCOPE_TONE_MS    5000
 
 // Linker symbols from main/CMakeLists.txt EMBED_FILES.
-extern const uint8_t bubble_pop_wav_start[] asm("_binary_bubble_pop_wav_start");
-extern const uint8_t bubble_pop_wav_end[]   asm("_binary_bubble_pop_wav_end");
+extern const uint8_t super_mario_wav_start[] asm("_binary_super_mario_wav_start");
+extern const uint8_t super_mario_wav_end[]   asm("_binary_super_mario_wav_end");
 extern const uint8_t hakuna_matata_wav_start[] asm("_binary_hakuna_matata_wav_start");
 extern const uint8_t hakuna_matata_wav_end[]   asm("_binary_hakuna_matata_wav_end");
 extern const uint8_t sunflower_wav_start[] asm("_binary_sunflower_wav_start");
@@ -51,10 +51,10 @@ typedef struct {
 
 static const embedded_song_t k_song_catalog[] = {
     {
-        .name = "Bubble Pop",
-        .age_range = MUSIC_AGE_RANGE_8_PLUS,
-        .wav_start = bubble_pop_wav_start,
-        .wav_end = bubble_pop_wav_end,
+        .name = "Super Mario",
+        .age_range = MUSIC_AGE_RANGE_ALL,
+        .wav_start = super_mario_wav_start,
+        .wav_end = super_mario_wav_end,
         .embedded = true,
     },
     {
