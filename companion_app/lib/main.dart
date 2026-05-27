@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -12,6 +13,7 @@ import 'models/configuration_rules.dart';
 import 'services/block_config_parser.dart';
 import 'services/configuration_validator.dart';
 import 'services/config_latency_metrics.dart';
+import 'services/block_suggestion_service.dart';
 import 'models/block_type.dart';
 import 'widgets/block_3d_visualizer.dart';
 
@@ -148,6 +150,11 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
   bool _isPlaythroughActive = false;
   PlaythroughStep _playthroughStep = PlaythroughStep.openWorkspace;
 
+  // Kid Mode preferences
+  bool _kidMode = false;
+  bool _freeBuildMode = false;
+  int _highestQuestCompleted = -1;
+
   late AnimationController _menuAnimationController;
   late Animation<double> _menuAnimation;
 
@@ -162,6 +169,35 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
       parent: _menuAnimationController,
       curve: Curves.easeOutCubic,
     );
+    _loadKidModePrefs();
+  }
+
+  Future<void> _loadKidModePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _kidMode = prefs.getBool('kidMode') ?? false;
+      _freeBuildMode = prefs.getBool('freeBuildMode') ?? false;
+      _highestQuestCompleted = prefs.getInt('highestQuestCompleted') ?? -1;
+    });
+  }
+
+  Future<void> _setKidMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('kidMode', value);
+    setState(() => _kidMode = value);
+  }
+
+  Future<void> _setFreeBuildMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('freeBuildMode', value);
+    setState(() => _freeBuildMode = value);
+  }
+
+  Future<void> _markQuestCompleted(int questIndex) async {
+    if (questIndex <= _highestQuestCompleted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('highestQuestCompleted', questIndex);
+    setState(() => _highestQuestCompleted = questIndex);
   }
 
   @override
@@ -1429,6 +1465,8 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           onStopServer: _stopTCPServer,
           hasConfiguration: _currentConfiguration != null,
           onGetStarted: _handleGetStarted,
+          kidMode: _kidMode,
+          onKidModeChanged: _setKidMode,
         );
         break;
       case ScreenType.about:
@@ -1460,10 +1498,22 @@ class _MainScreenState extends State<MainScreen> with TickerProviderStateMixin {
           onOfflineAddBlock: kOfflineMode ? _offlineAddBlock : null,
           onOfflineRemoveBlock: kOfflineMode ? _offlineRemoveBlock : null,
           onOfflineResetBlocks: kOfflineMode ? _offlineResetBlocks : null,
+          kidMode: _kidMode,
+          freeBuildMode: _freeBuildMode,
+          highestQuestCompleted: _highestQuestCompleted,
+          onQuestCompleted: _markQuestCompleted,
+          onFreeBuildChanged: _setFreeBuildMode,
         );
         break;
       case ScreenType.settings:
-        screen = const SettingsScreen(key: ValueKey('settings'));
+        screen = SettingsScreen(
+          key: const ValueKey('settings'),
+          kidMode: _kidMode,
+          onKidModeChanged: _setKidMode,
+          freeBuildMode: _freeBuildMode,
+          onFreeBuildChanged: _setFreeBuildMode,
+          highestQuestCompleted: _highestQuestCompleted,
+        );
         break;
       case ScreenType.help:
         screen = HelpScreen(
@@ -1706,6 +1756,8 @@ class WelcomeScreen extends StatefulWidget {
   final VoidCallback onStopServer;
   final bool hasConfiguration;
   final VoidCallback onGetStarted;
+  final bool kidMode;
+  final ValueChanged<bool>? onKidModeChanged;
 
   const WelcomeScreen({
     super.key,
@@ -1715,6 +1767,8 @@ class WelcomeScreen extends StatefulWidget {
     required this.onStopServer,
     required this.hasConfiguration,
     required this.onGetStarted,
+    this.kidMode = false,
+    this.onKidModeChanged,
   });
 
   @override
@@ -1890,6 +1944,50 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 ),
 
                 const SizedBox(height: 16),
+
+                // Kid Mode toggle
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.kidMode
+                        ? colorScheme.tertiary.withOpacity(0.15)
+                        : colorScheme.surface.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: colorScheme.tertiary.withOpacity(
+                        widget.kidMode ? 0.45 : 0.2,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🧒', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Kid Mode',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontFamily: 'Modak',
+                            fontWeight: FontWeight.normal,
+                            color: widget.kidMode
+                                ? colorScheme.tertiary
+                                : colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: widget.kidMode,
+                        onChanged: widget.onKidModeChanged,
+                        activeThumbColor: colorScheme.tertiary,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
 
                 // Primary Get Started CTA
                 SizedBox(
@@ -2415,7 +2513,20 @@ class AboutScreen extends StatelessWidget {
 
 // Settings Screen
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  final bool kidMode;
+  final ValueChanged<bool>? onKidModeChanged;
+  final bool freeBuildMode;
+  final ValueChanged<bool>? onFreeBuildChanged;
+  final int highestQuestCompleted;
+
+  const SettingsScreen({
+    super.key,
+    this.kidMode = false,
+    this.onKidModeChanged,
+    this.freeBuildMode = false,
+    this.onFreeBuildChanged,
+    this.highestQuestCompleted = -1,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2448,6 +2559,13 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 32),
+              // Kid Mode toggle
+              _buildKidModeCard(theme, colorScheme),
+              const SizedBox(height: 16),
+              if (kidMode && highestQuestCompleted >= 0)
+                _buildFreeBuildCard(theme, colorScheme),
+              if (kidMode && highestQuestCompleted >= 0)
+                const SizedBox(height: 16),
               _buildSettingCard(
                 theme,
                 colorScheme,
@@ -2549,6 +2667,133 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.7)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKidModeCard(ThemeData theme, ColorScheme colorScheme) {
+    const kidColor = Color(0xFF9C27B0);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [kidColor.withOpacity(0.25), kidColor.withOpacity(0.07)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kidColor.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: kidColor.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [kidColor, kidColor.withOpacity(0.7)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('🧒', style: TextStyle(fontSize: 24)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kid Mode',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontFamily: 'Modak',
+                    fontWeight: FontWeight.normal,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  kidMode
+                      ? 'On — quests, hints, simplified view'
+                      : 'Off — show quests & simplified view for younger users',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: kidMode,
+            onChanged: onKidModeChanged,
+            activeThumbColor: kidColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeBuildCard(ThemeData theme, ColorScheme colorScheme) {
+    const fbColor = Color(0xFF00BCD4);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [fbColor.withOpacity(0.2), fbColor.withOpacity(0.05)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: fbColor.withOpacity(0.35), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [fbColor, fbColor.withOpacity(0.7)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text('🔧', style: TextStyle(fontSize: 24)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Free Build',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontFamily: 'Modak',
+                    fontWeight: FontWeight.normal,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  freeBuildMode
+                      ? 'On — build anything, hints only when errors'
+                      : 'Off — guided by quests',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: freeBuildMode,
+            onChanged: onFreeBuildChanged,
+            activeThumbColor: fbColor,
+          ),
         ],
       ),
     );
@@ -3201,6 +3446,13 @@ class BlockConfigScreen extends StatelessWidget {
   final VoidCallback? onOfflineRemoveBlock;
   final VoidCallback? onOfflineResetBlocks;
 
+  // Kid Mode
+  final bool kidMode;
+  final bool freeBuildMode;
+  final int highestQuestCompleted;
+  final Future<void> Function(int)? onQuestCompleted;
+  final ValueChanged<bool>? onFreeBuildChanged;
+
   const BlockConfigScreen({
     super.key,
     required this.isConnected,
@@ -3220,6 +3472,11 @@ class BlockConfigScreen extends StatelessWidget {
     this.onOfflineAddBlock,
     this.onOfflineRemoveBlock,
     this.onOfflineResetBlocks,
+    this.kidMode = false,
+    this.freeBuildMode = false,
+    this.highestQuestCompleted = -1,
+    this.onQuestCompleted,
+    this.onFreeBuildChanged,
   });
 
   @override
@@ -3242,81 +3499,85 @@ class BlockConfigScreen extends StatelessWidget {
         child: Column(
           children: [
             // Connection Status Bar
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isConnected
-                      ? [
-                          colorScheme.primary,
-                          colorScheme.secondary,
-                          colorScheme.tertiary,
-                        ]
-                      : [Colors.grey.shade700, Colors.grey.shade600],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isConnected ? colorScheme.primary : Colors.grey)
-                        .withOpacity(0.5),
-                    blurRadius: 15,
-                    spreadRadius: 2,
+            if (kidMode)
+              _buildKidConnectionBar(colorScheme)
+            else
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isConnected
+                        ? [
+                            colorScheme.primary,
+                            colorScheme.secondary,
+                            colorScheme.tertiary,
+                          ]
+                        : [Colors.grey.shade700, Colors.grey.shade600],
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: isConnected ? Colors.green : Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          isConnected
-                              ? 'Brain Block Connected'
-                              : isReconnecting
-                              ? 'Reconnecting...'
-                              : 'Not Connected',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isConnected ? colorScheme.primary : Colors.grey)
+                          .withOpacity(0.5),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: isConnected ? Colors.green : Colors.red,
+                            shape: BoxShape.circle,
                           ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isConnected
+                                ? 'Brain Block Connected'
+                                : isReconnecting
+                                ? 'Reconnecting...'
+                                : 'Not Connected',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isConnected && lastHeartbeatTime != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Last heartbeat: ${_formatTimeSince(lastHeartbeatTime!)}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                  ),
-                  if (isConnected && lastHeartbeatTime != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Last heartbeat: ${_formatTimeSince(lastHeartbeatTime!)}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
+                    if (isReconnecting) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Attempt $reconnectionAttempts/5',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                  if (isReconnecting) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Attempt $reconnectionAttempts/5',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
 
             // Main Content
             Expanded(
@@ -3483,18 +3744,25 @@ class BlockConfigScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                     ],
 
-                    // Configuration Validation Section
-                    if (configViolations.isNotEmpty) ...[
+                    // Configuration Validation / Kid Mode Hints
+                    if (kidMode) ...[
+                      _buildKidHintsPanel(theme, colorScheme),
+                      const SizedBox(height: 16),
+                    ] else if (configViolations.isNotEmpty) ...[
                       _buildValidationSection(
                         theme,
                         colorScheme,
                         configViolations,
                       ),
                       const SizedBox(height: 16),
+                    ] else if (currentConfiguration != null &&
+                        currentConfiguration!.blocks.isNotEmpty) ...[
+                      _buildValidSection(theme, colorScheme),
+                      const SizedBox(height: 16),
                     ],
 
-                    // Telemetry Info
-                    if (receivedTelemetry.isNotEmpty) ...[
+                    // Telemetry Info (hidden in Kid Mode)
+                    if (!kidMode && receivedTelemetry.isNotEmpty) ...[
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -4000,6 +4268,33 @@ class BlockConfigScreen extends StatelessWidget {
     }
   }
 
+  Widget _buildValidSection(ThemeData theme, ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.withOpacity(0.5), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.rocket_launch_rounded, color: Colors.green),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Looks great! Ready to run.',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontFamily: 'Modak',
+                fontWeight: FontWeight.normal,
+                color: Colors.green.shade300,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildValidationSection(
     ThemeData theme,
     ColorScheme colorScheme,
@@ -4032,14 +4327,15 @@ class BlockConfigScreen extends StatelessWidget {
           Row(
             children: [
               Icon(
-                errors.isNotEmpty ? Icons.error : Icons.warning,
+                errors.isNotEmpty ? Icons.build_rounded : Icons.lightbulb_rounded,
                 color: errors.isNotEmpty ? Colors.red : Colors.orange,
               ),
               const SizedBox(width: 8),
               Text(
-                'Configuration Validation',
+                errors.isNotEmpty ? 'Needs a fix' : 'Heads up!',
                 style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Modak',
+                  fontWeight: FontWeight.normal,
                   color: errors.isNotEmpty ? Colors.red : Colors.orange,
                 ),
               ),
@@ -4101,7 +4397,7 @@ class BlockConfigScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            isError ? Icons.error_outline : Icons.warning_amber_rounded,
+            isError ? Icons.build_rounded : Icons.lightbulb_rounded,
             color: isError ? Colors.red : Colors.orange,
             size: 20,
           ),
@@ -4121,7 +4417,7 @@ class BlockConfigScreen extends StatelessWidget {
                 if (violation.blockIndex != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Block Index: ${violation.blockIndex}',
+                    'Block ${violation.blockIndex}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: (isError ? Colors.red : Colors.orange).withOpacity(
                         0.7,
@@ -4136,5 +4432,262 @@ class BlockConfigScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // ── Kid Mode: simplified connection bar ─────────────────────────────────────
+  Widget _buildKidConnectionBar(ColorScheme colorScheme) {
+    final connected = isConnected;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: connected
+              ? [const Color(0xFF00A650), const Color(0xFF00BCD4)]
+              : [Colors.grey.shade700, Colors.grey.shade600],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (connected ? const Color(0xFF00A650) : Colors.grey)
+                .withOpacity(0.45),
+            blurRadius: 12,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: connected ? Colors.white : Colors.red.shade300,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: (connected ? Colors.white : Colors.red).withOpacity(0.6),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            connected ? '🧠 Connected!' : isReconnecting ? '⏳ Connecting…' : '❌ Not connected',
+            style: const TextStyle(
+              color: Colors.white,
+              fontFamily: 'Modak',
+              fontSize: 20,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Kid Mode: quest hints panel ──────────────────────────────────────────────
+  Widget _buildKidHintsPanel(ThemeData theme, ColorScheme colorScheme) {
+    final chain = currentConfiguration?.blocks ?? [];
+    final suggestion = BlockSuggestionService.getSuggestion(
+      chain: chain,
+      violations: configViolations,
+      freeBuildMode: freeBuildMode,
+      highestQuestCompleted: highestQuestCompleted,
+    );
+
+    // Fire quest-completed callback if appropriate
+    if (suggestion.kind == SuggestionKind.questComplete) {
+      Future.microtask(() => onQuestCompleted?.call(suggestion.questIndex));
+    }
+
+    final (bgColor, borderColor, accentColor) = _kidPanelColors(suggestion);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quest name row (only for quest kinds)
+          if (suggestion.kind == SuggestionKind.questInProgress ||
+              suggestion.kind == SuggestionKind.questComplete ||
+              suggestion.kind == SuggestionKind.noBlocks) ...[
+            Row(
+              children: [
+                Text(
+                  suggestion.questEmoji.isNotEmpty
+                      ? suggestion.questEmoji
+                      : '⚡',
+                  style: const TextStyle(fontSize: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    suggestion.questName.isNotEmpty
+                        ? 'Quest ${suggestion.questIndex + 1}: ${suggestion.questName}'
+                        : 'Quest 1: Make Something Happen!',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontFamily: 'Modak',
+                      color: accentColor,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Progress bar
+            _buildProgressBar(suggestion, accentColor),
+            const SizedBox(height: 4),
+            Text(
+              'Step ${suggestion.completedSteps} of ${suggestion.totalSteps}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: accentColor.withOpacity(0.7),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          if (suggestion.kind == SuggestionKind.freeBuildSuccess) ...[
+            Row(
+              children: [
+                const Text('🔧', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  'Free Build',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontFamily: 'Modak',
+                    color: accentColor,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Headline
+          Text(
+            suggestion.headline,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontFamily: 'Modak',
+              color: Colors.white,
+              fontWeight: FontWeight.normal,
+              fontSize: 22,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          // Body hint text
+          Text(
+            suggestion.body,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
+
+          // Next quest nudge
+          if (suggestion.nextQuestName != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accentColor.withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_forward_rounded, color: accentColor, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Try next: ${suggestion.nextQuestName}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: accentColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Free Build toggle (unlocked after first quest complete)
+          if (highestQuestCompleted >= 0 &&
+              suggestion.kind != SuggestionKind.freeBuildSuccess) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => onFreeBuildChanged?.call(!freeBuildMode),
+              child: Text(
+                freeBuildMode ? 'Back to Quests' : 'Switch to Free Build 🔧',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: accentColor.withOpacity(0.75),
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressBar(BlockSuggestion suggestion, Color accentColor) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: LinearProgressIndicator(
+        value: suggestion.progressFraction,
+        minHeight: 12,
+        backgroundColor: Colors.white.withOpacity(0.15),
+        valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+      ),
+    );
+  }
+
+  (Color, Color, Color) _kidPanelColors(BlockSuggestion suggestion) {
+    switch (suggestion.kind) {
+      case SuggestionKind.questComplete:
+        return (
+          const Color(0xFF00A650).withOpacity(0.18),
+          const Color(0xFF00A650).withOpacity(0.5),
+          const Color(0xFF4CAF50),
+        );
+      case SuggestionKind.correction:
+        return (
+          Colors.orange.withOpacity(0.15),
+          Colors.orange.withOpacity(0.45),
+          Colors.orange,
+        );
+      case SuggestionKind.freeBuildSuccess:
+        return (
+          const Color(0xFF00BCD4).withOpacity(0.15),
+          const Color(0xFF00BCD4).withOpacity(0.4),
+          const Color(0xFF00BCD4),
+        );
+      default:
+        return (
+          const Color(0xFF9C27B0).withOpacity(0.15),
+          const Color(0xFF9C27B0).withOpacity(0.4),
+          const Color(0xFFCE93D8),
+        );
+    }
   }
 }

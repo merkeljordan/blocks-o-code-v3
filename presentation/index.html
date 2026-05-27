@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocks o' Code — Kids Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="presentation">
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 1 — Title (~30 sec)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide active" id="slide-1">
+    <div style="display:flex; flex-direction:column; align-items:center; text-align:center;">
+      <h1 class="s1-title">Blocks o' Code</h1>
+      <p class="s1-tagline">Build programs with your hands! 🙌</p>
+      <div class="blocks-row">
+        <div class="lego-block block-pink">
+          <span class="block-icon">🧠</span>
+          <span class="block-name">BRAIN</span>
+        </div>
+        <div class="lego-block block-blue">
+          <span class="block-icon">❓</span>
+          <span class="block-name">IF</span>
+        </div>
+        <div class="lego-block block-orange">
+          <span class="block-icon">🔘</span>
+          <span class="block-name">BUTTON</span>
+        </div>
+        <div class="lego-block block-green">
+          <span class="block-icon">🎵</span>
+          <span class="block-name">NOTE</span>
+        </div>
+        <div class="lego-block block-yellow">
+          <span class="block-icon">💡</span>
+          <span class="block-name">LED</span>
+        </div>
+        <div class="lego-block block-purple">
+          <span class="block-icon">🔄</span>
+          <span class="block-name">LOOP</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes" hidden>
+      <p>Welcome everyone! I'm [name] — an engineer at AMD.</p>
+      <p>Today I'm going to show you something my team built — a way to write computer programs WITHOUT typing a single letter.</p>
+      <p>It's called Blocks o' Code, and you'll get to try it yourself after this!</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 2 — Hook: Raise Your Hand (~1 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-2">
+    <div style="width:100%; max-width:820px; text-align:center;">
+      <p class="label anim">Let's get to know each other</p>
+      <h2 class="anim">🙋 Raise your hand if…</h2>
+      <ul class="question-list">
+        <li class="question-item anim-left">
+          <span class="q-emoji">🧱</span>
+          <span class="q-text">…you've played with LEGO or building toys</span>
+        </li>
+        <li class="question-item anim-left">
+          <span class="q-emoji">🤖</span>
+          <span class="q-text">…you've ever given someone step-by-step instructions</span>
+        </li>
+        <li class="question-item anim-left">
+          <span class="q-emoji">⚡</span>
+          <span class="q-text">…you want to build something amazing today</span>
+        </li>
+      </ul>
+    </div>
+    <div class="notes" hidden>
+      <p>Pause and wait for hands on each question — get the room going!</p>
+      <p>For question 2: "Like telling someone how to make a sandwich — that IS programming!"</p>
+      <p>For question 3: Point at the kids and say "Great! You're all engineers today."</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 3 — Computers follow instructions (~1 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-3">
+    <div class="two-col">
+      <div>
+        <p class="label anim">Here's a secret</p>
+        <h2 class="anim">Computers follow <span style="color:var(--lego-blue);">instructions</span></h2>
+        <p class="anim" style="margin: 0.8rem 0; font-weight:800;">Just like a recipe! 🍳</p>
+        <div class="recipe-steps">
+          <div class="recipe-step anim-left">
+            <div class="step-num">1</div>
+            <span>🥚 Get eggs from the fridge</span>
+          </div>
+          <div class="recipe-step anim-left">
+            <div class="step-num" style="background:var(--lego-orange);">2</div>
+            <span>🔥 Turn on the stove</span>
+          </div>
+          <div class="recipe-step anim-left">
+            <div class="step-num" style="background:var(--lego-green);">3</div>
+            <span>🍽️ Cook and serve!</span>
+          </div>
+        </div>
+      </div>
+      <div class="big-robot anim">🤖</div>
+    </div>
+    <div class="notes" hidden>
+      <p>Ask: "What happens if you forget step 2 and skip turning on the stove?" — (the eggs stay raw!)</p>
+      <p>Computers are the same: wrong order = wrong result. That's why programmers think very carefully about the ORDER of instructions.</p>
+      <p>Fun follow-up: "Who's written instructions for someone before? Like directions to your house?"</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 4 — These blocks ARE the instructions (~1 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-4">
+    <div class="reveal-wrap">
+      <p class="label anim">The big idea</p>
+      <h2 class="anim">What if instructions looked <span style="color:var(--lego-pink);">like this?</span></h2>
+      <div class="hero-frame anim">
+        <img src="assets/hero.png" alt="Physical Blocks o' Code hardware" />
+      </div>
+      <p class="big-caption anim">Each block = one instruction 🧱</p>
+    </div>
+    <div class="notes" hidden>
+      <p>Point to the physical hardware on the table: "Those things right over there!"</p>
+      <p>"These aren't just toys — they're a real computer program you can hold in your hands."</p>
+      <p>"When you snap them together in the right order, you've written a program. No keyboard needed!"</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 5 — Meet the Blocks! (~2 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-5">
+    <div style="text-align:center; width:100%; max-width:860px;">
+      <p class="label anim">The team</p>
+      <h2 class="anim">Meet the Blocks! 👋</h2>
+      <div class="blocks-grid" style="margin-top:1.2rem;">
+        <div class="lego-block block-pink anim-pop">
+          <span class="block-icon">🧠</span>
+          <span class="block-name">The Boss</span>
+          <span class="block-sub">Brain Block</span>
+        </div>
+        <div class="lego-block block-blue anim-pop">
+          <span class="block-icon">❓</span>
+          <span class="block-name">The Question Block</span>
+          <span class="block-sub">If Block</span>
+        </div>
+        <div class="lego-block block-orange anim-pop">
+          <span class="block-icon">🔘</span>
+          <span class="block-name">The Listener</span>
+          <span class="block-sub">Button Press Block</span>
+        </div>
+        <div class="lego-block block-green anim-pop">
+          <span class="block-icon">🎵</span>
+          <span class="block-name">The Noise Maker</span>
+          <span class="block-sub">Note Block</span>
+        </div>
+        <div class="lego-block block-yellow anim-pop">
+          <span class="block-icon">💡</span>
+          <span class="block-name">The Light-Up</span>
+          <span class="block-sub">LED Block</span>
+        </div>
+        <div class="lego-block block-purple anim-pop">
+          <span class="block-icon">🔄</span>
+          <span class="block-name">The Looper</span>
+          <span class="block-sub">Loop Block</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes" hidden>
+      <p>Point to each one and make it interactive. Ask "which is your favorite?"</p>
+      <p>Boss Block (pink): "Always first — nothing works without it!"</p>
+      <p>Question Block (blue): "Asks 'did something happen?' — like checking if a button was pressed."</p>
+      <p>Listener (orange): "Waits for you to press the button. It's very patient!"</p>
+      <p>Noise Maker (green): "Makes music! The fun one."</p>
+      <p>Light-Up (yellow): "Flashes colors. Also the fun one."</p>
+      <p>Looper (purple): "Says 'keep doing this forever!' Great for light shows."</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 6 — How it works (~1.5 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-6">
+    <div style="text-align:center; width:100%; max-width:1000px;">
+      <p class="label anim">The big picture</p>
+      <h2 class="anim">How does it <span style="color:var(--lego-blue);">work?</span></h2>
+      <div class="flow-diagram">
+        <div class="flow-node anim">
+          <div class="flow-icon" style="background:#EEF2FF;">🧱</div>
+          <span class="flow-label">You snap blocks</span>
+          <span class="flow-sub">In the right order</span>
+        </div>
+        <div class="flow-arrow anim">→</div>
+        <div class="flow-node anim">
+          <div class="flow-icon" style="background:#FFF0F8;">🧠</div>
+          <span class="flow-label">Brain reads them</span>
+          <span class="flow-sub">Over the wire</span>
+        </div>
+        <div class="flow-arrow anim">→</div>
+        <div class="flow-node anim">
+          <div class="flow-icon" style="background:#F0FFF4;">📱</div>
+          <span class="flow-label">App shows your program</span>
+          <span class="flow-sub">And guides you!</span>
+        </div>
+      </div>
+      <p class="run-cta anim">Then hit <span>RUN</span> and watch it go! 🚀</p>
+    </div>
+    <div class="notes" hidden>
+      <p>"The blocks talk to the Brain over a wire — like a walkie-talkie, but with electricity."</p>
+      <p>"The Brain then sends the program to the app over Wi-Fi — invisible radio waves!"</p>
+      <p>Ask: "Who here has used Wi-Fi before? Same thing. But instead of sending a video, it's sending YOUR program."</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 7 — DEMO TIME! (~4-5 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-7">
+    <div class="demo-scene">
+      <div class="demo-badge anim">🎉 Demo Time! 🎉</div>
+      <h2 class="anim">Let's build <span style="color:var(--lego-blue);">"Use a Button!"</span> together</h2>
+      <div class="demo-steps anim">
+        <div class="demo-block-wrap">
+          <div class="lego-block block-pink">
+            <span class="block-icon">🧠</span>
+            <span class="block-name">BRAIN</span>
+          </div>
+          <span class="demo-step-label">Step 1</span>
+        </div>
+        <div class="demo-plus">+</div>
+        <div class="demo-block-wrap">
+          <div class="lego-block block-blue">
+            <span class="block-icon">❓</span>
+            <span class="block-name">IF</span>
+          </div>
+          <span class="demo-step-label">Step 2</span>
+        </div>
+        <div class="demo-plus">+</div>
+        <div class="demo-block-wrap">
+          <div class="lego-block block-orange">
+            <span class="block-icon">🔘</span>
+            <span class="block-name">BUTTON</span>
+          </div>
+          <span class="demo-step-label">Step 3</span>
+        </div>
+        <div class="demo-plus">+</div>
+        <div class="demo-block-wrap">
+          <div class="lego-block block-blue">
+            <span class="block-icon">✅</span>
+            <span class="block-name">THEN</span>
+          </div>
+          <span class="demo-step-label">Step 4</span>
+        </div>
+        <div class="demo-plus">+</div>
+        <div class="demo-block-wrap">
+          <div class="lego-block block-green">
+            <span class="block-icon">🎵</span>
+            <span class="block-name">NOTE</span>
+          </div>
+          <span class="demo-step-label">Step 5</span>
+        </div>
+        <div class="demo-plus">+</div>
+        <div class="demo-block-wrap">
+          <div class="lego-block block-blue">
+            <span class="block-icon">🔚</span>
+            <span class="block-name">END IF</span>
+          </div>
+          <span class="demo-step-label">Step 6</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes" hidden>
+      <p>DEMO SCRIPT (~4-5 minutes):</p>
+      <p>1. Pick up each block, name it, and explain what it does before snapping it on.</p>
+      <p>2. "The If block asks a question — IF the button gets pressed, THEN play a note!"</p>
+      <p>3. Narrate what the app's hints panel says as each block is added.</p>
+      <p>4. Once all 6 are snapped, show the app saying "Quest complete!"</p>
+      <p>5. Hit RUN on the Brain Block's touchscreen, then have a kid press the button!</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 8 — The App is your helper (~1 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-8">
+    <div class="app-showcase">
+      <div>
+        <p class="label anim">Built-in guide</p>
+        <h2 class="anim">The app is your <span style="color:var(--lego-green);">helper!</span></h2>
+        <div class="app-features">
+          <div class="app-feature anim-right">
+            <span class="af-icon">🔍</span>
+            <div>
+              <span class="af-title">Sees your blocks live</span>
+              <span class="af-sub">Updates the moment you snap a new block on</span>
+            </div>
+          </div>
+          <div class="app-feature anim-right">
+            <span class="af-icon">💡</span>
+            <div>
+              <span class="af-title">Tells you what to add next</span>
+              <span class="af-sub">Step-by-step guide, always on screen</span>
+            </div>
+          </div>
+          <div class="app-feature anim-right">
+            <span class="af-icon">🎉</span>
+            <div>
+              <span class="af-title">Celebrates when you finish!</span>
+              <span class="af-sub">Completes the quest and suggests the next one</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hint-mockup anim">
+        <div class="hm-header">
+          <span style="font-size:1.8rem;">🔘</span>
+          <span class="hm-quest">Quest 2: Use a Button!</span>
+        </div>
+        <div class="hm-step-label">Step 4 of 6</div>
+        <div class="hm-bar-outer">
+          <div class="hm-bar-inner" style="width:66%;"></div>
+        </div>
+        <p class="hm-headline">Getting closer! 🌟</p>
+        <p class="hm-body">Add a <strong>THEN block</strong> — this is where the music happens!</p>
+        <div class="hm-cta"><span>✅</span> Snap on THEN next</div>
+      </div>
+    </div>
+    <div class="notes" hidden>
+      <p>Point to the app on screen (still visible from the demo).</p>
+      <p>"See this card? It told us exactly what to grab next. We never got lost!"</p>
+      <p>"This is called Kid Mode. We built it just for events like today."</p>
+      <p>"There are 4 quests in total. The last one uses every single block type — that's the boss level!"</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 9 — What can YOU build? (~1.5 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-9">
+    <div style="text-align:center; width:100%; max-width:1060px;">
+      <p class="label anim">Challenge yourself!</p>
+      <h2 class="anim">What can <span style="color:var(--lego-orange);">YOU</span> build? 🚀</h2>
+      <div class="quest-cards">
+        <div class="quest-card anim-pop">
+          <div class="qc-emoji">⚡</div>
+          <div class="qc-name">Make Something Happen!</div>
+          <div class="qc-concept">Quest 1 — Sequence</div>
+          <div class="mini-blocks">
+            <span class="mb" style="background:var(--lego-pink);">BRAIN</span>
+            <span class="mb" style="background:var(--lego-green);">NOTE</span>
+          </div>
+          <p class="qc-desc">Snap 2 blocks. Hit run. Done!</p>
+        </div>
+        <div class="quest-card anim-pop">
+          <div class="qc-emoji">🔘</div>
+          <div class="qc-name">Use a Button!</div>
+          <div class="qc-concept">Quest 2 — Condition</div>
+          <div class="mini-blocks">
+            <span class="mb" style="background:var(--lego-pink);">BRAIN</span>
+            <span class="mb" style="background:var(--lego-blue);">IF</span>
+            <span class="mb" style="background:var(--lego-orange);">BUTTON</span>
+            <span class="mb" style="background:var(--lego-blue);">THEN</span>
+            <span class="mb" style="background:var(--lego-green);">NOTE</span>
+            <span class="mb" style="background:var(--lego-blue);">END IF</span>
+          </div>
+          <p class="qc-desc">Press button → play a note!</p>
+        </div>
+        <div class="quest-card anim-pop">
+          <div class="qc-emoji">🔄</div>
+          <div class="qc-name">Repeat Forever!</div>
+          <div class="qc-concept">Quest 3 — Loop</div>
+          <div class="mini-blocks">
+            <span class="mb" style="background:var(--lego-pink);">BRAIN</span>
+            <span class="mb" style="background:var(--lego-purple);">LOOP</span>
+            <span class="mb mb-yellow" style="background:var(--lego-yellow);">LED</span>
+            <span class="mb" style="background:var(--lego-purple);">END LOOP</span>
+          </div>
+          <p class="qc-desc">Flash a light over and over!</p>
+        </div>
+      </div>
+    </div>
+    <div class="notes" hidden>
+      <p>Point to each card and name the programming concept:</p>
+      <p>Quest 1 = Sequence — do things in order.</p>
+      <p>Quest 2 = Condition — only runs IF something happens.</p>
+      <p>Quest 3 = Loop — keep doing it forever.</p>
+      <p>"These are the same ideas that professional programmers use every single day!"</p>
+      <p>"At the table, see how many quests you can finish. The app will guide you the whole way."</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       SLIDE 10 — Your Turn! (~1 min)
+       ═══════════════════════════════════════════════════ -->
+  <section class="slide" id="slide-10">
+    <div class="finale">
+      <div class="confetti-row anim">🎉🎊🎈🎊🎉</div>
+      <h1 class="s10-title anim">Your turn! 🚀</h1>
+      <p class="finale-sub anim">Head to the table and give it a try!</p>
+      <div class="finale-blocks anim">
+        <div class="lego-block block-pink">
+          <span class="block-icon">🧠</span>
+          <span class="block-name">BRAIN</span>
+        </div>
+        <div class="lego-block block-blue">
+          <span class="block-icon">❓</span>
+          <span class="block-name">IF</span>
+        </div>
+        <div class="lego-block block-orange">
+          <span class="block-icon">🔘</span>
+          <span class="block-name">BUTTON</span>
+        </div>
+        <div class="lego-block block-green">
+          <span class="block-icon">🎵</span>
+          <span class="block-name">NOTE</span>
+        </div>
+        <div class="lego-block block-yellow">
+          <span class="block-icon">💡</span>
+          <span class="block-name">LED</span>
+        </div>
+        <div class="lego-block block-purple">
+          <span class="block-icon">🔄</span>
+          <span class="block-name">LOOP</span>
+        </div>
+      </div>
+      <p class="quest-challenge anim">Can you complete all 3 Quests? 🏆</p>
+    </div>
+    <div class="notes" hidden>
+      <p>"Thank you SO much for being an amazing audience!"</p>
+      <p>"Every app on your phone, every video game, every website — built by someone who started exactly where you are today."</p>
+      <p>"Come grab a block and try it. We'll be at the table to help. Who's first?"</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- Navigation controls -->
+<div class="controls">
+  <button class="nav-btn" id="prev-btn" disabled>←</button>
+  <span class="slide-counter" id="slide-counter">1 / 10</span>
+  <button class="nav-btn" id="next-btn">→</button>
+</div>
+
+<div class="progress-bar" id="progress"></div>
+
+<!-- Speaker notes overlay (toggle with N key) -->
+<div id="notes-overlay" style="display:none;">
+  <h4>📝 Speaker Notes</h4>
+  <div class="notes-content"></div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

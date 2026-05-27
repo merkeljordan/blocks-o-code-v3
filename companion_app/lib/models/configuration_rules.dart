@@ -61,7 +61,7 @@ class ConfigurationRules {
     if (brainBlocks.isEmpty) {
       violations.add(RuleViolation(
         type: RuleViolationType.brainBlockMissing,
-        message: 'Brain Block is required but not found in configuration',
+        message: 'The Brain Block is missing! Make sure the Brain Block is connected first.',
         severity: Severity.error,
       ));
       return violations;
@@ -73,7 +73,7 @@ class ConfigurationRules {
       if (firstBlock.blockType != BlockType.brainBlock) {
         violations.add(RuleViolation(
           type: RuleViolationType.brainBlockNotFirst,
-          message: 'Brain Block must be at position 0 (first block)',
+          message: 'The Brain Block needs to be first in line! Move the Brain Block to the front.',
           severity: Severity.error,
           blockIndex: 0,
           expectedBlockType: BlockType.brainBlock,
@@ -100,8 +100,8 @@ class ConfigurationRules {
         violations.add(RuleViolation(
           type: RuleViolationType.buttonPressMustFollowIf,
           message: prev == null
-              ? 'Button Press at position $i must be immediately preceded by an If Block'
-              : 'Button Press at position $i must immediately follow an If Block (found ${prev.displayName} before it)',
+              ? 'The Button block at position $i needs an If block right before it!'
+              : 'The Button block at position $i must come right after an If block — not a ${prev.displayName} block!',
           severity: Severity.error,
           blockIndex: i,
           expectedBlockType: BlockType.ifBlock,
@@ -127,7 +127,7 @@ class ConfigurationRules {
         violations.add(RuleViolation(
           type: RuleViolationType.thenMustImmediatelyFollowButton,
           message:
-              'Button Press at position $i must be immediately followed by a Then Block',
+              'The Button block at position $i needs a Then block right after it!',
           severity: Severity.error,
           blockIndex: i,
           expectedBlockType: BlockType.thenBlock,
@@ -140,7 +140,7 @@ class ConfigurationRules {
         violations.add(RuleViolation(
           type: RuleViolationType.thenMustImmediatelyFollowButton,
           message:
-              'Button Press at position $i must be immediately followed by a Then Block (found ${next?.displayName ?? "unknown"} next)',
+              'The Button block at position $i needs a Then block right after it — not a ${next?.displayName ?? "unknown"} block!',
           severity: Severity.error,
           blockIndex: i,
           expectedBlockType: BlockType.thenBlock,
@@ -169,7 +169,7 @@ class ConfigurationRules {
       violations.add(RuleViolation(
         type: RuleViolationType.duplicateI2cAddress,
         message:
-            'Multiple blocks use I²C address 0x${entry.key.toRadixString(16).toUpperCase().padLeft(2, "0")} at positions ${indices.join(", ")}',
+            'Two blocks at positions ${indices.join(", ")} seem confused — they\'re sharing the same address. Try swapping one out.',
         severity: Severity.error,
         affectedBlockIndices: indices,
       ));
@@ -196,7 +196,7 @@ class ConfigurationRules {
         if (stack.isEmpty) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'Then Block at position $i is not preceded by an If Block',
+            message: 'The Then block at position $i doesn\'t have an If block before it — Then always needs an If!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -204,21 +204,21 @@ class ConfigurationRules {
           violations.add(RuleViolation(
             type: RuleViolationType.loopSequenceInvalidBlock,
             message:
-                'Then Block at position $i cannot follow an open Loop Block at position ${stack.last.startIndex}; add an If Block (and Button Press) before Then',
+                'The Then block at position $i is inside a Loop — add an If block and Button block before the Then block!',
             severity: Severity.error,
             blockIndex: i,
           ));
         } else if (stack.last.type != BlockType.ifBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'Then Block at position $i is not preceded by an If Block',
+            message: 'The Then block at position $i doesn\'t have an If block before it — Then always needs an If!',
             severity: Severity.error,
             blockIndex: i,
           ));
         } else if (stack.last.hasThen) {
           violations.add(RuleViolation(
             type: RuleViolationType.ifSequenceInvalidBlock,
-            message: 'If Block at position ${stack.last.startIndex} already has a Then Block',
+            message: 'The If block at position ${stack.last.startIndex} already has a Then block — each If can only have one Then!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -230,7 +230,7 @@ class ConfigurationRules {
               blocks[afterIf].blockType != BlockType.buttonPress) {
             violations.add(RuleViolation(
               type: RuleViolationType.ifSequenceInvalidBlock,
-              message: 'If Block at position $ifStart must be immediately followed by Button Press before the Then Block',
+              message: 'The If block at position $ifStart needs a Button block right after it — before the Then block!',
               severity: Severity.error,
               blockIndex: ifStart,
               expectedBlockType: BlockType.buttonPress,
@@ -244,7 +244,7 @@ class ConfigurationRules {
         if (stack.isEmpty) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'End If Block at position $i has no matching If Block',
+            message: 'The End If block at position $i doesn\'t have a matching If block to close!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -252,14 +252,14 @@ class ConfigurationRules {
           violations.add(RuleViolation(
             type: RuleViolationType.sequenceInterleaved,
             message:
-                'End If Block at position $i cannot close before the open Loop Block at position ${stack.last.startIndex}; use End Loop first',
+                'The End If block at position $i needs to come after End Loop — finish the Loop first!',
             severity: Severity.warning,
             blockIndex: i,
           ));
         } else if (stack.last.type != BlockType.ifBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'End If Block at position $i has no matching If Block',
+            message: 'The End If block at position $i doesn\'t have a matching If block to close!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -268,7 +268,7 @@ class ConfigurationRules {
           if (!frame.hasThen) {
             violations.add(RuleViolation(
               type: RuleViolationType.ifSequenceIncomplete,
-              message: 'If Block at position ${frame.startIndex} is missing a Then Block',
+              message: 'The If block at position ${frame.startIndex} is missing its Then block — add one to complete the pair!',
               severity: Severity.error,
               blockIndex: frame.startIndex,
             ));
@@ -276,7 +276,7 @@ class ConfigurationRules {
           if (!frame.hasContent(i)) {
             violations.add(RuleViolation(
               type: RuleViolationType.emptySequence,
-              message: 'If Block sequence starting at ${frame.startIndex} has no executable content',
+              message: 'The If block at position ${frame.startIndex} doesn\'t do anything yet — add a Note or LED block inside!',
               severity: Severity.warning,
               blockIndex: frame.startIndex,
             ));
@@ -286,7 +286,7 @@ class ConfigurationRules {
         if (stack.isEmpty) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'End Loop Block at position $i has no matching Loop Block',
+            message: 'The End Loop block at position $i doesn\'t have a matching Loop block to close!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -294,14 +294,14 @@ class ConfigurationRules {
           violations.add(RuleViolation(
             type: RuleViolationType.sequenceInterleaved,
             message:
-                'End Loop Block at position $i cannot close before the open If Block at position ${stack.last.startIndex}; use End If first',
+                'The End Loop block at position $i needs to come after End If — finish the If block first!',
             severity: Severity.warning,
             blockIndex: i,
           ));
         } else if (stack.last.type != BlockType.loopBlock) {
           violations.add(RuleViolation(
             type: RuleViolationType.unmatchedEnd,
-            message: 'End Loop Block at position $i has no matching Loop Block',
+            message: 'The End Loop block at position $i doesn\'t have a matching Loop block to close!',
             severity: Severity.error,
             blockIndex: i,
           ));
@@ -310,7 +310,7 @@ class ConfigurationRules {
           if (!frame.hasContent(i)) {
             violations.add(RuleViolation(
               type: RuleViolationType.emptySequence,
-              message: 'Loop Block sequence starting at ${frame.startIndex} has no executable content',
+              message: 'The Loop block at position ${frame.startIndex} doesn\'t do anything yet — add a Note or LED block inside!',
               severity: Severity.warning,
               blockIndex: frame.startIndex,
             ));
@@ -327,10 +327,10 @@ class ConfigurationRules {
     while (stack.isNotEmpty) {
       final frame = stack.removeLast();
       violations.add(RuleViolation(
-        type: (frame.type == BlockType.ifBlock) 
-            ? RuleViolationType.ifSequenceIncomplete 
+        type: (frame.type == BlockType.ifBlock)
+            ? RuleViolationType.ifSequenceIncomplete
             : RuleViolationType.loopSequenceIncomplete,
-        message: '${frame.type == BlockType.ifBlock ? "If" : "Loop"} Block at position ${frame.startIndex} is not properly terminated',
+        message: 'The ${frame.type == BlockType.ifBlock ? "If" : "Loop"} block at position ${frame.startIndex} needs to be closed — add an ${frame.type == BlockType.ifBlock ? "End If" : "End Loop"} block at the end!',
         severity: Severity.error,
         blockIndex: frame.startIndex,
       ));
@@ -343,14 +343,11 @@ class ConfigurationRules {
   static List<RuleViolation> validateAll(BlockConfiguration config) {
     final violations = <RuleViolation>[];
 
-    // Check Brain Block rule
     violations.addAll(checkBrainBlockRule(config));
-
     violations.addAll(checkDuplicateI2cRule(config));
 
     // Button Press must sit immediately after If (global; pairs with nesting)
     violations.addAll(checkButtonPressPlacementRule(config));
-
     violations.addAll(checkThenImmediatelyFollowsButtonRule(config));
 
     // Validate nesting (IF/LOOP) and structural integrity

@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blocks o' Code — Senior Design Showcase 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ── Reset & Page Setup ────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-deep: #ffffff;
+            --bg-card: #f5f6f8;
+            --bg-card-hover: #eef0f3;
+            --ucf-gold: #D4A500;
+            --ucf-gold-soft: #e8ba00;
+            --neon-blue: #0094cc;
+            --neon-magenta: #8c2de0;
+            --neon-cyan: #0ea5c0;
+            --text-main: #1a1a2e;
+            --text-muted: #555570;
+            --text-dim: #888898;
+            --border-subtle: rgba(0, 0, 0, 0.1);
+            --glow-blue: 0 2px 8px rgba(0, 148, 204, 0.15);
+            --glow-gold: 0 2px 8px rgba(212, 165, 0, 0.2);
+            --glow-magenta: 0 2px 8px rgba(140, 45, 224, 0.15);
+        }
+
+        html {
+            font-size: 15px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f0f0f0;
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── Print-friendly page ────────────────────────────── */
+        @page {
+            size: letter portrait;
+            margin: 0;
+        }
+
+        .flyer {
+            width: 8.5in;
+            height: 11in;
+            margin: 0 auto;
+            padding: 0.35in 0.4in 0.3in;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-deep);
+        }
+
+        /* ── Subtle background accents ──────────────────────── */
+        .flyer::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 600px 400px at 10% 15%, rgba(0, 148, 204, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse 500px 350px at 90% 80%, rgba(140, 45, 224, 0.03) 0%, transparent 70%),
+                radial-gradient(ellipse 400px 300px at 50% 50%, rgba(212, 165, 0, 0.03) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .flyer>* {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Top Banner ─────────────────────────────────────── */
+        .top-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.15in;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 0.2in;
+        }
+
+        .ucf-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .ucf-shield {
+            width: 32px;
+            height: 32px;
+            background: var(--ucf-gold);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 0.75rem;
+            color: #000;
+            letter-spacing: -0.5px;
+            line-height: 1;
+        }
+
+        .ucf-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .event-badge {
+            text-align: right;
+        }
+
+        .event-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--ucf-gold);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .event-date {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Hero Section ───────────────────────────────────── */
+        .hero-section {
+            display: flex;
+            gap: 0.35in;
+            margin-bottom: 0.2in;
+        }
+
+        .hero-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .project-label {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--neon-blue);
+            margin-bottom: 0.3rem;
+        }
+
+        .project-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 0.4rem;
+            background: linear-gradient(135deg, #1a1a2e 0%, var(--ucf-gold) 50%, var(--neon-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .project-tagline {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            line-height: 1.6;
+            max-width: 360px;
+        }
+
+        .project-tagline em {
+            color: #b08900;
+            font-style: italic;
+            font-weight: 600;
+        }
+
+        .hero-image-wrapper {
+            flex: 1.3;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+            position: relative;
+            max-height: 2.2in;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-image-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 70%, rgba(255, 255, 255, 0.5) 100%);
+            pointer-events: none;
+        }
+
+        .hero-image-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* ── Divider with color ──────────────────────────────── */
+        .glow-divider {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), var(--neon-magenta), var(--ucf-gold), transparent);
+            margin-bottom: 0.2in;
+            opacity: 0.5;
+        }
+
+        /* ── Features Grid ──────────────────────────────────── */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.18in;
+            margin-bottom: 0.2in;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0.55rem 0.6rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .feature-card:nth-child(1)::before {
+            background: linear-gradient(90deg, var(--neon-blue), transparent);
+        }
+
+        .feature-card:nth-child(2)::before {
+            background: linear-gradient(90deg, var(--neon-magenta), transparent);
+        }
+
+        .feature-card:nth-child(3)::before {
+            background: linear-gradient(90deg, var(--ucf-gold), transparent);
+        }
+
+        .feature-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.3rem;
+            font-size: 0.95rem;
+        }
+
+        .feature-card:nth-child(1) .feature-icon {
+            background: rgba(0, 148, 204, 0.1);
+            color: var(--neon-blue);
+        }
+
+        .feature-card:nth-child(2) .feature-icon {
+            background: rgba(140, 45, 224, 0.1);
+            color: var(--neon-magenta);
+        }
+
+        .feature-card:nth-child(3) .feature-icon {
+            background: rgba(212, 165, 0, 0.1);
+            color: var(--ucf-gold);
+        }
+
+        .feature-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+            color: var(--text-main);
+        }
+
+        .feature-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ── How It Works ───────────────────────────────────── */
+        .how-it-works {
+            margin-bottom: 0.2in;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.15in;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-subtle);
+        }
+
+        .flow-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            padding: 0.4rem 0;
+        }
+
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            flex: 1;
+        }
+
+        .flow-step-num {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+            color: #000;
+        }
+
+        .flow-step-num.step-blue { background: var(--neon-blue); }
+        .flow-step-num.step-magenta { background: var(--neon-magenta); color: #fff !important; }
+        .flow-step-num.step-gold { background: var(--ucf-gold); }
+        .flow-step-num.step-green { background: #00e676; }
+
+        .flow-step-label {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .flow-step-desc {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-align: center;
+            max-width: 150px;
+            line-height: 1.45;
+        }
+
+        .flow-arrow {
+            color: var(--text-dim);
+            font-size: 1rem;
+            margin: 0 0.1rem;
+            padding-bottom: 1.2rem;
+        }
+
+        /* ── Block Types ────────────────────────────────────── */
+        .block-types {
+            margin-bottom: 0.2in;
+        }
+
+        .block-type-grid {
+            display: flex;
+            gap: 0.12in;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .block-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            border: 1px solid;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .block-chip.control {
+            background: rgba(0, 148, 204, 0.08);
+            border-color: rgba(0, 148, 204, 0.3);
+            color: var(--neon-blue);
+        }
+
+        .block-chip.input {
+            background: rgba(210, 120, 0, 0.08);
+            border-color: rgba(210, 120, 0, 0.3);
+            color: #c07000;
+        }
+
+        .block-chip.output {
+            background: rgba(140, 45, 224, 0.08);
+            border-color: rgba(140, 45, 224, 0.3);
+            color: var(--neon-magenta);
+        }
+
+        .block-chip .chip-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+        }
+
+        .block-chip.control .chip-dot { background: var(--neon-blue); }
+        .block-chip.input .chip-dot { background: #c07000; }
+        .block-chip.output .chip-dot { background: var(--neon-magenta); }
+
+        /* ── Bottom Row ─────────────────────────────────────── */
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 0.8fr;
+            gap: 0.2in;
+            margin-top: auto;
+        }
+
+        .bottom-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            padding: 0.5rem 0.55rem;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .bottom-card-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.35rem;
+        }
+
+        /* Team */
+        .team-list {
+            list-style: none;
+        }
+
+        .team-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.15rem 0;
+            font-size: 0.8rem;
+        }
+
+        .team-avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+            font-weight: 700;
+            color: #000;
+        }
+
+        .team-name {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .team-dept {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            margin-left: auto;
+        }
+
+        /* Map */
+        .map-container {
+            position: relative;
+        }
+
+        .mini-map {
+            width: 100%;
+            aspect-ratio: 1.1 / 1;
+            background: #ebedf0;
+            border-radius: 6px;
+            border: 1px solid var(--border-subtle);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .map-room {
+            position: absolute;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.48rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .map-room.cyber-lab {
+            top: 5%;
+            left: 3%;
+            width: 48%;
+            height: 42%;
+            background: rgba(0, 0, 0, 0.04);
+        }
+
+        .map-room.elevator {
+            top: 3%;
+            left: 56%;
+            width: 24%;
+            height: 22%;
+            background: rgba(0, 0, 0, 0.07);
+            border-radius: 6px;
+        }
+
+        .map-entrance {
+            position: absolute;
+            bottom: 10%;
+            left: 38%;
+            width: 14%;
+            height: 24%;
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-entrance span {
+            writing-mode: vertical-rl;
+            font-size: 0.38rem;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+        }
+
+        .map-table {
+            position: absolute;
+            width: 10%;
+            height: 8%;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.45rem;
+            font-weight: 700;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 0.6);
+            color: var(--text-dim);
+        }
+
+        .map-table.t14 {
+            right: 5%;
+            top: 24%;
+        }
+
+        .map-table.t15 {
+            right: 5%;
+            top: 42%;
+            background: var(--ucf-gold);
+            color: #000;
+            font-weight: 800;
+            border-color: var(--ucf-gold);
+            box-shadow: 0 0 8px rgba(212, 165, 0, 0.4);
+        }
+
+        .map-table.t16 {
+            right: 5%;
+            top: 60%;
+        }
+
+        .map-youarehere {
+            position: absolute;
+            right: 18%;
+            top: 38%;
+            font-size: 0.5rem;
+            color: #9e7c00;
+            font-weight: 700;
+            text-align: right;
+            line-height: 1.3;
+        }
+
+        .map-youarehere .arrow {
+            display: inline-block;
+            margin-left: 2px;
+            animation: point-right 1s ease-in-out infinite;
+        }
+
+        @keyframes point-right {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(3px); }
+        }
+
+        /* QR Code */
+        .qr-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .qr-code {
+            width: 90px;
+            height: 90px;
+            background: #fff;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 0.3rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .qr-code img {
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        .qr-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .qr-label strong {
+            display: block;
+            color: #9e7c00;
+            font-size: 0.78rem;
+        }
+
+        /* ── Footer ─────────────────────────────────────────── */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 0.12in;
+            margin-top: 0.15in;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .sponsors {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+
+        .sponsors strong {
+            color: var(--text-muted);
+        }
+
+        .table-callout {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .table-number {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--ucf-gold);
+            color: #000;
+            font-weight: 800;
+            font-size: 1.2rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(212, 165, 0, 0.3);
+        }
+
+        .table-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .table-label span {
+            display: block;
+            font-size: 0.6rem;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        /* ── Tech Stack Bar ─────────────────────────────────── */
+        .tech-bar {
+            display: flex;
+            justify-content: center;
+            gap: 0.8rem;
+            padding: 0.25rem 0;
+            margin-bottom: 0.15in;
+        }
+
+        .tech-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .tech-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+        }
+
+        /* ── Print Overrides ────────────────────────────────── */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                background: #fff;
+            }
+
+            .flyer {
+                page-break-after: avoid;
+                page-break-inside: avoid;
+                box-shadow: none;
+            }
+
+            .flyer::before {
+                display: none;
+            }
+
+            .feature-card,
+            .bottom-card {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="flyer">
+
+        <!-- ═══ TOP BANNER ═══ -->
+        <div class="top-banner">
+            <div class="ucf-badge">
+                <div class="ucf-shield">UCF</div>
+                <span class="ucf-text">University of Central Florida</span>
+            </div>
+            <div class="event-badge">
+                <div class="event-name">Senior Design Showcase · Spring 2026</div>
+                <div class="event-date">April 24, 2026 · Engineering I</div>
+            </div>
+        </div>
+
+        <!-- ═══ HERO ═══ -->
+        <div class="hero-section">
+            <div class="hero-text">
+                <div class="project-label">ECE Senior Design Project</div>
+                <h1 class="project-title">Blocks&nbsp;o'&nbsp;Code</h1>
+                <p class="project-tagline">
+                    Physical, tangible programming blocks&nbsp;—&nbsp;the&nbsp;blocks <em>are</em> the code
+                </p>
+            </div>
+            <div class="hero-image-wrapper">
+                <img src="assets/blocks_hero.png" alt="Blocks o' Code — modular programming blocks with TFT screens and LED matrices">
+            </div>
+        </div>
+
+        <div class="glow-divider"></div>
+
+        <!-- ═══ FEATURES ═══ -->
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🧩</div>
+                <div class="feature-title">15 Modular Blocks</div>
+                <div class="feature-desc">
+                    Physical blocks with TFT touchscreens and LED matrices.
+                    Each block is an I2C slave with its own ESP32 microcontroller.
+                    Snap them together to build real programs.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Real-Time Execution</div>
+                <div class="feature-desc">
+                    The Brain Block scans, discovers, and orchestrates all
+                    connected blocks. Supports IF/THEN/LOOP control flow,
+                    button inputs, music, LEDs, and more.
+                </div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <div class="feature-title">Companion App</div>
+                <div class="feature-desc">
+                    Cross-platform Flutter app connects via TCP/WiFi.
+                    Validates block sequences in real-time with a dynamic
+                    rule engine and visual block topology display.
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ HOW IT WORKS ═══ -->
+        <div class="how-it-works">
+            <div class="section-title">How It Works</div>
+            <div class="flow-steps">
+                <div class="flow-step">
+                    <div class="flow-step-num step-blue">1</div>
+                    <div class="flow-step-label">Connect</div>
+                    <div class="flow-step-desc">Snap blocks together on the I2C chain</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="flow-step-num step-magenta">2</div>
+                    <div class="flow-step-label">Discover</div>
+                    <div class="flow-step-desc">Brain scans &amp; identifies all blocks</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="flow-step-num step-gold">3</div>
+                    <div class="flow-step-label">Validate</div>
+                    <div class="flow-step-desc">App verifies program structure &amp; rules</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="flow-step-num step-green">4</div>
+                    <div class="flow-step-label">Execute</div>
+                    <div class="flow-step-desc">Blocks run the program in sequence</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ BLOCK TYPES ═══ -->
+        <div class="block-types">
+            <div class="section-title">Block Types</div>
+            <div class="block-type-grid">
+                <div class="block-chip control"><span class="chip-dot"></span> Brain</div>
+                <div class="block-chip control"><span class="chip-dot"></span> If</div>
+                <div class="block-chip control"><span class="chip-dot"></span> Then</div>
+                <div class="block-chip control"><span class="chip-dot"></span> End If</div>
+                <div class="block-chip control"><span class="chip-dot"></span> Loop</div>
+                <div class="block-chip control"><span class="chip-dot"></span> End Loop</div>
+                <div class="block-chip control"><span class="chip-dot"></span> Delay</div>
+                <div class="block-chip input"><span class="chip-dot"></span> Button Press</div>
+                <div class="block-chip output"><span class="chip-dot"></span> Note</div>
+                <div class="block-chip output"><span class="chip-dot"></span> Music Sequence</div>
+                <div class="block-chip output"><span class="chip-dot"></span> LED Flash</div>
+            </div>
+        </div>
+
+        <!-- ═══ TECH STACK ═══ -->
+        <div class="tech-bar">
+            <div class="tech-item"><span class="tech-dot"></span> ESP32 / ESP-IDF</div>
+            <div class="tech-item"><span class="tech-dot" style="background:var(--neon-magenta)"></span> I2C Protocol</div>
+            <div class="tech-item"><span class="tech-dot" style="background:var(--ucf-gold)"></span> Flutter / Dart</div>
+            <div class="tech-item"><span class="tech-dot" style="background:#00e676"></span> TCP/WiFi</div>
+            <div class="tech-item"><span class="tech-dot" style="background:#ff5252"></span> JSON Serialization</div>
+            <div class="tech-item"><span class="tech-dot" style="background:#64ffda"></span> Custom PCBs</div>
+        </div>
+
+        <!-- ═══ BOTTOM ROW ═══ -->
+        <div class="bottom-row">
+            <!-- Team -->
+            <div class="bottom-card">
+                <div class="bottom-card-title">Team</div>
+                <ul class="team-list">
+                    <li>
+                        <div class="team-avatar" style="background:var(--neon-blue);">JM</div>
+                        <span class="team-name">Jordan Merkel</span>
+                        <span class="team-dept">CpE</span>
+                    </li>
+                    <li>
+                        <div class="team-avatar" style="background:var(--neon-magenta); color:#fff;">DE</div>
+                        <span class="team-name">Destiny Ellenwood</span>
+                        <span class="team-dept">CpE</span>
+                    </li>
+                    <li>
+                        <div class="team-avatar" style="background:var(--ucf-gold);">CT</div>
+                        <span class="team-name">Camilla Torres</span>
+                        <span class="team-dept">EE</span>
+                    </li>
+                    <li>
+                        <div class="team-avatar" style="background:#00e676;">AK</div>
+                        <span class="team-name">Annesley Kolb</span>
+                        <span class="team-dept">EE</span>
+                    </li>
+                </ul>
+                <div class="bottom-card-title" style="margin-top:0.3rem;">Sponsors</div>
+                <ul class="team-list">
+                    <li>
+                        <div class="team-avatar" style="background:var(--ucf-gold);">MB</div>
+                        <span class="team-name">Dr. Mike Borowczak</span>
+                    </li>
+                    <li>
+                        <div class="team-avatar" style="background:var(--ucf-gold);">AW</div>
+                        <span class="team-name">Dr. Arthur Weeks</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Map -->
+            <div class="bottom-card map-container">
+                <div class="bottom-card-title">Find Us</div>
+                <div class="mini-map">
+                    <div class="map-room cyber-lab">Lockheed Cyber Lab</div>
+                    <div class="map-room elevator">Elevator</div>
+                    <div class="map-entrance"><span>ENTRANCE TO ENG I</span></div>
+                    <div class="map-table t14">14</div>
+                    <div class="map-table t15">15</div>
+                    <div class="map-table t16">16</div>
+                    <div class="map-youarehere">WE ARE<br>HERE <span class="arrow">→</span></div>
+                </div>
+            </div>
+
+            <!-- QR Code -->
+            <div class="bottom-card qr-section">
+                <div class="bottom-card-title">Watch Demo</div>
+                <div class="qr-code">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://www.youtube.com/watch?v=NM28Mz91i00&bgcolor=ffffff&color=000000"
+                        alt="QR Code to showcase video">
+                </div>
+                <div class="qr-label">
+                    <strong>Scan for Video</strong>
+                    Showcase Demo
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ FOOTER ═══ -->
+        <div class="footer">
+            <div class="sponsors">
+                <strong>University of Central Florida</strong> · ECE Department · CECS
+            </div>
+            <div class="table-callout">
+                <div class="table-label">FIND US AT<span>Senior Design Showcase</span></div>
+                <div class="table-number">15</div>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+</html>

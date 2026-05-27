@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 470" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#444"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#c62828"/>
+    </marker>
+    <marker id="ad" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="780" height="470" fill="#fff"/>
+
+  <!-- Row 1: Boot -->
+  <rect x="340" y="10" width="100" height="44" rx="22" fill="#4caf50" stroke="#2e7d32" stroke-width="1.5"/>
+  <text x="390" y="38" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">Boot</text>
+
+  <!-- Row 2: Idle -->
+  <rect x="320" y="80" width="140" height="50" rx="8" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+  <text x="390" y="102" text-anchor="middle" fill="#0d47a1" font-size="16" font-weight="700">Idle</text>
+  <text x="390" y="120" text-anchor="middle" fill="#1976d2" font-size="10">EXECUTOR_IDLE</text>
+
+  <!-- Row 3: Wait Input | Running | Wait Output -->
+  <rect x="50" y="190" width="150" height="55" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="125" y="215" text-anchor="middle" fill="#e65100" font-size="15" font-weight="700">Wait Input</text>
+  <text x="125" y="233" text-anchor="middle" fill="#bf360c" font-size="11">BUTTON press</text>
+
+  <rect x="320" y="190" width="140" height="55" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="390" y="215" text-anchor="middle" fill="#1b5e20" font-size="16" font-weight="700">Running</text>
+  <text x="390" y="233" text-anchor="middle" fill="#388e3c" font-size="10">EXECUTOR_RUNNING</text>
+
+  <rect x="580" y="190" width="150" height="55" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+  <text x="655" y="215" text-anchor="middle" fill="#e65100" font-size="15" font-weight="700">Wait Output</text>
+  <text x="655" y="233" text-anchor="middle" fill="#bf360c" font-size="11">child BUSY to IDLE</text>
+
+  <!-- Row 4: Done | Stopped | Error -->
+  <rect x="50" y="355" width="140" height="45" rx="8" fill="#e8eaf6" stroke="#283593" stroke-width="1.5"/>
+  <text x="120" y="383" text-anchor="middle" fill="#283593" font-size="16" font-weight="700">Done</text>
+
+  <rect x="320" y="355" width="140" height="45" rx="8" fill="#fce4ec" stroke="#b71c1c" stroke-width="1.5"/>
+  <text x="390" y="383" text-anchor="middle" fill="#b71c1c" font-size="16" font-weight="700">Stopped</text>
+
+  <rect x="580" y="355" width="150" height="45" rx="8" fill="#ffcdd2" stroke="#c62828" stroke-width="1.5"/>
+  <text x="655" y="383" text-anchor="middle" fill="#c62828" font-size="16" font-weight="700">Error</text>
+
+  <!-- ===== ARROWS ===== -->
+
+  <!-- Boot -> Idle -->
+  <line x1="390" y1="54" x2="390" y2="77" stroke="#444" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="402" y="72" text-anchor="start" fill="#555" font-size="12">init done</text>
+
+  <!-- Idle -> Running -->
+  <line x1="390" y1="130" x2="390" y2="187" stroke="#444" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="402" y="155" text-anchor="start" fill="#333" font-size="14" font-weight="600">START</text>
+  <text x="402" y="172" text-anchor="start" fill="#888" font-size="11">(TFT touch)</text>
+
+  <!-- Running -> Wait Input (horizontal left, upper lane) -->
+  <line x1="320" y1="208" x2="203" y2="208" stroke="#444" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="260" y="200" text-anchor="middle" fill="#333" font-size="13">BUTTON opcode</text>
+
+  <!-- Wait Input -> Running (horizontal right, lower lane, dashed) -->
+  <line x1="200" y1="228" x2="317" y2="228" stroke="#666" stroke-width="1.5" marker-end="url(#ad)" stroke-dasharray="6,3"/>
+  <text x="260" y="256" text-anchor="middle" fill="#555" font-size="13">pressed; pc++</text>
+
+  <!-- Running -> Wait Output (horizontal right, upper lane) -->
+  <line x1="460" y1="208" x2="577" y2="208" stroke="#444" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="520" y="200" text-anchor="middle" fill="#333" font-size="13">output dispatch</text>
+
+  <!-- Wait Output -> Running (horizontal left, lower lane, dashed) -->
+  <line x1="580" y1="228" x2="463" y2="228" stroke="#666" stroke-width="1.5" marker-end="url(#ad)" stroke-dasharray="6,3"/>
+  <text x="520" y="256" text-anchor="middle" fill="#555" font-size="13">child IDLE; pc++</text>
+
+  <!-- Running -> Done (L-path: down at x=348, left to x=120, down to Done) -->
+  <path d="M348,245 L348,305 L120,305 L120,352" fill="none" stroke="#444" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="232" y="298" text-anchor="middle" fill="#333" font-size="14" font-weight="600">pc >= len</text>
+
+  <!-- Running -> Stopped (straight down, red) -->
+  <line x1="390" y1="245" x2="390" y2="352" stroke="#c62828" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="398" y="290" text-anchor="start" fill="#c62828" font-size="13">stop_requested</text>
+  <text x="398" y="305" text-anchor="start" fill="#c62828" font-size="11">(TFT touch)</text>
+
+  <!-- Running -> Error (L-path: down at x=432, right to x=640, down to Error) -->
+  <path d="M432,245 L432,320 L640,320 L640,352" fill="none" stroke="#c62828" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="534" y="337" text-anchor="middle" fill="#c62828" font-size="13">guard / fault</text>
+
+  <!-- Wait Output -> Error (straight down) -->
+  <line x1="670" y1="245" x2="670" y2="352" stroke="#c62828" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="680" y="305" text-anchor="start" fill="#c62828" font-size="13">I2C failure</text>
+
+  <!-- Footer notes (replaces messy restart arrows) -->
+  <text x="390" y="425" text-anchor="middle" fill="#444" font-size="13">Done / Stopped / Error &#x2192; Idle on new START (TFT touch)</text>
+  <text x="390" y="443" text-anchor="middle" fill="#888" font-size="11" font-style="italic">stop_requested applies from any active state (Running, Wait Input, Wait Output)</text>
+  <text x="390" y="458" text-anchor="middle" fill="#888" font-size="11" font-style="italic">DELAY blocks use Wait Output (I2C child polling), not a timer-based wait</text>
+
+</svg>
